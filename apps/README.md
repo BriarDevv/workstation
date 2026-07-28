@@ -21,8 +21,8 @@ Nothing works without these. All of them get installed.
 | `Microsoft.VisualStudioCode` | VS Code          | Main editor                                                   |
 | `Docker.DockerDesktop`       | Docker           | Containers. **Requires a reboot**                             |
 | `Microsoft.WSL`              | WSL2             | Linux for whatever doesn't run on Windows. **Requires a reboot** |
-| `Python.Python.3.14`         | Python 3.14      | The main one                                                  |
-| `Python.Launcher`            | `py`             | Switching between the three installed Python versions         |
+| `Python.Python.3.14`         | Python 3.14      | The system-wide one. Projects use their own — see § Python    |
+| `Python.Launcher`            | `py`             | `py -3.14`, and what shebangs resolve through                 |
 | `GoLang.Go`                  | Go 1.26          | Go projects                                                   |
 | `Microsoft.DotNet.SDK.8`     | .NET SDK 8       | Dependency of several tools                                   |
 | `LeNgocKhoa.Laragon`         | Laragon          | Local PHP/MySQL stack. Kiosco-Diagonal runs here              |
@@ -92,6 +92,45 @@ depends on them now that the JetBrains name is correct.
 
 ---
 
+## PowerShell — winget installs a different copy than the MSI
+
+Worth knowing before it confuses you, because it happened here on 2026-07-28.
+
+PowerShell 7 on this machine came from the **GitHub MSI**, which lands in
+`C:\Program Files\PowerShell\7` and registers in Add/Remove Programs as `PowerShell 7-x64`.
+winget never correlated that entry to `Microsoft.PowerShell`, so `winget list` reported the
+package as **not installed** — and `install.ps1`, believing it, installed it. What it
+installed was the **MSIX** flavour, into
+`%LOCALAPPDATA%\Microsoft\WindowsApps\Microsoft.PowerShell_8wekyb3d8bbwe\`. The Program
+Files copy was never touched.
+
+Result: two PowerShell 7 installs side by side, different versions, and the one on `PATH`
+is still the MSI.
+
+**On a fresh machine this can't happen** — nothing pre-exists, winget installs the only
+copy and tracks it from then on. It only bites when a program was installed outside winget
+first. If you ever install something by hand that's also in the tables above, expect
+`install.ps1` to install its own copy on the next run.
+
+---
+
+## Python
+
+Three Pythons are registered with `py` on this machine right now — 3.10, 3.11 and 3.14 —
+but only **3.14** is in the table above. That's deliberate: nothing on the machine was
+found using 3.10 or 3.11, so a restore drops them. If something turns out to need one, add
+the row; don't reinstall them "just in case".
+
+More to the point, **the projects don't use system Python at all**. Ynara's backend
+declares `requires-python = ">=3.12"` and both of its `.venv`s point at
+`%APPDATA%\uv\python\cpython-3.12-windows-x86_64-none` — a **uv-managed** interpreter, not
+a winget one. `uv sync` downloads it on demand, so that project works on a fresh machine
+whether or not `Python.Python.3.14` is there.
+
+So `Python.Python.3.14` is for the shell, not for the projects.
+
+---
+
 ## Node — handled separately
 
 Node does **not** come from winget. On this machine it lives in `C:\Briar\Code\Node`
@@ -116,7 +155,28 @@ Node does **not** come from winget. On this machine it lives in `C:\Briar\Code\N
 | `badclaude`             | —                                                            |
 
 > `electron@41` was installed globally (~200 MB) but it normally belongs per-project.
-> It does not get reinstalled; uncomment the line in `install.ps1` if you want it back.
+> It does not get reinstalled. If you ever want it back, add a row here — the table *is*
+> the list, there's nothing to uncomment in `install.ps1`.
+
+### Where the binaries go
+
+The Node **zip** ships its own `npmrc` with `prefix=${APPDATA}\npm`, so `npm i -g` puts
+executables in `%APPDATA%\npm` and not next to `node.exe`. The zip sets no environment
+variables, so nothing puts that folder on `PATH`.
+
+`install.ps1` adds it explicitly. Without that, a fresh machine installs `codex`,
+`opencode` and `omc` with no errors at all and then can't run any of them. It goes
+unnoticed on the current machine only because an old Node MSI added the entry years ago.
+
+### `npmrc`
+
+Installs to `~/.npmrc`. One line, `ignore-scripts=true`: dependencies can't run
+`postinstall` code just because you installed them. It applies to every npm install on the
+machine, not only global ones.
+
+When a package legitimately needs its install script, allow it for that command —
+`npm install --ignore-scripts=false`, or `npm rebuild <package>` — rather than deleting the
+line. All seven globals above install cleanly with it on (verified 2026-07-28).
 
 ---
 
@@ -134,7 +194,14 @@ Run `snapshot.ps1` afterwards so `winget-export.json` reflects the new versions.
 ## `winget-export.json`
 
 Raw output of `winget export`, holding **everything** that was installed on 2026-07-27
-(78 packages, redistributables and games included). It's the backstop in case I forgot
+(**61 packages**, redistributables and games included). It's the backstop in case I forgot
 something in the tables above.
 
 **Generated file — don't hand-edit it.** `snapshot.ps1` regenerates it.
+
+Re-exporting can produce a diff that looks like drift but isn't: winget resolves an
+installed program to whichever source claims it, and that answer can change between runs.
+On 2026-07-28 the EA app and Ubisoft Connect came back as the Store IDs `XPFC0VB7MLFWLC`
+and `XPDP2QW12DFSFK` instead of `ElectronicArts.EADesktop` and `Ubisoft.Connect`. Same two
+programs, same 61 packages. Check the count before assuming something was installed or
+removed.

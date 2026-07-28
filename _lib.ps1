@@ -50,10 +50,19 @@ function Install-ConfigFile {
     return $true
 }
 
+# Is the package installed? winget renders a table on a hit and prints "No installed
+# package found matching input criteria." on a miss, so testing for the separator row is
+# exact. Matching the Id in the output is not: winget truncates long columns with an
+# ellipsis in narrow consoles, and the Id is usually the longest column.
+function Test-WingetInstalled {
+    param([Parameter(Mandatory)][string]$Id)
+    $out = winget list --id $Id --exact --disable-interactivity 2>$null | Out-String
+    return [bool]($out -match '(?m)^-{3,}')
+}
+
 function Install-WingetPackage {
     param([Parameter(Mandatory)][string]$Id)
-    $found = winget list --id $Id --exact --disable-interactivity 2>$null | Select-String -SimpleMatch $Id
-    if ($found) { Write-Skip "$Id already installed"; return $true }
+    if (Test-WingetInstalled $Id) { Write-Skip "$Id already installed"; return $true }
 
     Write-Host "  ...installing $Id" -ForegroundColor DarkYellow
     winget install --id $Id --exact --silent --accept-package-agreements `
@@ -65,16 +74,40 @@ function Install-WingetPackage {
     return $false
 }
 
-# Is there a newer version available? Returns $null when up to date.
+# Is there a newer version available? $null means "nothing to do" - either the package is
+# current or it isn't installed at all.
+#
+# Do NOT go back to splitting a plain `winget list` on runs of whitespace. When a value
+# fills its column winget separates it from the next one with a SINGLE space, so the split
+# merges Id into Version. Measured on this machine, that made the old version of this
+# function return Available='winget' (the source name) for Git.Git, and report fastfetch as
+# up to date while it sat 8 releases behind - which silently turned the whole "keep the
+# terminal stack current" step into a no-op.
+#
+# --upgrade-available only renders a table when an upgrade actually exists, so the presence
+# of the table is the answer and no parsing is needed to get it right.
 function Get-WingetUpdate {
     param([Parameter(Mandatory)][string]$Id)
-    $line = winget list --id $Id --exact --disable-interactivity 2>$null |
-        Select-String -SimpleMatch $Id | Select-Object -First 1
-    if (-not $line) { return $null }
-    # winget prints: Name  Id  Version  Available  Source
-    $cols = ($line.ToString() -split '\s{2,}') | Where-Object { $_ }
-    if ($cols.Count -ge 4) { return @{ Current = $cols[2]; Available = $cols[3] } }
-    return $null
+    $lines = @(winget list --id $Id --exact --upgrade-available --disable-interactivity 2>$null)
+
+    $sep = 0
+    while ($sep -lt $lines.Count -and $lines[$sep] -notmatch '^-{3,}') { $sep++ }
+    if ($sep -ge $lines.Count - 1) { return $null }
+
+    # Versions are for the log line only, so a parse failure must not hide the upgrade.
+    # Column widths are computed per query, which makes the header a reliable offset map.
+    $header = if ($sep -ge 1) { $lines[$sep - 1] } else { '' }
+    $row = $lines[$sep + 1]
+    $iCur = $header.IndexOf('Version')
+    $iNew = $header.IndexOf('Available')
+    $iSrc = $header.IndexOf('Source')
+    if ($iCur -lt 0 -or $iNew -le $iCur -or $iSrc -le $iNew -or $row.Length -le $iNew) {
+        return @{ Current = '?'; Available = '?' }
+    }
+    return @{
+        Current   = $row.Substring($iCur, $iNew - $iCur).Trim()
+        Available = $row.Substring($iNew, [Math]::Min($iSrc - $iNew, $row.Length - $iNew)).Trim()
+    }
 }
 
 function Update-WingetPackage {
@@ -91,7 +124,15 @@ function Update-WingetPackage {
 function Add-UserPath {
     param([Parameter(Mandatory)][string]$Path)
     $cur = [Environment]::GetEnvironmentVariable('Path', 'User')
-    if ($cur -split ';' -contains $Path) { Write-Skip "PATH already has $Path"; return }
+
+    # Check both scopes: a directory already on the machine PATH would otherwise get a
+    # second, redundant copy in the user one. Compare without the trailing separator -
+    # "C:\x" and "C:\x\" are the same directory but not the same string. -contains is
+    # already case-insensitive.
+    $seen = ((($cur, [Environment]::GetEnvironmentVariable('Path', 'Machine')) -join ';') -split ';') |
+        Where-Object { $_ } | ForEach-Object { $_.TrimEnd('\') }
+    if ($seen -contains $Path.TrimEnd('\')) { Write-Skip "PATH already has $Path"; return }
+
     [Environment]::SetEnvironmentVariable('Path', "$cur;$Path", 'User')
     $env:Path += ";$Path"
     Write-Ok "PATH += $Path"

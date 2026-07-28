@@ -1,0 +1,14 @@
+# Installs to ~/.npmrc. Applies to every npm install on this machine, global or not.
+
+# Block package lifecycle scripts (preinstall/install/postinstall). This is the main
+# supply-chain defence you get for free: a compromised dependency can no longer run code
+# just because you installed it.
+#
+# Cost: packages that legitimately build or download a binary on install stop working.
+# When one does, allow it for that command only - never by deleting this line:
+#
+#   npm install --ignore-scripts=false
+#   npm rebuild <package>
+#
+# The seven globals in README.md all install fine with this on; verified 2026-07-28.
+ignore-scripts=true
