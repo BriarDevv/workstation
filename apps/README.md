@@ -123,15 +123,20 @@ Two traps in that second row:
 
 ## Runtimes
 
-The libraries games link against and Windows doesn't ship. Nothing here is used directly —
-they exist so a game starts instead of dying on a missing DLL.
+Runtime libraries that Windows doesn't ship and that native software links against.
+Nothing here gets used directly — they're installed up front so that something built years
+ago just runs, instead of stopping on a missing DLL.
+
+Compatibility insurance, in other words. Cheap to install, annoying to diagnose: the
+symptom is a program that won't start and an error naming a file you've never heard of.
 
 | winget ID          | What it is       | Notes                                              |
 | ------------------ | ---------------- | -------------------------------------------------- |
 | `Microsoft.DirectX` | DirectX End-User Runtime | Version 9.29.1974.0 — the June 2010 redist. Windows 11 has DirectX 12 built in, but **not** the legacy `d3dx9_*`, `xinput1_3`, `xaudio2_7` and `d3dcompiler_4x` DLLs. Those only come from here |
 
-Visual C++ runtimes, the whole set. Each release is a separate runtime and a game linked
-against one won't accept another, which is why there are six and not one:
+Visual C++ runtimes, the whole set. Every program compiled with MSVC links against one of
+these, and each release is a **separate** runtime — having 2013 does nothing for something
+built against 2010. That's why there are six and not one:
 
 | winget ID                      | Release  |
 | ------------------------------ | -------- |
@@ -148,8 +153,8 @@ against one won't accept another, which is why there are six and not one:
 | `Microsoft.VCRedist.2015+.x86` | 2015–2022 |
 | `Microsoft.VCRedist.2015+.x64` | 2015–2022 |
 
-Both architectures, deliberately: plenty of games are still 32-bit, and the x64
-redistributable does nothing for them.
+Both architectures, deliberately: a lot of software is still 32-bit, and the x64
+redistributable does nothing for it.
 
 `2015+` covers 2015, 2017, 2019 and 2022 — Microsoft made those binary-compatible, so one
 package serves all four. The older five are not compatible with each other.
@@ -178,8 +183,8 @@ package serves all four. The older five are not compatible with each other.
 >
 > The Visual C++ runtimes used to be left out for that same reason, and it was wrong. It
 > only holds for programs installed **through winget**, which declare their dependencies.
-> A game installed by Steam or unpacked by hand declares nothing, and the failure is the
-> classic one: it won't start, and the error names a DLL. Hence § Runtimes.
+> Anything installed another way — a store client, an archive you unpacked, an old
+> installer — declares nothing. Hence § Runtimes.
 
 ---
 
