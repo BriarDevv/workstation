@@ -11,7 +11,7 @@ come from `apps/` — this folder only configures them.
 | ------------------ | ------------------------------------------------------------------------------------------------------------ |
 | `settings.json`    | Catppuccin Mocha, sidebar on the right, activity bar on top, no minimap, ruler at 120, Prettier per language   |
 | `keybindings.json` | One binding: `Shift+Enter` in the terminal sends `ESC + CR` (newline without executing)                        |
-| `extensions.md`    | All 60 extensions, grouped by what they're for                                                                 |
+| `extensions.md`    | The 28 extensions, grouped by what they're for, plus the 32 removed on 2026-07-28              |
 
 Installs to `%APPDATA%\Code\User\`.
 
@@ -30,15 +30,21 @@ ligatures. Both are set now and the ligatures work.
 `pwsh terminal\install.ps1 -SyncEditorFont` rewrites both keys from the active terminal
 style, so the editor follows whatever font the terminal is using.
 
-### Two things left as-is
+### Dead settings
 
-> ⚠️ `chat.tools.terminal.autoApprove` has `npx`, `docker exec` and `docker-compose` set to
-> `true`. That lets Copilot run those commands without asking. It's the same pattern we
-> tightened on the Claude side, left alone here deliberately.
+After the 2026-07-28 cleanup a handful of keys have no extension behind them any more —
+`claudeCode.useTerminal`, `liveServer.settings.*`, and every `github.copilot.*` key.
+Harmless, but `extensions.md` lists them so you don't go looking for why they do nothing.
 
-> There are 18 `postman-*.instructions.md` paths in `chat.instructionsFilesLocations`
-> pointing at `%TEMP%` for three different users (`USER`, `mateo`, `Alumno`). Junk left
-> behind by the Postman extension. Safe to delete whenever.
+Worth correcting an earlier note in this file: `chat.tools.terminal.autoApprove` looked
+like a security hole because it auto-approves `npx`, `docker exec` and `docker-compose`.
+**There is no Copilot installed on this machine** — not as an extension, not bundled with
+VS Code — so there is nothing for it to auto-approve. Verified against
+`resources\app\extensions` and `~\.vscode\extensions`.
+
+There are also 18 `postman-*.instructions.md` paths in `chat.instructionsFilesLocations`
+pointing at `%TEMP%` for three different users (`USER`, `mateo`, `Alumno`). Junk left
+behind by the Postman extension. Safe to delete whenever.
 
 ---
 
