@@ -213,9 +213,13 @@ git stash branch keep/<name> stash@{0}   # replays it onto a new branch
 git push -u origin keep/<name>
 ```
 
-The other thing `git status` will happily let you lose is an untracked file that belongs in
-the repo — Ynara's `uv.lock` was sitting untracked, and without it `uv sync` resolves
-different dependency versions on the new machine.
+The other thing worth a glance is `??` entries in `git status` — an untracked file that
+belongs in the repo looks exactly like one that doesn't.
+
+Read the path before acting on it. Ynara shows an untracked `uv.lock`, which looks alarming
+until you notice it's a 4-line stub at the repo root, where `pyproject.toml` declares only
+shared dev tooling. The lockfile that matters, `apps/backend/uv.lock` with its 289 pinned
+packages, has been tracked all along.
 
 > **This is the only copy of that list.** `windows/usb.md`, `windows/README.md` and
 > `dev/README.md` each used to repeat it — four places to keep in sync for the one list
