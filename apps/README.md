@@ -169,8 +169,6 @@ package serves all four. The older five are not compatible with each other.
 
 | winget ID                  | What it is      | Why it's excluded                               |
 | -------------------------- | --------------- | ----------------------------------------------- |
-| `ElectronicArts.EADesktop` | EA app          | Only when there's something to play on it |
-| `Ubisoft.Connect`          | Ubisoft Connect | Same                                      |
 | `Ollama.Ollama`            | Ollama          | Local models. Multi-GB downloads per model, so it's off the default path |
 
 > `Microsoft.DotNet.*Runtime*` and `WindowsAppRuntime.*` are **not** in any table on

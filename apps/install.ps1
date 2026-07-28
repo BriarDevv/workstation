@@ -15,8 +15,8 @@
     one thing isn't, and the summary names it.
 
 .PARAMETER Optional
-    Also install the "Optional" table (EA, Ubisoft, Ollama, Teams...). Off by default.
-    Note that Steam and League moved out of it into "Games", which installs by default.
+    Also install the "Optional" table. Off by default. The table in README.md is the list —
+    this help text deliberately doesn't repeat it, so it can't go stale.
 
 .PARAMETER SkipUpgrade
     Don't upgrade packages that are already installed but outdated.
