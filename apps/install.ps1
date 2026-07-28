@@ -117,17 +117,40 @@ else {
 }
 Add-UserPath $nodeDir
 
-if (Test-Cmd pnpm) { Write-Skip "pnpm $(pnpm --version)" }
-else {
-    & "$nodeDir\corepack.cmd" enable 2>&1 | Out-Null
-    & "$nodeDir\corepack.cmd" prepare pnpm@latest --activate 2>&1 | Out-Null
-    Write-Ok 'pnpm'
+# The registry's "latest" dist-tag, which is the stable release - prereleases live under
+# their own tags and never answer here. $null when the registry can't be reached.
+function Get-NpmLatest {
+    param([Parameter(Mandatory)][string]$Package)
+    $v = npm view $Package version 2>$null | Select-Object -Last 1
+    if ($LASTEXITCODE -eq 0 -and $v) { return $v.Trim() }
+    return $null
 }
 
-if (Test-Cmd uv) { Write-Skip "uv $(uv --version)" }
+& "$nodeDir\corepack.cmd" enable 2>&1 | Out-Null
+$pnpmHave = if (Test-Cmd pnpm) { (pnpm --version 2>$null).Trim() } else { $null }
+$pnpmWant = if ($pnpmHave -and $SkipUpgrade) { $pnpmHave } else { Get-NpmLatest 'pnpm' }
+
+if ($pnpmHave -and ($pnpmHave -eq $pnpmWant -or -not $pnpmWant)) { Write-Skip "pnpm $pnpmHave" }
 else {
+    Write-Host "  ...pnpm$(if ($pnpmHave) { " $pnpmHave -> $pnpmWant" })" -ForegroundColor DarkYellow
+    & "$nodeDir\corepack.cmd" prepare pnpm@latest --activate 2>&1 | Out-Null
+    Write-Ok "pnpm $((pnpm --version 2>$null).Trim())"
+}
+
+# uv --version prints "uv 0.11.20 (hash date target)" - only the second field is the version.
+function Get-UvVersion { if (Test-Cmd uv) { (uv --version 2>$null) -split '\s+' | Select-Object -Index 1 } }
+
+$uvHave = Get-UvVersion
+if (-not $uvHave) {
     powershell -ExecutionPolicy Bypass -c 'irm https://astral.sh/uv/install.ps1 | iex' 2>&1 | Out-Null
-    Write-Ok 'uv'
+    Write-Ok "uv $(Get-UvVersion)"
+}
+elseif ($SkipUpgrade) { Write-Skip "uv $uvHave" }
+else {
+    # uv ships its own updater and no-ops when it's already current.
+    uv self update 2>&1 | Out-Null
+    $uvNow = Get-UvVersion
+    if ($uvNow -eq $uvHave) { Write-Skip "uv $uvHave" } else { Write-Ok "uv $uvHave -> $uvNow" }
 }
 Add-UserPath (Join-Path $HOME '.local\bin')
 
@@ -145,14 +168,25 @@ Add-UserPath (Join-Path $env:APPDATA 'npm')
 Install-ConfigFile (Join-Path $PSScriptRoot 'npmrc') (Join-Path $HOME '.npmrc') | Out-Null
 
 $wanted = Get-IdsFromReadme $readme @('npm globals')
-$installed = @(npm ls -g --depth=0 --json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue |
-    ForEach-Object { $_.dependencies.PSObject.Properties.Name })
+
+$installed = @{}
+$deps = (npm ls -g --depth=0 --json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).dependencies
+if ($deps) { $deps.PSObject.Properties | ForEach-Object { $installed[$_.Name] = $_.Value.version } }
 
 foreach ($pkg in $wanted) {
-    if ($installed -contains $pkg) { Write-Skip $pkg; continue }
-    Write-Host "  ...npm i -g $pkg" -ForegroundColor DarkYellow
-    npm install -g $pkg --silent 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) { Write-Ok $pkg } else { Write-Warn2 "$pkg failed (code $LASTEXITCODE)" }
+    $have = $installed[$pkg]
+
+    if ($have) {
+        if ($SkipUpgrade) { Write-Skip "$pkg $have"; continue }
+        $want = Get-NpmLatest $pkg
+        if (-not $want) { Write-Warn2 "$pkg $have - registry unreachable, left alone"; continue }
+        if ($have -eq $want) { Write-Skip "$pkg $have"; continue }
+    }
+
+    Write-Host "  ...npm i -g $pkg@latest$(if ($have) { " ($have -> $want)" })" -ForegroundColor DarkYellow
+    npm install -g "$pkg@latest" --silent 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) { Write-Ok "$pkg $(if ($want) { $want })".Trim() }
+    else { Write-Warn2 "$pkg failed (code $LASTEXITCODE)" }
 }
 
 # ---------------------------------------------------------------- wrap up

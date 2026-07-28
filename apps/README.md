@@ -11,8 +11,9 @@ first column). Add a row and it gets installed on the next run.
 ## Versions — latest stable, always
 
 Nothing here is pinned. `install.ps1` upgrades **every package in the tables** on every
-run, not only the ones it just installed. Pass `-SkipUpgrade` to hold versions still for
-one run.
+run, not only the ones it just installed. That covers all four sources — winget packages,
+Node itself, the npm globals, and pnpm/uv, none of which used to be updated once present.
+Pass `-SkipUpgrade` to hold versions still for one run.
 
 "Stable" means the vendor's stable channel, not the newest thing that exists: Node **LTS**
 rather than Current, .NET **LTS** rather than preview, `Microsoft.PowerShell` rather than

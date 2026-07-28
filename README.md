@@ -83,6 +83,27 @@ overwrite gets backed up to `$HOME\.workstation-backup\`.
 
 ---
 
+## Versions
+
+**Latest stable, always.** Nothing here is pinned. Every script resolves versions from the
+vendor at run time and upgrades what's already installed, so a restore gives you today's
+releases instead of a snapshot of the day the script was written.
+
+"Stable" means the vendor's stable channel, not the newest thing that exists — Node **LTS**
+rather than Current, .NET **LTS** rather than preview. Pass `-SkipUpgrade` to hold versions
+still for a run.
+
+Two exceptions, both documented where they live:
+
+- the **offline fallback** version in `apps/install.ps1`, used only when `nodejs.org` can't
+  be reached;
+- **major versions baked into a winget ID** — `Python.Python.3.14`,
+  `Microsoft.DotNet.SDK.10`. winget treats every major as a separate package, so
+  `winget upgrade` goes 3.14.0 → 3.14.6 but never 3.14 → 3.15. Those move by editing the
+  table in `apps/README.md`.
+
+---
+
 ## Secrets
 
 This repo holds **no credentials**. `.gitignore` blocks:

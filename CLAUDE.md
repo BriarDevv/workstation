@@ -30,6 +30,15 @@ is put in by hand. Check `Get-Command winget` before assuming anything works.
 `secrets/*` (except `.env.example`), `claude/mcp.json`, `.env`, `*.key`, `*.pem`.
 `.gitignore` already blocks them — don't loosen it.
 
+**Latest stable, never pinned.** Everything this repo installs is the newest **stable**
+release as of the moment you run it — not a snapshot of what was current when the script
+was written. Resolve versions from the vendor at run time (`releases/latest`,
+`nodejs.org/dist/index.json`, the npm `latest` dist-tag) and upgrade what's already
+installed on every run, not just what's missing. "Stable" means the vendor's stable
+channel: Node **LTS** not Current, .NET **LTS** not preview, `Microsoft.PowerShell` not
+`Microsoft.PowerShell.Preview`. A literal version in a script is only ever an offline
+fallback and must carry a comment saying so. `-SkipUpgrade` is the escape hatch.
+
 **Scripts are idempotent.** If you touch one, it has to stay safe to run twice. Check
 before creating; never `New-Item -Force` on a file that might already exist (it truncates).
 
