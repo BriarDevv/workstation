@@ -17,14 +17,18 @@ winget install Git.Git Microsoft.PowerShell GitHub.cli
 
 Close the window and open **PowerShell 7** (`pwsh`).
 
-**2.** Clone the repo and install Claude Code:
+**2.** Authenticate, clone, install Claude Code:
 
 ```powershell
+gh auth login          # account P-ata, HTTPS — the repo is private, this comes first
 git clone https://github.com/BriarDevv/workstation.git $HOME\workstation
 cd $HOME\workstation
 irm https://claude.ai/install.ps1 | iex
 claude
 ```
+
+> The repo is **private**, so `git clone` fails until `gh auth login` has run. That's the
+> one extra step private costs you — and `gh auth login` was on the manual list anyway.
 
 **3.** Paste this:
 
