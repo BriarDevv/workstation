@@ -189,25 +189,36 @@ It's needed either way.
 
 ## Before you wipe — read this
 
-Measured 2026-07-28, because the list used to name five folders and three of them held
-nothing. A warning that sends you to back up empty directories is one you learn to skip.
+**Decided 2026-07-28: nothing gets backed up.** Everything wanted is on GitHub, everything
+else gets reinstalled. `C:\Briar\Pen`, `Facultad`, `WAND`, `Trabajo` and `Paginas` are
+written off on purpose — that's a decision, not an oversight.
 
-| Folder | Size | Status |
-| ------ | ---- | ------ |
-| **`C:\Briar\Pen`** | **1.5 GB**, 238 files | The `.pen` designs and their images. **No remote. The one that actually matters** |
-| **`C:\Briar\Facultad`** | **838 MB**, 8293 files | See below — effectively unprotected |
-| `C:\Briar\WAND` | 0.2 MB, 1 file | Just `Wand-Setup.exe`, an installer. Re-downloadable |
-| `C:\Briar\Trabajo` | **empty** | Nothing to save |
-| `C:\Briar\Paginas` | **empty** | Nothing to save |
+That was verified rather than assumed. All **11** git repositories on this machine have a
+remote, and every one reports **zero unpushed commits** (checked against a live `git fetch`,
+not stale refs).
 
-**Facultad looks backed up and isn't.** It has a `.git` pointing at
-`github.com/P-ata/Abyssum` — the account's old name — whose last commit is 2025-11-17. But
-only **165 of its 8293 files** are tracked, and all 171 pending entries are deletions: the
-project moved into a subfolder and left the repo behind pointing at paths that no longer
-exist. Roughly **8,100 files there exist nowhere else.**
+### Except stashes. Nothing pushes those.
 
-So: copy `Pen` and `Facultad` to an external drive before wiping. The other three are
-noise.
+A stash lives in `.git/refs/stash` and **no `git push` ever uploads it**, not even
+`--all`. It looks safe because it's "in git". It isn't.
+
+```
+git stash list          # in every repo, before wiping
+```
+
+As of 2026-07-28 there were five, and the two in Ynara were real work — one config change,
+one explicitly labelled *parked*. The three in Bystellabotella called themselves `tmp`.
+
+To keep one, turn it into something the remote can hold:
+
+```powershell
+git stash branch keep/<name> stash@{0}   # replays it onto a new branch
+git push -u origin keep/<name>
+```
+
+The other thing `git status` will happily let you lose is an untracked file that belongs in
+the repo — Ynara's `uv.lock` was sitting untracked, and without it `uv sync` resolves
+different dependency versions on the new machine.
 
 > **This is the only copy of that list.** `windows/usb.md`, `windows/README.md` and
 > `dev/README.md` each used to repeat it — four places to keep in sync for the one list
