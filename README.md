@@ -20,7 +20,7 @@ Close the window and open **PowerShell 7** (`pwsh`).
 **2.** Authenticate, clone, install Claude Code:
 
 ```powershell
-gh auth login          # account P-ata, HTTPS — the repo is private, this comes first
+gh auth login          # account BriarDevv, HTTPS — the repo is private, this comes first
 git clone https://github.com/BriarDevv/workstation.git $HOME\workstation
 cd $HOME\workstation
 irm https://claude.ai/install.ps1 | iex
@@ -118,13 +118,16 @@ git add -A ; git commit -m "chore: snapshot $(Get-Date -f yyyy-MM-dd)"
 | `terminal/` | ✅   | ✅          | ✅ tested     | Style system: one file per look             |
 | `dev/`      | ✅   | —           | ❌ missing    | —                                           |
 | `claude/`   | ✅   | —           | ❌ missing    | —                                           |
-| `windows/`  | ✅   | —           | 🟡 partial    | `bootstrap.ps1` ✅ · `install.ps1` missing   |
+| `windows/`  | ✅   | —           | ✅ tested     | `bootstrap.ps1` + `install.ps1` + `usb.md`  |
 | root        | ✅   | ✅          | ❌ missing    | Needs `install.ps1` + `snapshot.ps1`        |
 
 `windows/` also has **`usb.md`** — building the install USB, verified against the actual
 stick that was built.
 
-The repo also has **no git history yet** (`git init`).
+Lives at **`github.com/BriarDevv/workstation`**, private.
+
+Still to come: `debloat.ps1`, deliberately left until Windows is installed and there's a
+real machine to judge against.
 
 ### Target OS: Windows 11 Enterprise LTSC
 

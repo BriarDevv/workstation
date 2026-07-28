@@ -15,7 +15,7 @@ Nothing works without these. All of them get installed.
 | winget ID                    | What it is       | What I use it for                                            |
 | ---------------------------- | ---------------- | ------------------------------------------------------------ |
 | `Git.Git`                    | Git              | Obvious. Note: mine lives in `C:\Briar\Code\Git`, not Program Files |
-| `GitHub.cli`                 | `gh`             | PRs, issues and cloning without opening a browser. Account `P-ata` |
+| `GitHub.cli`                 | `gh`             | PRs, issues and cloning without opening a browser. Account `BriarDevv` |
 | `Microsoft.PowerShell`       | PowerShell 7     | This repo's scripts use `&&` and `??`, which PS5 doesn't have |
 | `Microsoft.WindowsTerminal`  | Windows Terminal | Daily driver                                                  |
 | `Microsoft.VisualStudioCode` | VS Code          | Main editor                                                   |

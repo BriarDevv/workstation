@@ -59,7 +59,7 @@ Installs to `~/.gitconfig`.
 
 Aliases: `s` (short status), `lg` (graph log), `last`, `unstage`, `amend`.
 
-**Manual afterwards:** `gh auth login` → account `P-ata`, HTTPS, scopes
+**Manual afterwards:** `gh auth login` → account `BriarDevv`, HTTPS, scopes
 `gist, read:org, repo, workflow`. There's no way to script an OAuth flow.
 
 ---
