@@ -6,6 +6,27 @@ months you won't remember what TranslucentTB was doing here.
 `install.ps1` reads the winget IDs out of the tables below (the ones in `backticks` in the
 first column). Add a row and it gets installed on the next run.
 
+## How it reports
+
+A failed package doesn't stop the run. Failures are collected and printed together at the
+end, then the script **exits 1**. A restore that halted on the first bad package leaves you
+worse off than one that finished and told you what's missing — and the important lines are
+exactly the ones that scrolled past you two hundred lines ago.
+
+```
+=== Summary
+  15 winget packages checked, 4 npm globals
+  [ok]   nothing failed
+```
+
+The reboot warning only appears when something that actually needs one — Docker or WSL —
+was installed **on that run**. A warning that fires every single time is a warning you stop
+reading.
+
+If `winget` itself is missing, the script points at `windows/bootstrap.ps1` rather than at
+the Microsoft Store. On the target OS the Store isn't there, so that's the one moment the
+old advice was guaranteed to be useless.
+
 ---
 
 ## Versions — latest stable, always

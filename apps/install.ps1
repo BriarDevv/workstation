@@ -7,6 +7,13 @@
     enough to get a package installed on the next run. Idempotent: anything already
     present is skipped.
 
+    One failure doesn't abort the run - failures are collected and printed together at the
+    end, because a restore that stopped at the first bad package leaves you worse off than
+    one that finished and told you what's missing.
+
+    Exit code 0 means everything asked for is on the machine. Exit code 1 means at least
+    one thing isn't, and the summary names it.
+
 .PARAMETER Optional
     Also install the "Optional" table (games, Ollama, Teams...). Off by default.
 
@@ -32,7 +39,16 @@ param(
 Assert-PowerShell7
 
 if (-not (Test-Cmd winget)) {
-    Write-Fail "winget is missing. Install 'App Installer' from the Microsoft Store."
+    Write-Fail 'winget is missing.'
+    Write-Host '  It ships inside App Installer, which comes from the Microsoft Store - and the' -ForegroundColor DarkGray
+    Write-Host '  target OS here is LTSC, which has no Store. So on a fresh install this is the' -ForegroundColor DarkGray
+    Write-Host '  expected state, not a broken machine, and pointing you at the Store would be' -ForegroundColor DarkGray
+    Write-Host '  sending you somewhere that does not exist. windows\bootstrap.ps1 is written for' -ForegroundColor DarkGray
+    Write-Host '  exactly this: it pulls App Installer straight from GitHub.' -ForegroundColor DarkGray
+    Write-Host ''
+    Write-Host '      powershell -ExecutionPolicy Bypass -File windows\bootstrap.ps1' -ForegroundColor DarkGray
+    Write-Host ''
+    Write-Host '  Elevated, and with Windows PowerShell 5.1 - not pwsh, which it also installs.' -ForegroundColor DarkGray
     exit 1
 }
 
@@ -59,7 +75,17 @@ if ($fontIds -and -not (Test-Admin)) {
 }
 
 # ---------------------------------------------------------------- winget packages
-foreach ($id in $targets) { Install-WingetPackage $id | Out-Null }
+# Collected rather than acted on immediately: one failed package shouldn't abort a restore,
+# and a wall of scrolled-past output is not a report. Both lists feed the summary.
+$failed = [System.Collections.Generic.List[string]]::new()
+$fresh = [System.Collections.Generic.List[string]]::new()
+
+foreach ($id in $targets) {
+    switch (Install-WingetPackage $id) {
+        'ok' { $fresh.Add($id) }
+        'fail' { $failed.Add($id) }
+    }
+}
 
 # ---------------------------------------------------------------- latest stable, always
 # House rule: this machine runs the latest stable of everything, so every package in the
@@ -83,9 +109,23 @@ $nodeDir = 'C:\Briar\Code\Node'
 # line. The literal below is only the fallback for when nodejs.org can't be reached.
 $nodeVersion = 'v24.18.0'
 try {
-    $latest = Invoke-RestMethod 'https://nodejs.org/dist/index.json' -TimeoutSec 20 |
-        Where-Object { $_.lts } | Select-Object -First 1
-    if ($latest.version) { $nodeVersion = $latest.version }
+    # Assign first, then pipe. Invoke-RestMethod emits a JSON array as ONE object instead
+    # of enumerating it, so piping it straight into Where-Object hands the filter a single
+    # item - the whole array. `$_.lts` on an array member-enumerates to a non-empty list,
+    # which is truthy, so every version "passes" and $nodeVersion ends up holding all 854
+    # of them. The URL built from that 404s and Node never installs. Don't re-merge these
+    # two lines.
+    $index = Invoke-RestMethod 'https://nodejs.org/dist/index.json' -TimeoutSec 20
+    $latest = $index | Where-Object { $_.lts } | Select-Object -First 1
+
+    # Belt and braces: it goes straight into a download URL, so refuse anything that isn't
+    # a single well-formed version rather than fetching a nonsense path.
+    if ($latest.version -is [string] -and $latest.version -match '^v\d+\.\d+\.\d+$') {
+        $nodeVersion = $latest.version
+    }
+    else {
+        Write-Warn2 "unexpected answer from nodejs.org - falling back to the pinned $nodeVersion"
+    }
 }
 catch { Write-Warn2 "nodejs.org unreachable - falling back to the pinned $nodeVersion" }
 
@@ -100,22 +140,36 @@ elseif ($nodeCurrent -and $SkipUpgrade) {
 }
 else {
     Write-Host "  ...$(if ($nodeCurrent) { "Node $nodeCurrent -> $nodeVersion" } else { "downloading Node $nodeVersion" })" -ForegroundColor DarkYellow
-    $zip = Join-Path $env:TEMP 'node.zip'
-    $tmp = Join-Path $env:TEMP 'node-extract'
-    Invoke-WebRequest "https://nodejs.org/dist/$nodeVersion/node-$nodeVersion-win-x64.zip" -OutFile $zip -UseBasicParsing
-    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-    Expand-Archive $zip -DestinationPath $tmp -Force
-    New-Item -ItemType Directory -Force -Path (Split-Path $nodeDir -Parent) | Out-Null
+    try {
+        $zip = Join-Path $env:TEMP 'node.zip'
+        $tmp = Join-Path $env:TEMP 'node-extract'
+        Invoke-WebRequest "https://nodejs.org/dist/$nodeVersion/node-$nodeVersion-win-x64.zip" -OutFile $zip -UseBasicParsing
+        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        Expand-Archive $zip -DestinationPath $tmp -Force
+        New-Item -ItemType Directory -Force -Path (Split-Path $nodeDir -Parent) | Out-Null
 
-    # Swap only once the new tree is on disk, and keep the old one until it lands. Global
-    # packages live in %APPDATA%\npm, so replacing this directory loses nothing.
-    Remove-Item "$nodeDir.old" -Recurse -Force -ErrorAction SilentlyContinue
-    if ($nodeCurrent) { Move-Item $nodeDir "$nodeDir.old" -Force }
-    Move-Item (Get-ChildItem $tmp -Directory | Select-Object -First 1).FullName $nodeDir -Force
-    Remove-Item "$nodeDir.old", $zip, $tmp -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Ok "Node $nodeVersion at $nodeDir"
+        # Swap only once the new tree is on disk, and keep the old one until it lands. Global
+        # packages live in %APPDATA%\npm, so replacing this directory loses nothing.
+        Remove-Item "$nodeDir.old" -Recurse -Force -ErrorAction SilentlyContinue
+        if ($nodeCurrent) { Move-Item $nodeDir "$nodeDir.old" -Force }
+        Move-Item (Get-ChildItem $tmp -Directory | Select-Object -First 1).FullName $nodeDir -Force
+        Remove-Item "$nodeDir.old", $zip, $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Ok "Node $nodeVersion at $nodeDir"
+    }
+    catch {
+        # _lib sets $ErrorActionPreference to Stop, so without catching here a dropped
+        # download takes the whole restore down with it. Record it and keep going.
+        Write-Fail "Node $nodeVersion failed: $($_.Exception.Message)"
+        if ((Test-Path "$nodeDir.old") -and -not (Test-Path $nodeExe)) {
+            Move-Item "$nodeDir.old" $nodeDir -Force
+            Write-Warn2 "put the previous Node $nodeCurrent back"
+        }
+        $failed.Add('Node')
+    }
 }
-Add-UserPath $nodeDir
+
+$haveNode = Test-Path $nodeExe
+if ($haveNode) { Add-UserPath $nodeDir }
 
 # The registry's "latest" dist-tag, which is the stable release - prereleases live under
 # their own tags and never answer here. $null when the registry can't be reached.
@@ -126,15 +180,19 @@ function Get-NpmLatest {
     return $null
 }
 
-& "$nodeDir\corepack.cmd" enable 2>&1 | Out-Null
-$pnpmHave = if (Test-Cmd pnpm) { (pnpm --version 2>$null).Trim() } else { $null }
-$pnpmWant = if ($pnpmHave -and $SkipUpgrade) { $pnpmHave } else { Get-NpmLatest 'pnpm' }
-
-if ($pnpmHave -and ($pnpmHave -eq $pnpmWant -or -not $pnpmWant)) { Write-Skip "pnpm $pnpmHave" }
+# pnpm rides on corepack, which ships with Node - so if Node didn't land, don't pretend.
+if (-not $haveNode) { Write-Warn2 'pnpm skipped - no Node' }
 else {
-    Write-Host "  ...pnpm$(if ($pnpmHave) { " $pnpmHave -> $pnpmWant" })" -ForegroundColor DarkYellow
-    & "$nodeDir\corepack.cmd" prepare pnpm@latest --activate 2>&1 | Out-Null
-    Write-Ok "pnpm $((pnpm --version 2>$null).Trim())"
+    & "$nodeDir\corepack.cmd" enable 2>&1 | Out-Null
+    $pnpmHave = if (Test-Cmd pnpm) { (pnpm --version 2>$null).Trim() } else { $null }
+    $pnpmWant = if ($pnpmHave -and $SkipUpgrade) { $pnpmHave } else { Get-NpmLatest 'pnpm' }
+
+    if ($pnpmHave -and ($pnpmHave -eq $pnpmWant -or -not $pnpmWant)) { Write-Skip "pnpm $pnpmHave" }
+    else {
+        Write-Host "  ...pnpm$(if ($pnpmHave) { " $pnpmHave -> $pnpmWant" })" -ForegroundColor DarkYellow
+        & "$nodeDir\corepack.cmd" prepare pnpm@latest --activate 2>&1 | Out-Null
+        Write-Ok "pnpm $((pnpm --version 2>$null).Trim())"
+    }
 }
 
 # uv --version prints "uv 0.11.20 (hash date target)" - only the second field is the version.
@@ -169,28 +227,59 @@ Install-ConfigFile (Join-Path $PSScriptRoot 'npmrc') (Join-Path $HOME '.npmrc') 
 
 $wanted = Get-IdsFromReadme $readme @('npm globals')
 
-$installed = @{}
-$deps = (npm ls -g --depth=0 --json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).dependencies
-if ($deps) { $deps.PSObject.Properties | ForEach-Object { $installed[$_.Name] = $_.Value.version } }
+if (-not $haveNode) { Write-Warn2 "$($wanted.Count) globals skipped - no Node, so no npm" }
+else {
+    $installed = @{}
+    $deps = (npm ls -g --depth=0 --json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).dependencies
+    if ($deps) { $deps.PSObject.Properties | ForEach-Object { $installed[$_.Name] = $_.Value.version } }
 
-foreach ($pkg in $wanted) {
-    $have = $installed[$pkg]
+    foreach ($pkg in $wanted) {
+        $have = $installed[$pkg]
 
-    if ($have) {
-        if ($SkipUpgrade) { Write-Skip "$pkg $have"; continue }
-        $want = Get-NpmLatest $pkg
-        if (-not $want) { Write-Warn2 "$pkg $have - registry unreachable, left alone"; continue }
-        if ($have -eq $want) { Write-Skip "$pkg $have"; continue }
+        if ($have) {
+            if ($SkipUpgrade) { Write-Skip "$pkg $have"; continue }
+            $want = Get-NpmLatest $pkg
+            if (-not $want) { Write-Warn2 "$pkg $have - registry unreachable, left alone"; continue }
+            if ($have -eq $want) { Write-Skip "$pkg $have"; continue }
+        }
+
+        Write-Host "  ...npm i -g $pkg@latest$(if ($have) { " ($have -> $want)" })" -ForegroundColor DarkYellow
+        npm install -g "$pkg@latest" --silent 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { Write-Ok "$pkg $(if ($want) { $want })".Trim() }
+        else {
+            Write-Warn2 "$pkg failed (code $LASTEXITCODE)"
+            $failed.Add("npm: $pkg")
+        }
     }
-
-    Write-Host "  ...npm i -g $pkg@latest$(if ($have) { " ($have -> $want)" })" -ForegroundColor DarkYellow
-    npm install -g "$pkg@latest" --silent 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) { Write-Ok "$pkg $(if ($want) { $want })".Trim() }
-    else { Write-Warn2 "$pkg failed (code $LASTEXITCODE)" }
 }
 
-# ---------------------------------------------------------------- wrap up
-Write-Host ''
-Write-Warn2 'Docker Desktop and WSL need a REBOOT before they work.'
-Write-Warn2 'Open a new terminal so the PATH changes take effect.'
+# ---------------------------------------------------------------- summary
+# CLAUDE.md: "Report honestly: what came out green, what failed." A run that scrolled two
+# hundred lines past you isn't a report - and the lines that matter are the ones you missed.
+Write-Step 'Summary'
+Write-Host "  $($targets.Count) winget packages checked, $($wanted.Count) npm globals" -ForegroundColor DarkGray
+
+if ($fresh.Count) {
+    Write-Ok "$($fresh.Count) newly installed"
+    foreach ($f in $fresh) { Write-Host "         $f" -ForegroundColor DarkGray }
+}
+
+# Only mentioned when something that actually needs one was installed on this run. A
+# warning that fires every time is a warning you stop reading.
+$needsReboot = @($fresh | Where-Object { $_ -in @('Docker.DockerDesktop', 'Microsoft.WSL') })
+if ($needsReboot) { Write-Warn2 "REBOOT before these work: $($needsReboot -join ', ')" }
+
+if ($failed.Count) {
+    Write-Host ''
+    Write-Fail "$($failed.Count) failed - this machine is NOT fully set up:"
+    foreach ($f in $failed) { Write-Host "         $f" -ForegroundColor Red }
+    Write-Host ''
+    Write-Host '  winget failures are usually transient. Re-running is safe and skips' -ForegroundColor DarkGray
+    Write-Host '  everything that already worked. A font that failed means: re-run elevated.' -ForegroundColor DarkGray
+    Write-Host ''
+    exit 1
+}
+
+Write-Ok 'nothing failed'
+Write-Host '  Open a new terminal so the PATH changes take effect.' -ForegroundColor DarkGray
 Write-Host ''

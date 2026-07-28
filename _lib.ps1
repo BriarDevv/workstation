@@ -60,18 +60,21 @@ function Test-WingetInstalled {
     return [bool]($out -match '(?m)^-{3,}')
 }
 
+# Returns 'skip', 'ok' or 'fail' rather than a boolean, so a caller can tell "was already
+# there" apart from "installed it just now" without asking winget a second time. Knowing
+# which is which is what lets the reboot warning fire only when it's actually earned.
 function Install-WingetPackage {
     param([Parameter(Mandatory)][string]$Id)
-    if (Test-WingetInstalled $Id) { Write-Skip "$Id already installed"; return $true }
+    if (Test-WingetInstalled $Id) { Write-Skip "$Id already installed"; return 'skip' }
 
     Write-Host "  ...installing $Id" -ForegroundColor DarkYellow
     winget install --id $Id --exact --silent --accept-package-agreements `
         --accept-source-agreements --disable-interactivity 2>&1 |
         Select-Object -Last 2 | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkGray }
 
-    if ($LASTEXITCODE -eq 0) { Write-Ok $Id; return $true }
+    if ($LASTEXITCODE -eq 0) { Write-Ok $Id; return 'ok' }
     Write-Warn2 "$Id exited with code $LASTEXITCODE"
-    return $false
+    return 'fail'
 }
 
 # Is there a newer version available? $null means "nothing to do" - either the package is
