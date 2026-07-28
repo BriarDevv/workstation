@@ -1,0 +1,45 @@
+# ==========================================================
+#  SECRET SHIELD — don't loosen this
+#  This repo goes to GitHub. Nothing listed here travels with it.
+# ==========================================================
+
+# --- Real secrets (only the .example ships) ---
+secrets/*
+!secrets/.env.example
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+*.p12
+credentials.json
+*token*.json
+*secret*.json
+
+# --- Claude Code files that ALWAYS carry credentials ---
+# ~/.claude.json                          -> OAuth + history of 42 projects
+# ~/.claude/mcp-configs/mcp-servers.json  -> 8 API keys in plaintext
+claude/mcp.json
+claude/mcp-servers.json
+claude/settings.local.json
+claude.json
+.credentials.json
+
+# --- State, caches and logs (noise, not configuration) ---
+.omc/
+.claude/
+*.log
+node_modules/
+__pycache__/
+.venv/
+venv/
+
+# --- Windows ---
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# --- Editors ---
+.idea/
+*.swp

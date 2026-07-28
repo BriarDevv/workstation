@@ -1,0 +1,36 @@
+[user]
+	name = Mateo
+	email = mateogarcia1660@gmail.com
+
+[init]
+	defaultBranch = main
+
+[pull]
+	rebase = true
+
+[rebase]
+	autostash = true
+
+[core]
+	autocrlf = true
+	longpaths = true
+	editor = code --wait
+
+[fetch]
+	prune = true
+
+[diff]
+	colorMoved = zebra
+
+[alias]
+	s = status -sb
+	lg = log --oneline --graph --decorate -20
+	last = log -1 --stat
+	unstage = reset HEAD --
+	amend = commit --amend --no-edit
+
+[credential "https://github.com"]
+	helper = !gh auth git-credential
+
+[safe]
+	directory = %(prefix)///wsl.localhost/Ubuntu/home/briar/src/ClawScout

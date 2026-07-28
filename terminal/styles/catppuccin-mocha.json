@@ -1,0 +1,82 @@
+{
+  "$comment": "The only style. Keeps the font, transparency and logo that were already dialled in; the terminal scheme moved from Sakura Pink to Catppuccin Mocha so it matches the fastfetch palette, which was Catppuccin all along.",
+  "description": "Catppuccin Mocha. Heavy JetBrains Mono, translucent, purin-face logo.",
+  "font": {
+    "family": "JetBrainsMono NFM",
+    "size": 10,
+    "weight": "extra-black",
+    "cellHeight": "1.2"
+  },
+  "terminal": {
+    "colorScheme": "Catppuccin Mocha",
+    "opacity": 70,
+    "useAcrylic": true,
+    "padding": "8",
+    "cursorShape": "filledBox",
+    "intenseTextStyle": "all"
+  },
+  "fastfetch": {
+    "asciiArt": "02-purin-face.txt",
+    "logoColors": {
+      "1": "#F5E0DC",
+      "2": "#F2CDCD",
+      "3": "#F5C2E7",
+      "4": "#FAB387",
+      "5": "#F9E2AF",
+      "6": "#A6E3A1",
+      "7": "#94E2D5",
+      "8": "#89DCEB",
+      "9": "#74C7EC"
+    },
+    "logoPadding": {
+      "top": 1,
+      "right": 3
+    },
+    "display": {
+      "separator": " "
+    },
+    "modules": [
+      "break",
+      {
+        "type": "title",
+        "color": {
+          "user": "#F5C2E7",
+          "at": "#CDD6F4",
+          "host": "#89DCEB"
+        }
+      },
+      "break",
+      {
+        "type": "os",
+        "key": "",
+        "keyColor": "#89DCEB"
+      },
+      {
+        "type": "cpu",
+        "key": "",
+        "keyColor": "#F5C2E7"
+      },
+      {
+        "type": "board",
+        "key": "󰚗",
+        "keyColor": "#FAB387"
+      },
+      {
+        "type": "memory",
+        "key": "",
+        "keyColor": "#A6E3A1",
+        "format": "{used} / {total} ({percentage})"
+      },
+      {
+        "type": "disk",
+        "key": "",
+        "keyColor": "#94E2D5"
+      },
+      "break",
+      {
+        "type": "colors",
+        "symbol": "circle"
+      }
+    ]
+  }
+}
