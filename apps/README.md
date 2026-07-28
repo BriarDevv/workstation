@@ -8,6 +8,30 @@ first column). Add a row and it gets installed on the next run.
 
 ---
 
+## Versions — latest stable, always
+
+Nothing here is pinned. `install.ps1` upgrades **every package in the tables** on every
+run, not only the ones it just installed. Pass `-SkipUpgrade` to hold versions still for
+one run.
+
+"Stable" means the vendor's stable channel, not the newest thing that exists: Node **LTS**
+rather than Current, .NET **LTS** rather than preview, `Microsoft.PowerShell` rather than
+`Microsoft.PowerShell.Preview`.
+
+Two places still carry a literal version, and both are deliberate:
+
+- **The Node fallback in `install.ps1`.** The version is resolved from `nodejs.org` at run
+  time; the literal only applies when the site can't be reached.
+- **Major versions inside a winget ID** — `Python.Python.3.14`, `Microsoft.DotNet.SDK.10`.
+  winget treats every major as a separate package, so `winget upgrade` will take
+  3.14.0 → 3.14.6 but never 3.14 → 3.15. Those move by editing the table.
+
+`Microsoft.DotNet.SDK.8` became `.SDK.10` on 2026-07-28 under this rule — 10 is the current
+LTS. Nothing on the machine was found targeting `net8.0` (no `.csproj`, no `global.json`).
+If something turns out to need the .NET 8 runtime, put the row back; it's one line.
+
+---
+
 ## Essentials
 
 Nothing works without these. All of them get installed.
@@ -24,7 +48,7 @@ Nothing works without these. All of them get installed.
 | `Python.Python.3.14`         | Python 3.14      | The system-wide one. Projects use their own — see § Python    |
 | `Python.Launcher`            | `py`             | `py -3.14`, and what shebangs resolve through                 |
 | `GoLang.Go`                  | Go 1.26          | Go projects                                                   |
-| `Microsoft.DotNet.SDK.8`     | .NET SDK 8       | Dependency of several tools                                   |
+| `Microsoft.DotNet.SDK.10`    | .NET SDK 10      | Current LTS. Was SDK 8 until 2026-07-28 — see § Versions      |
 | `LeNgocKhoa.Laragon`         | Laragon          | Local PHP/MySQL stack. Kiosco-Diagonal runs here              |
 | `Tailscale.Tailscale`        | Tailscale        | VPN to reach my own machines                                  |
 | `Gyan.FFmpeg`                | FFmpeg           | Video/audio conversion from the terminal                      |
@@ -112,6 +136,16 @@ copy and tracks it from then on. It only bites when a program was installed outs
 first. If you ever install something by hand that's also in the tables above, expect
 `install.ps1` to install its own copy on the next run.
 
+**What did matter** is the flavour. `winget show Microsoft.PowerShell` reports
+`Installer Type: msix`, so on a restored machine `C:\Program Files\PowerShell\7` **never
+exists** — PowerShell lives in `%LOCALAPPDATA%\Microsoft\WindowsApps\` and is reached
+through the `pwsh.exe` app execution alias.
+
+Windows Terminal's default profile in this repo used to hardcode that Program Files path.
+The first terminal opened after a format would have failed to start its own default
+profile. Fixed in `terminal/windows-terminal/settings.json`: the profile calls `pwsh.exe`
+and lets the alias resolve it, which works with either flavour.
+
 ---
 
 ## Python
@@ -136,11 +170,19 @@ So `Python.Python.3.14` is for the shell, not for the projects.
 Node does **not** come from winget. On this machine it lives in `C:\Briar\Code\Node`
 (outside Program Files), and `install.ps1` pulls the official zip and unpacks it there.
 
-| Package | Version  | What for                                  |
-| ------- | -------- | ----------------------------------------- |
-| `node`  | v24.12.0 | Runtime                                   |
-| `pnpm`  | 10.25.0  | Enabled through `corepack enable`         |
-| `uv`    | 0.11.20  | Python package manager. Goes to `~\.local\bin` |
+| Package | Version                | What for                                       |
+| ------- | ---------------------- | ---------------------------------------------- |
+| `node`  | latest **LTS**         | Runtime. Resolved at run time — see § Versions  |
+| `pnpm`  | whatever corepack ships | Enabled through `corepack enable`              |
+| `uv`    | latest                 | Python package manager. Goes to `~\.local\bin` |
+
+Node follows the **LTS** line, not Current: on 2026-07-28 that was v24.18.0 while Current
+was v26.5.0. If a project ever needs Current, that's a per-project decision, not a machine
+one.
+
+An outdated Node is replaced in place. The new tree is fully extracted before the old
+directory is moved aside, and the old one is only deleted once the new one has landed.
+Nothing is lost in the swap — global packages live in `%APPDATA%\npm`, not here.
 
 ## npm globals
 

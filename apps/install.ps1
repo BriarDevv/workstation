@@ -61,36 +61,59 @@ if ($fontIds -and -not (Test-Admin)) {
 # ---------------------------------------------------------------- winget packages
 foreach ($id in $targets) { Install-WingetPackage $id | Out-Null }
 
-# ---------------------------------------------------------------- keep the terminal current
-# Windows Terminal silently ignores settings keys it doesn't recognise. Our settings.json
-# uses font.builtinGlyphs, font.colorGlyphs and font.cellHeight — all recent additions.
-# On an old build the terminal loads without complaint and just looks wrong.
+# ---------------------------------------------------------------- latest stable, always
+# House rule: this machine runs the latest stable of everything, so every package in the
+# tables gets upgraded - not just the ones installed fresh above.
+#
+# The terminal stack is why the rule exists. Windows Terminal silently ignores settings
+# keys it doesn't recognise, and this config uses font.builtinGlyphs, font.colorGlyphs and
+# font.cellHeight, all recent additions. On an old build it loads without complaint and
+# just looks wrong, with nothing pointing at the version.
 if (-not $SkipUpgrade) {
-    Write-Step "Keeping the terminal stack current"
-    foreach ($id in @(
-            'Microsoft.WindowsTerminal'
-            'Fastfetch-cli.Fastfetch'
-            'Microsoft.PowerShell'
-        )) { Update-WingetPackage $id }
+    Write-Step "Upgrading to latest stable"
+    foreach ($id in $targets) { Update-WingetPackage $id }
 }
 
 # ---------------------------------------------------------------- Node
 Write-Step "Node"
 $nodeDir = 'C:\Briar\Code\Node'
-if (Test-Path (Join-Path $nodeDir 'node.exe')) {
-    Write-Skip "Node already at $nodeDir ($(& "$nodeDir\node.exe" --version))"
+
+# Resolved at run time, not pinned: a hardcoded version in a restore script is stale the
+# day after you write it. LTS rather than Current - "latest stable" for Node means the LTS
+# line. The literal below is only the fallback for when nodejs.org can't be reached.
+$nodeVersion = 'v24.18.0'
+try {
+    $latest = Invoke-RestMethod 'https://nodejs.org/dist/index.json' -TimeoutSec 20 |
+        Where-Object { $_.lts } | Select-Object -First 1
+    if ($latest.version) { $nodeVersion = $latest.version }
+}
+catch { Write-Warn2 "nodejs.org unreachable - falling back to the pinned $nodeVersion" }
+
+$nodeExe = Join-Path $nodeDir 'node.exe'
+$nodeCurrent = if (Test-Path $nodeExe) { (& $nodeExe --version).Trim() } else { $null }
+
+if ($nodeCurrent -eq $nodeVersion) {
+    Write-Skip "Node $nodeCurrent (latest LTS)"
+}
+elseif ($nodeCurrent -and $SkipUpgrade) {
+    Write-Skip "Node $nodeCurrent - latest LTS is $nodeVersion, held back by -SkipUpgrade"
 }
 else {
-    Write-Host "  ...downloading Node v24.12.0" -ForegroundColor DarkYellow
+    Write-Host "  ...$(if ($nodeCurrent) { "Node $nodeCurrent -> $nodeVersion" } else { "downloading Node $nodeVersion" })" -ForegroundColor DarkYellow
     $zip = Join-Path $env:TEMP 'node.zip'
     $tmp = Join-Path $env:TEMP 'node-extract'
-    Invoke-WebRequest 'https://nodejs.org/dist/v24.12.0/node-v24.12.0-win-x64.zip' -OutFile $zip -UseBasicParsing
+    Invoke-WebRequest "https://nodejs.org/dist/$nodeVersion/node-$nodeVersion-win-x64.zip" -OutFile $zip -UseBasicParsing
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
     Expand-Archive $zip -DestinationPath $tmp -Force
     New-Item -ItemType Directory -Force -Path (Split-Path $nodeDir -Parent) | Out-Null
+
+    # Swap only once the new tree is on disk, and keep the old one until it lands. Global
+    # packages live in %APPDATA%\npm, so replacing this directory loses nothing.
+    Remove-Item "$nodeDir.old" -Recurse -Force -ErrorAction SilentlyContinue
+    if ($nodeCurrent) { Move-Item $nodeDir "$nodeDir.old" -Force }
     Move-Item (Get-ChildItem $tmp -Directory | Select-Object -First 1).FullName $nodeDir -Force
-    Remove-Item $zip, $tmp -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Ok "Node at $nodeDir"
+    Remove-Item "$nodeDir.old", $zip, $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Ok "Node $nodeVersion at $nodeDir"
 }
 Add-UserPath $nodeDir
 

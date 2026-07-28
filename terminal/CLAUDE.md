@@ -79,6 +79,12 @@ per-look value in the base means every future style inherits it silently.
    repo and the machine agree. If something still says `[ok]` with a backup warning, the
    sync is incomplete.
 
+   One false positive to know about: with **Windows Terminal open**, WT rewrites its own
+   `settings.json` shortly after the script writes it, reordering keys inside objects
+   without changing a single value. The next run then sees a different hash and reports
+   `[ok]` again. Run it twice back to back, or close the terminal first — if the second
+   run says `[skip]`, there was never anything wrong.
+
 7. **Report** what moved to which layer, and anything you deliberately left out.
 
 ---
@@ -103,6 +109,14 @@ installed. `install.ps1` now substitutes and warns, but don't rely on the safety
 
 **A style must name a scheme that exists** in `schemes/`, and an `asciiArt` that exists in
 `ascii-arts/`. `install.ps1` validates both and stops rather than half-applying.
+
+**The PowerShell profile calls `pwsh.exe`, not a full path.** It used to hardcode
+`C:\Program Files\PowerShell\7\pwsh.exe`, which is where the **MSI** from GitHub installs.
+`winget install Microsoft.PowerShell` ships an **msixbundle** and creates no such folder —
+it lands in `%LOCALAPPDATA%\Microsoft\WindowsApps\`. Since `apps/` installs PowerShell
+through winget, a restored machine would have opened Windows Terminal to a default profile
+pointing at a path that doesn't exist. Found 2026-07-28, before it could happen. Let the
+app execution alias resolve it.
 
 **Scripts are idempotent.** Running twice reports `[skip]` everywhere. If a change breaks
 that, the change is wrong.
