@@ -171,9 +171,7 @@ package serves all four. The older five are not compatible with each other.
 | -------------------------- | --------------- | ----------------------------------------------- |
 | `ElectronicArts.EADesktop` | EA app          | Only when there's something to play on it |
 | `Ubisoft.Connect`          | Ubisoft Connect | Same                                      |
-| `Ollama.Ollama`            | Ollama          | Local models. Heavy and you barely use it |
-| `SST.OpenCodeDesktop`      | OpenCode        | The desktop app                           |
-| `Microsoft.Teams`          | Teams           | Only if work requires it                  |
+| `Ollama.Ollama`            | Ollama          | Local models. Multi-GB downloads per model, so it's off the default path |
 
 > `Microsoft.DotNet.*Runtime*` and `WindowsAppRuntime.*` are **not** in any table on
 > purpose — they get pulled in automatically as dependencies.
