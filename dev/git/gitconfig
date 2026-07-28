@@ -8,16 +8,6 @@
 [pull]
 	rebase = true
 
-[push]
-	default = current
-	autoSetupRemote = true
-
-[merge]
-	# Merging happens in a pull request, never here. This refuses anything that isn't a
-	# fast-forward, so `git merge <branch>` fails instead of quietly making a merge commit.
-	# `git merge --no-ff` still overrides it when you actually mean to.
-	ff = only
-
 [rebase]
 	autostash = true
 

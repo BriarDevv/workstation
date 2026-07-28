@@ -33,9 +33,6 @@ Installs to `~/.gitconfig`.
 | --------------------------- | ------------------------------------------------------------ |
 | `user.name` / `user.email`  | Mateo · mateogarcia1660@gmail.com                            |
 | `pull.rebase = true`        | Linear history, no junk merge commits                        |
-| `merge.ff = only`           | **Local merges fail.** Merging happens in a PR — see below   |
-| `push.default = current`    | `git push` pushes this branch to the branch of the same name |
-| `push.autoSetupRemote`      | First push of a new branch sets its upstream by itself       |
 | `rebase.autostash = true`   | Stashes and restores loose changes when rebasing             |
 | `core.autocrlf = true`      | Windows ↔ repos that use LF                                  |
 | `core.longpaths = true`     | Windows truncates at 260 chars; `node_modules` blows past it |
@@ -52,31 +49,36 @@ Aliases: `s` (short status), `lg` (graph log), `last`, `unstage`, `amend`.
 
 ### Merging goes through a pull request
 
+The practice: branch, push, open a PR, rebase-merge it on GitHub. Never merge into `main`
+locally.
+
 ```powershell
 git checkout -b feat/thing
 # work, commit
-git push                       # no -u, no remote name: autoSetupRemote handles it
+git push -u origin feat/thing
 gh pr create --fill
 ```
 
-Then merge it on GitHub. Back on `main`, `git pull` rebases and you're current.
+**That rule is not enforced from this file, on purpose.** It would be easy to add
+`merge.ff = only` here and make `git merge` refuse — but a global setting that makes a
+normal command fail is a trap, not a guardrail. Whoever hits it next, months from now, sees
+an error they didn't ask for and has to work backwards to a line in a file they weren't
+thinking about. `pull.rebase` earns its place because everybody already knows what it does
+and nothing breaks when it's on; `merge.ff = only` doesn't clear that bar.
 
-`merge.ff = only` is what keeps you honest. `git merge feat/thing` on a `main` that has
-moved doesn't quietly produce a merge commit — it refuses:
+Enforcement belongs to the repository, not the machine — **branch protection on GitHub**,
+set per repo:
 
-```
-hint: Diverging branches can't be fast-forwarded, you need to either:
-hint:   git merge --no-ff
-```
+| Setting                         | Value               | What it buys                          |
+| ------------------------------- | ------------------- | ------------------------------------- |
+| `required_pull_request_reviews` | on, **0** approvals | Forces a PR; you can still merge your own without waiting |
+| `required_linear_history`       | on                  | No merge commits reach `main`         |
+| Merge methods                   | rebase only         | Merge commits and squash both off     |
+| `allow_force_pushes`            | off                 | —                                     |
+| `allow_deletions`               | off                 | —                                     |
 
-> **This is a guardrail, not enforcement.** Nothing in a local config can stop anyone —
-> including you, ten seconds later — from typing `git merge --no-ff`, and that escape hatch
-> is deliberate: the config catches the merge you didn't mean to make, not the one you did.
->
-> Real enforcement is **branch protection on GitHub**: require a pull request before merging
-> on `main`. That's server-side and per-repository, so it can't live in this file and this
-> repo doesn't try to script it. Turn it on in each repo's settings — it's the half that
-> actually holds.
+That's server-side, so it survives a format and applies to every machine you touch the repo
+from — which is why it's the half worth having, and why nothing here tries to script it.
 
 ---
 
