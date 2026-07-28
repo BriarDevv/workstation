@@ -53,9 +53,26 @@ raw. Don't convert them to `.md` and don't reformat them.
 
 ## Paths on this machine
 
-Node, Git and VS Code are **not** in `Program Files` — they live under `C:\Briar\Code\`.
-Personal repos live in `C:\Users\mateo\Desktop\`. If a script assumes standard paths, it's
-wrong.
+Personal repos live in `C:\Users\mateo\Desktop\`.
+
+`C:\Briar\Code\` holds Node, Git and VS Code **on the machine as it stands today** — but be
+careful, because **the restore only reproduces one of them**:
+
+| | Today | After running this repo |
+| --- | --- | --- |
+| **Node** | `C:\Briar\Code\Node` | same — `apps/install.ps1` unpacks the zip there on purpose |
+| **Git** | `C:\Briar\Code\Git` | `C:\Program Files\Git` — winget's default |
+| **VS Code** | `C:\Briar\Code\VSC\Microsoft VS Code` | `%LOCALAPPDATA%\Programs\Microsoft VS Code` — winget's default |
+| **Docker** | `C:\Program Files\Docker` | same. The `Code\Docker` folder is just the saved installer |
+
+So don't hardcode `C:\Briar\Code\Git` or the VS Code path into anything. Resolve them
+(`Get-Command git`), or they'll break on exactly the machine this repo exists to build.
+User-level config is unaffected either way: VS Code always reads `%APPDATA%\Code\User`, git
+always reads `~/.gitconfig`.
+
+Most of `C:\Briar\Code\` and `C:\Briar\Programas\` isn't installed software at all — it's
+**saved installers**, about 2 GB of them. A folder there with one `.exe` inside is a
+download, not a program.
 
 Laragon used to live there too and served Kiosco-Diagonal out of
 `C:\Briar\Code\Laragon\www\`. It was dropped 2026-07-28, so **there is no local PHP/MySQL

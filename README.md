@@ -189,14 +189,25 @@ It's needed either way.
 
 ## Before you wipe — read this
 
-These folders are **not on any remote**. Wipe the machine and they're gone:
+Measured 2026-07-28, because the list used to name five folders and three of them held
+nothing. A warning that sends you to back up empty directories is one you learn to skip.
 
-```
-C:\Briar\Facultad     C:\Briar\Trabajo     C:\Briar\WAND
-C:\Briar\Pen          C:\Briar\Paginas
-```
+| Folder | Size | Status |
+| ------ | ---- | ------ |
+| **`C:\Briar\Pen`** | **1.5 GB**, 238 files | The `.pen` designs and their images. **No remote. The one that actually matters** |
+| **`C:\Briar\Facultad`** | **838 MB**, 8293 files | See below — effectively unprotected |
+| `C:\Briar\WAND` | 0.2 MB, 1 file | Just `Wand-Setup.exe`, an installer. Re-downloadable |
+| `C:\Briar\Trabajo` | **empty** | Nothing to save |
+| `C:\Briar\Paginas` | **empty** | Nothing to save |
 
-Copy them to an external drive or push them to a private repo first.
+**Facultad looks backed up and isn't.** It has a `.git` pointing at
+`github.com/P-ata/Abyssum` — the account's old name — whose last commit is 2025-11-17. But
+only **165 of its 8293 files** are tracked, and all 171 pending entries are deletions: the
+project moved into a subfolder and left the repo behind pointing at paths that no longer
+exist. Roughly **8,100 files there exist nowhere else.**
+
+So: copy `Pen` and `Facultad` to an external drive before wiping. The other three are
+noise.
 
 > **This is the only copy of that list.** `windows/usb.md`, `windows/README.md` and
 > `dev/README.md` each used to repeat it — four places to keep in sync for the one list
