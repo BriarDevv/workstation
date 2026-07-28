@@ -101,6 +101,15 @@ only holds **configuration**, not binaries.
 | `Discord.Discord`              | Discord        | Daily. Starts with the session                         |
 | `Anthropic.Claude`             | Claude Desktop | The app. The CLI is a separate install, from `claude/` |
 | `Logitech.GHUB`                | G HUB          | The peripherals. Starts with the session               |
+| `Spotify.Spotify`              | Spotify        | Music. Per-user install into `%APPDATA%\Spotify`       |
+
+> **Spotify is the one package that can fail _because_ you ran the script elevated.** Its
+> installer is a per-user `exe` that refuses to run as Administrator, while § Fonts asks for
+> an elevated shell. A single run can't satisfy both.
+>
+> Nothing breaks if it happens: the failure is collected and named in the summary like any
+> other, and re-running unelevated installs it while skipping everything already there. Do
+> the elevated run first for the font, then a plain one.
 
 ## Games
 
