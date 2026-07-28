@@ -65,6 +65,7 @@ Nothing works without these. All of them get installed.
 | `Microsoft.PowerShell`       | PowerShell 7     | This repo's scripts use `&&` and `??`, which PS5 doesn't have |
 | `Microsoft.WindowsTerminal`  | Windows Terminal | Daily driver                                                  |
 | `Microsoft.VisualStudioCode` | VS Code          | Main editor                                                   |
+| `Google.Chrome`              | Chrome           | **The only browser here.** LTSC ships without Edge preinstall, so without this row a restored machine cannot open a web page at all |
 | `Docker.DockerDesktop`       | Docker           | Containers. **Requires a reboot**                             |
 | `Microsoft.WSL`              | WSL2             | Linux for whatever doesn't run on Windows. **Requires a reboot** |
 | `Python.Python.3.14`         | Python 3.14      | The system-wide one. Projects use their own — see § Python    |
@@ -85,9 +86,30 @@ only holds **configuration**, not binaries.
 
 ## Desktop / utilities
 
-| winget ID                      | What it is    | What I use it for   |
-| ------------------------------ | ------------- | ------------------- |
-| `CharlesMilette.TranslucentTB` | TranslucentTB | Transparent taskbar |
+| winget ID                      | What it is     | What I use it for                                     |
+| ------------------------------ | -------------- | ----------------------------------------------------- |
+| `CharlesMilette.TranslucentTB` | TranslucentTB  | Transparent taskbar. Runs from the tray                |
+| `Discord.Discord`              | Discord        | Daily. Starts with the session                         |
+| `Anthropic.Claude`             | Claude Desktop | The app. The CLI is a separate install, from `claude/` |
+| `Logitech.GHUB`                | G HUB          | The peripherals. Starts with the session               |
+
+## Games
+
+This stopped being a work-only machine on 2026-07-28. Pretending otherwise just meant the
+tables didn't match the machine.
+
+| winget ID                        | What it is       | Notes                                                        |
+| -------------------------------- | ---------------- | ------------------------------------------------------------ |
+| `Valve.Steam`                    | Steam            | Also a **dependency**: Wallpaper Engine is sold only through it |
+| `RiotGames.LeagueOfLegends.LA2`  | League of Legends | **LA2 = LAS**, the Latin America South server                |
+
+Two traps in that second row:
+
+- winget has **eight** League packages, one per server — `.BR`, `.EUNE`, `.EUW`, `.JP`,
+  `.KR`, `.LA1`, `.LA2`, `.NA`. The wrong one installs a client for a region you don't play
+  on. This account is LA2 / `es_AR`, read out of `LeagueClientSettings.yaml`.
+- **There is no Riot Client package**, and none is needed — the client ships inside the
+  League installer. A separate row would install the same thing twice.
 
 ---
 
@@ -95,21 +117,40 @@ only holds **configuration**, not binaries.
 
 **Not installed** unless you run `install.ps1 -Optional`.
 
-| winget ID                | What it is      | Why it's excluded                          |
-| ------------------------ | --------------- | ------------------------------------------ |
-| `Valve.Steam`            | Steam           | This is a work machine                     |
-| `ElectronicArts.EADesktop` | EA app        | Same                                       |
-| `Ubisoft.Connect`        | Ubisoft Connect | Same                                       |
-| `Logitech.GHUB`          | G HUB           | Only if you're using Logitech peripherals  |
-| `Ollama.Ollama`          | Ollama          | Local models. Heavy and you barely use it  |
-| `SST.OpenCodeDesktop`    | OpenCode        | The desktop app. The CLI was dropped 2026-07-28 |
-| `Anthropic.Claude`       | Claude Desktop  | The app; the CLI is installed from `claude/` |
-| `Famatech.Radmin.Server` | Radmin Server   | Only if this machine is the host           |
-| `Microsoft.Teams`        | Teams           | Only if work requires it                   |
-| `Apple.Bonjour`          | Bonjour         | Leftover, unused                           |
+| winget ID                  | What it is      | Why it's excluded                               |
+| -------------------------- | --------------- | ----------------------------------------------- |
+| `ElectronicArts.EADesktop` | EA app          | Only when there's something to play on it       |
+| `Ubisoft.Connect`          | Ubisoft Connect | Same                                            |
+| `Ollama.Ollama`            | Ollama          | Local models. Heavy and you barely use it       |
+| `SST.OpenCodeDesktop`      | OpenCode        | The desktop app. The CLI was dropped 2026-07-28 |
+| `Famatech.Radmin.Server`   | Radmin Server   | Only if this machine is the host                |
+| `Microsoft.Teams`          | Teams           | Only if work requires it                        |
+| `Apple.Bonjour`            | Bonjour         | Leftover, unused                                |
 
 > `Microsoft.VCRedist.*`, `Microsoft.DotNet.*Runtime*` and `WindowsAppRuntime.*` are **not**
 > in any table on purpose — they get pulled in automatically as dependencies.
+
+---
+
+## Manual afterwards
+
+Wanted on the machine, but **winget can't deliver them**. Checked 2026-07-28. They're
+listed here rather than left out, so that a restore ends with a short honest to-do instead
+of you discovering the gap weeks later.
+
+| What | Why it can't be scripted | Where to get it |
+| ---- | ------------------------ | --------------- |
+| **Porofessor** | No winget package exists at all — `winget search Porofessor` returns nothing | porofessor.gg |
+| **NVIDIA App** | Only published to **msstore** (`XP8CLZL93F5Z4P`), and the target OS is LTSC, which has no Microsoft Store. That source can't resolve there | nvidia.com |
+| **Wallpaper Engine** | Sold exclusively through Steam. The winget hit named "Wallpaper Engine" is `Taiizor.SucroseWallpaperEngine`, a different open-source project | Steam (already installed by § Games) |
+| **Pencil** | `Pencil.Desktop` exists, but the manifest sits at **1.1.26** while this machine runs **1.1.70**. Installing from winget would be a downgrade, and would pin you there until someone updates the manifest — the opposite of § Versions. It updates itself | pencil.dev |
+
+Also by hand, for reasons that have nothing to do with winget:
+
+| What | Why |
+| ---- | --- |
+| **WinRAR licence** | The key has to be typed in |
+| **`gh auth login`** | An OAuth flow can't be scripted. See `dev/README.md` |
 
 ---
 
