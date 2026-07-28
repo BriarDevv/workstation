@@ -14,8 +14,8 @@ manifests that point at the vendor's own download — chrome from google.com, th
 GitHub, League from Riot. The `msstore` source is the Microsoft Store, and it needs the
 Store to be installed.
 
-**All 33 packages in the tables below come from the `winget` source. None from `msstore`**
-— verified 2026-07-28 by querying each one. That matters because the target OS is LTSC,
+**Every package in the tables below comes from the `winget` source, and none from
+`msstore`** — checked per row, as a condition of adding it. That matters because the target OS is LTSC,
 which has no Store: anything sourced from `msstore` simply cannot resolve there.
 
 Exactly one wanted program is Store-only — the NVIDIA App — which is why it sits under
@@ -30,7 +30,6 @@ exactly the ones that scrolled past you two hundred lines ago.
 
 ```
 === Summary
-  33 winget packages checked, 4 npm globals
   [ok]   nothing failed
 ```
 
