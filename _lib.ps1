@@ -5,7 +5,17 @@ $ErrorActionPreference = 'Stop'
 $script:RepoRoot = Split-Path $PSCommandPath -Parent
 $script:BackupDir = Join-Path $HOME ".workstation-backup\$(Get-Date -Format 'yyyy-MM-dd_HHmm')"
 
+# Dry run. A calling script sets `$script:DryRun = $true` right after dot-sourcing this
+# file, and every helper below reports what it would do instead of doing it. Dot-sourcing
+# shares one script scope, which is what makes a single flag reach all of them.
+#
+# It lives here rather than in one script on purpose: a dry run is only trustworthy if it
+# covers everything, and the way that breaks is a new script inventing its own half of the
+# feature. Anything built on these helpers gets the whole thing for free.
+$script:DryRun = $false
+
 function Write-Step { param($m) Write-Host "`n=== $m" -ForegroundColor Cyan }
+function Write-Would { param($m) Write-Host "  would  $m" -ForegroundColor DarkCyan }
 function Write-Ok { param($m) Write-Host "  [ok]   $m" -ForegroundColor Green }
 function Write-Skip { param($m) Write-Host "  [skip] $m" -ForegroundColor DarkGray }
 function Write-Warn2 { param($m) Write-Host "  [!]    $m" -ForegroundColor Yellow }
@@ -38,11 +48,14 @@ function Install-ConfigFile {
             Write-Skip "$(Split-Path $Destination -Leaf) already identical"
             return $true
         }
+        if ($script:DryRun) { Write-Would "overwrite $Destination (backing the current one up first)"; return $true }
+
         $bak = Join-Path $script:BackupDir (Split-Path $Destination -Leaf)
         New-Item -ItemType Directory -Force -Path (Split-Path $bak -Parent) | Out-Null
         Copy-Item $Destination $bak -Force
         Write-Warn2 "backed up original -> $bak"
     }
+    if ($script:DryRun) { Write-Would "create $Destination"; return $true }
 
     New-Item -ItemType Directory -Force -Path (Split-Path $Destination -Parent) | Out-Null
     Copy-Item $Source $Destination -Force
@@ -66,6 +79,10 @@ function Test-WingetInstalled {
 function Install-WingetPackage {
     param([Parameter(Mandatory)][string]$Id)
     if (Test-WingetInstalled $Id) { Write-Skip "$Id already installed"; return 'skip' }
+    # 'ok' rather than 'skip': the caller uses that to mean "this run put it there", which
+    # is what a dry run is claiming would happen. Reporting 'skip' made the upgrade pass
+    # then ask winget about a package that isn't installed, and get told it was up to date.
+    if ($script:DryRun) { Write-Would "install $Id"; return 'ok' }
 
     Write-Host "  ...installing $Id" -ForegroundColor DarkYellow
     winget install --id $Id --exact --silent --accept-package-agreements `
@@ -116,7 +133,9 @@ function Get-WingetUpdate {
 function Update-WingetPackage {
     param([Parameter(Mandatory)][string]$Id)
     $u = Get-WingetUpdate $Id
-    if (-not $u) { Write-Skip "$Id up to date"; return }
+    # $null covers both "already current" and "not installed", so don't claim the first.
+    if (-not $u) { Write-Skip "$Id nothing to upgrade"; return }
+    if ($script:DryRun) { Write-Would "upgrade $Id ($($u.Current) -> $($u.Available))"; return }
     Write-Host "  ...upgrading $Id ($($u.Current) -> $($u.Available))" -ForegroundColor DarkYellow
     winget upgrade --id $Id --exact --silent --accept-package-agreements `
         --accept-source-agreements --disable-interactivity 2>&1 | Out-Null
@@ -135,6 +154,7 @@ function Add-UserPath {
     $seen = ((($cur, [Environment]::GetEnvironmentVariable('Path', 'Machine')) -join ';') -split ';') |
         Where-Object { $_ } | ForEach-Object { $_.TrimEnd('\') }
     if ($seen -contains $Path.TrimEnd('\')) { Write-Skip "PATH already has $Path"; return }
+    if ($script:DryRun) { Write-Would "add $Path to the user PATH"; return }
 
     [Environment]::SetEnvironmentVariable('Path', "$cur;$Path", 'User')
     $env:Path += ";$Path"

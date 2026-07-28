@@ -22,7 +22,9 @@
     Don't upgrade packages that are already installed but outdated.
 
 .PARAMETER WhatIfOnly
-    Print what would happen and exit. Nothing is installed.
+    Report every action without performing any of them - packages, the Node download, the
+    PATH entries and the files written into $HOME. It used to stop after listing the winget
+    packages, which quietly hid the parts most worth reviewing beforehand.
 
 .EXAMPLE
     pwsh apps\install.ps1
@@ -38,6 +40,10 @@ param(
 
 . "$PSScriptRoot\..\_lib.ps1"
 Assert-PowerShell7
+
+# Every helper in _lib reads this, so the dry run reaches the whole script rather than
+# stopping wherever the flag happened to be checked.
+$script:DryRun = [bool]$WhatIfOnly
 
 if (-not (Test-Cmd winget)) {
     Write-Fail 'winget is missing.'
@@ -60,11 +66,6 @@ $targets = if ($Optional) { $core + $extra } else { $core }
 
 Write-Step "Apps — $($targets.Count) packages"
 Write-Host "  $($core.Count) core$(if ($Optional) { " + $($extra.Count) optional" } else { " ($($extra.Count) optional skipped — pass -Optional)" })"
-
-if ($WhatIfOnly) {
-    $targets | ForEach-Object { Write-Host "  would install: $_" -ForegroundColor DarkGray }
-    return
-}
 
 # ---------------------------------------------------------------- fonts need admin
 $fontIds = $targets | Where-Object { $_ -match 'NerdFont|Font$' }
@@ -98,7 +99,13 @@ foreach ($id in $targets) {
 # just looks wrong, with nothing pointing at the version.
 if (-not $SkipUpgrade) {
     Write-Step "Upgrading to latest stable"
-    foreach ($id in $targets) { Update-WingetPackage $id }
+
+    # Skip whatever was installed seconds ago - it's current by definition. Each check is a
+    # network round-trip, measured at ~1.4s, so on a fresh machine this is the difference
+    # between finishing and spending another 47 seconds confirming what we already know.
+    $stale = @($targets | Where-Object { $_ -notin $fresh })
+    if ($fresh.Count) { Write-Skip "$($fresh.Count) just installed - already at the latest" }
+    foreach ($id in $stale) { Update-WingetPackage $id }
 }
 
 # ---------------------------------------------------------------- Node
@@ -139,6 +146,9 @@ if ($nodeCurrent -eq $nodeVersion) {
 elseif ($nodeCurrent -and $SkipUpgrade) {
     Write-Skip "Node $nodeCurrent - latest LTS is $nodeVersion, held back by -SkipUpgrade"
 }
+elseif ($script:DryRun) {
+    Write-Would "download Node $nodeVersion (~100 MB) and $(if ($nodeCurrent) { "replace $nodeCurrent in" } else { 'unpack it into' }) $nodeDir"
+}
 else {
     Write-Host "  ...$(if ($nodeCurrent) { "Node $nodeCurrent -> $nodeVersion" } else { "downloading Node $nodeVersion" })" -ForegroundColor DarkYellow
     try {
@@ -169,7 +179,10 @@ else {
     }
 }
 
-$haveNode = Test-Path $nodeExe
+# A dry run never wrote Node, so on a fresh machine it isn't there - but the real run would
+# have put it there by now. Without this the rest of the report reads "skipped, no Node" for
+# steps that would actually have happened.
+$haveNode = (Test-Path $nodeExe) -or $script:DryRun
 if ($haveNode) { Add-UserPath $nodeDir }
 
 # The registry's "latest" dist-tag, which is the stable release - prereleases live under
@@ -183,6 +196,12 @@ function Get-NpmLatest {
 
 # pnpm rides on corepack, which ships with Node - so if Node didn't land, don't pretend.
 if (-not $haveNode) { Write-Warn2 'pnpm skipped - no Node' }
+elseif ($script:DryRun) {
+    $pnpmHave = if (Test-Cmd pnpm) { (pnpm --version 2>$null).Trim() } else { $null }
+    $pnpmWant = Get-NpmLatest 'pnpm'
+    if ($pnpmHave -and $pnpmHave -eq $pnpmWant) { Write-Skip "pnpm $pnpmHave" }
+    else { Write-Would "enable corepack and activate pnpm@latest$(if ($pnpmWant) { " ($pnpmWant)" })" }
+}
 else {
     & "$nodeDir\corepack.cmd" enable 2>&1 | Out-Null
     $pnpmHave = if (Test-Cmd pnpm) { (pnpm --version 2>$null).Trim() } else { $null }
@@ -200,11 +219,13 @@ else {
 function Get-UvVersion { if (Test-Cmd uv) { (uv --version 2>$null) -split '\s+' | Select-Object -Index 1 } }
 
 $uvHave = Get-UvVersion
-if (-not $uvHave) {
+if (-not $uvHave -and $script:DryRun) { Write-Would 'install uv from astral.sh into ~\.local\bin' }
+elseif (-not $uvHave) {
     powershell -ExecutionPolicy Bypass -c 'irm https://astral.sh/uv/install.ps1 | iex' 2>&1 | Out-Null
     Write-Ok "uv $(Get-UvVersion)"
 }
 elseif ($SkipUpgrade) { Write-Skip "uv $uvHave" }
+elseif ($script:DryRun) { Write-Would "run uv self update (currently $uvHave)" }
 else {
     # uv ships its own updater and no-ops when it's already current.
     uv self update 2>&1 | Out-Null
@@ -244,6 +265,8 @@ else {
             if ($have -eq $want) { Write-Skip "$pkg $have"; continue }
         }
 
+        if ($script:DryRun) { Write-Would "npm i -g $pkg@latest$(if ($have) { " (upgrading $have)" })"; continue }
+
         Write-Host "  ...npm i -g $pkg@latest$(if ($have) { " ($have -> $want)" })" -ForegroundColor DarkYellow
         npm install -g "$pkg@latest" --silent 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) { Write-Ok "$pkg $(if ($want) { $want })".Trim() }
@@ -261,14 +284,17 @@ Write-Step 'Summary'
 Write-Host "  $($targets.Count) winget packages checked, $($wanted.Count) npm globals" -ForegroundColor DarkGray
 
 if ($fresh.Count) {
-    Write-Ok "$($fresh.Count) newly installed"
+    if ($script:DryRun) { Write-Would "install $($fresh.Count) package(s)" }
+    else { Write-Ok "$($fresh.Count) newly installed" }
     foreach ($f in $fresh) { Write-Host "         $f" -ForegroundColor DarkGray }
 }
 
 # Only mentioned when something that actually needs one was installed on this run. A
 # warning that fires every time is a warning you stop reading.
 $needsReboot = @($fresh | Where-Object { $_ -in @('Docker.DockerDesktop', 'Microsoft.WSL') })
-if ($needsReboot) { Write-Warn2 "REBOOT before these work: $($needsReboot -join ', ')" }
+if ($needsReboot) {
+    Write-Warn2 "$(if ($script:DryRun) { 'would need a REBOOT' } else { 'REBOOT before these work' }): $($needsReboot -join ', ')"
+}
 
 # Named out loud, every run. These can't be installed by any flag - written down in the
 # README is not the same as being told, and the whole point of the section is that you find
