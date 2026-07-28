@@ -121,6 +121,44 @@ Two traps in that second row:
 - **There is no Riot Client package**, and none is needed — the client ships inside the
   League installer. A separate row would install the same thing twice.
 
+## Runtimes
+
+The libraries games link against and Windows doesn't ship. Nothing here is used directly —
+they exist so a game starts instead of dying on a missing DLL.
+
+| winget ID          | What it is       | Notes                                              |
+| ------------------ | ---------------- | -------------------------------------------------- |
+| `Microsoft.DirectX` | DirectX End-User Runtime | Version 9.29.1974.0 — the June 2010 redist. Windows 11 has DirectX 12 built in, but **not** the legacy `d3dx9_*`, `xinput1_3`, `xaudio2_7` and `d3dcompiler_4x` DLLs. Those only come from here |
+
+Visual C++ runtimes, the whole set. Each release is a separate runtime and a game linked
+against one won't accept another, which is why there are six and not one:
+
+| winget ID                      | Release  |
+| ------------------------------ | -------- |
+| `Microsoft.VCRedist.2005.x86`  | 2005     |
+| `Microsoft.VCRedist.2005.x64`  | 2005     |
+| `Microsoft.VCRedist.2008.x86`  | 2008     |
+| `Microsoft.VCRedist.2008.x64`  | 2008     |
+| `Microsoft.VCRedist.2010.x86`  | 2010     |
+| `Microsoft.VCRedist.2010.x64`  | 2010     |
+| `Microsoft.VCRedist.2012.x86`  | 2012     |
+| `Microsoft.VCRedist.2012.x64`  | 2012     |
+| `Microsoft.VCRedist.2013.x86`  | 2013     |
+| `Microsoft.VCRedist.2013.x64`  | 2013     |
+| `Microsoft.VCRedist.2015+.x86` | 2015–2022 |
+| `Microsoft.VCRedist.2015+.x64` | 2015–2022 |
+
+Both architectures, deliberately: plenty of games are still 32-bit, and the x64
+redistributable does nothing for them.
+
+`2015+` covers 2015, 2017, 2019 and 2022 — Microsoft made those binary-compatible, so one
+package serves all four. The older five are not compatible with each other.
+
+> There's a well-known community AIO repack (`abbodi1406.vcredist`) that installs all of
+> these from one `.exe`. Passed over on purpose: it's a third-party repackaging of Microsoft
+> binaries, and twelve extra rows in a table cost nothing next to taking installers for
+> system runtimes from someone other than the vendor.
+
 ---
 
 ## Optional
@@ -135,8 +173,13 @@ Two traps in that second row:
 | `SST.OpenCodeDesktop`      | OpenCode        | The desktop app                           |
 | `Microsoft.Teams`          | Teams           | Only if work requires it                  |
 
-> `Microsoft.VCRedist.*`, `Microsoft.DotNet.*Runtime*` and `WindowsAppRuntime.*` are **not**
-> in any table on purpose — they get pulled in automatically as dependencies.
+> `Microsoft.DotNet.*Runtime*` and `WindowsAppRuntime.*` are **not** in any table on
+> purpose — they get pulled in automatically as dependencies.
+>
+> The Visual C++ runtimes used to be left out for that same reason, and it was wrong. It
+> only holds for programs installed **through winget**, which declare their dependencies.
+> A game installed by Steam or unpacked by hand declares nothing, and the failure is the
+> classic one: it won't start, and the error names a DLL. Hence § Runtimes.
 
 ---
 

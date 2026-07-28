@@ -54,7 +54,7 @@ if (-not (Test-Cmd winget)) {
 }
 
 $readme = Join-Path $PSScriptRoot 'README.md'
-$core = Get-IdsFromReadme $readme @('Essentials', 'Terminal', 'Desktop / utilities', 'Games')
+$core = Get-IdsFromReadme $readme @('Essentials', 'Terminal', 'Desktop / utilities', 'Games', 'Runtimes')
 $extra = Get-IdsFromReadme $readme @('Optional')
 $targets = if ($Optional) { $core + $extra } else { $core }
 
