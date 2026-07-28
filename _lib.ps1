@@ -158,6 +158,33 @@ function Get-IdsFromReadme {
     return $ids
 }
 
+# First column of every table row in the named sections, with markdown emphasis stripped.
+#
+# Get-IdsFromReadme only sees `backticked` cells, and that's deliberate - it's what keeps a
+# prose table from being mistaken for an install list. This is its opposite number, for
+# sections that describe steps instead of packages, so those can be read out loud at the
+# end of a run rather than sitting unread in a file.
+function Get-RowsFromReadme {
+    param(
+        [Parameter(Mandatory)][string]$ReadmePath,
+        [Parameter(Mandatory)][string[]]$Sections
+    )
+    $current = ''
+    $rows = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in Get-Content $ReadmePath) {
+        if ($line -match '^##\s+(.+?)\s*$') { $current = $Matches[1].Trim(); continue }
+        if ($Sections -notcontains $current) { continue }
+        if ($line -notmatch '^\|') { continue }
+
+        $cell = (($line -split '\|')[1] -replace '\*\*|`', '').Trim()
+        if (-not $cell) { continue }
+        if ($cell -match '^-+$') { continue }                       # the ---- separator
+        if ($cell -in @('What', 'winget ID', 'Package', 'ID')) { continue }   # header
+        $rows.Add($cell)
+    }
+    return $rows
+}
+
 # The real font family name Windows registered, whatever naming scheme the package used.
 # Nerd Fonts ships both "JetBrainsMono NFM" and "JetBrainsMono Nerd Font Mono" depending
 # on the release, and picking the wrong one fails silently.

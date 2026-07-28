@@ -6,6 +6,21 @@ months you won't remember what TranslucentTB was doing here.
 `install.ps1` reads the winget IDs out of the tables below (the ones in `backticks` in the
 first column). Add a row and it gets installed on the next run.
 
+## winget is not the Microsoft Store
+
+Easy to conflate, and on this machine the difference decides whether the restore works at
+all. winget has **sources**. The `winget` source is a community-maintained catalogue of
+manifests that point at the vendor's own download — chrome from google.com, the font from
+GitHub, League from Riot. The `msstore` source is the Microsoft Store, and it needs the
+Store to be installed.
+
+**All 21 packages in the tables below come from the `winget` source. None from `msstore`**
+— verified 2026-07-28 by querying each one. That matters because the target OS is LTSC,
+which has no Store: anything sourced from `msstore` simply cannot resolve there.
+
+Exactly one wanted program is Store-only — the NVIDIA App — which is why it sits under
+§ Manual afterwards instead of in a table.
+
 ## How it reports
 
 A failed package doesn't stop the run. Failures are collected and printed together at the

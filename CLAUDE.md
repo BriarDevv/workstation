@@ -70,3 +70,10 @@ comments inside `.ps1` and `.json` files.
 
 Report honestly: what came out green, what failed, and what needs manual work (logins,
 2FA, API keys). Don't claim success without the real command output.
+
+`apps/install.ps1` exits **1** when something didn't install, and prints two lists you must
+pass on rather than summarise away: what failed, and **"things this script cannot install"**
+— the `Manual afterwards` section of `apps/README.md`. That second list is not a footnote.
+Those are programs the user wants and will not get unless someone tells them, and a restore
+that ends with "all done" while four apps are silently missing is a worse outcome than one
+that ends with a to-do list.

@@ -270,6 +270,17 @@ if ($fresh.Count) {
 $needsReboot = @($fresh | Where-Object { $_ -in @('Docker.DockerDesktop', 'Microsoft.WSL') })
 if ($needsReboot) { Write-Warn2 "REBOOT before these work: $($needsReboot -join ', ')" }
 
+# Named out loud, every run. These can't be installed by any flag - written down in the
+# README is not the same as being told, and the whole point of the section is that you find
+# out now instead of three weeks after the format.
+$manual = Get-RowsFromReadme $readme @('Manual afterwards')
+if ($manual.Count) {
+    Write-Host ''
+    Write-Warn2 "$($manual.Count) things this script cannot install - do them by hand:"
+    foreach ($m in $manual) { Write-Host "         $m" -ForegroundColor Yellow }
+    Write-Host '  Reasons and download links: apps\README.md, section "Manual afterwards".' -ForegroundColor DarkGray
+}
+
 if ($failed.Count) {
     Write-Host ''
     Write-Fail "$($failed.Count) failed - this machine is NOT fully set up:"
