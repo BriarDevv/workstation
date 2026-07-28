@@ -33,6 +33,9 @@ Installs to `~/.gitconfig`.
 | --------------------------- | ------------------------------------------------------------ |
 | `user.name` / `user.email`  | Mateo · mateogarcia1660@gmail.com                            |
 | `pull.rebase = true`        | Linear history, no junk merge commits                        |
+| `merge.ff = only`           | **Local merges fail.** Merging happens in a PR — see below   |
+| `push.default = current`    | `git push` pushes this branch to the branch of the same name |
+| `push.autoSetupRemote`      | First push of a new branch sets its upstream by itself       |
 | `rebase.autostash = true`   | Stashes and restores loose changes when rebasing             |
 | `core.autocrlf = true`      | Windows ↔ repos that use LF                                  |
 | `core.longpaths = true`     | Windows truncates at 260 chars; `node_modules` blows past it |
@@ -46,6 +49,34 @@ Aliases: `s` (short status), `lg` (graph log), `last`, `unstage`, `amend`.
 
 **Manual afterwards:** `gh auth login` → account `BriarDevv`, HTTPS, scopes
 `gist, read:org, repo, workflow`. There's no way to script an OAuth flow.
+
+### Merging goes through a pull request
+
+```powershell
+git checkout -b feat/thing
+# work, commit
+git push                       # no -u, no remote name: autoSetupRemote handles it
+gh pr create --fill
+```
+
+Then merge it on GitHub. Back on `main`, `git pull` rebases and you're current.
+
+`merge.ff = only` is what keeps you honest. `git merge feat/thing` on a `main` that has
+moved doesn't quietly produce a merge commit — it refuses:
+
+```
+hint: Diverging branches can't be fast-forwarded, you need to either:
+hint:   git merge --no-ff
+```
+
+> **This is a guardrail, not enforcement.** Nothing in a local config can stop anyone —
+> including you, ten seconds later — from typing `git merge --no-ff`, and that escape hatch
+> is deliberate: the config catches the merge you didn't mean to make, not the one you did.
+>
+> Real enforcement is **branch protection on GitHub**: require a pull request before merging
+> on `main`. That's server-side and per-repository, so it can't live in this file and this
+> repo doesn't try to script it. Turn it on in each repo's settings — it's the half that
+> actually holds.
 
 ---
 
