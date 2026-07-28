@@ -53,9 +53,13 @@ raw. Don't convert them to `.md` and don't reformat them.
 
 ## Paths on this machine
 
-Node, Git, VS Code and Laragon are **not** in `Program Files` — they live under
-`C:\Briar\Code\`. Laragon projects go in `C:\Briar\Code\Laragon\www\`. Personal repos
-live in `C:\Users\mateo\Desktop\`. If a script assumes standard paths, it's wrong.
+Node, Git and VS Code are **not** in `Program Files` — they live under `C:\Briar\Code\`.
+Personal repos live in `C:\Users\mateo\Desktop\`. If a script assumes standard paths, it's
+wrong.
+
+Laragon used to live there too and served Kiosco-Diagonal out of
+`C:\Briar\Code\Laragon\www\`. It was dropped 2026-07-28, so **there is no local PHP/MySQL
+stack on this machine any more** — don't write anything that assumes one.
 
 ## Language
 

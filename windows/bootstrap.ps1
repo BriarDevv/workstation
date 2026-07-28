@@ -18,8 +18,9 @@
     Run it elevated. Developer Mode and the machine-wide installs need it.
 
 .PARAMETER SkipDevMode
-    Don't enable Developer Mode. Note that dev\install.ps1 needs it to symlink
-    KioscoDiagonal into Laragon's www folder.
+    Don't enable Developer Mode. Nothing in the repo depends on it since the Laragon
+    symlink was dropped (2026-07-28); it's kept on because it lets a non-elevated process
+    create symlinks at all.
 
 .EXAMPLE
     # from an elevated Windows PowerShell (not pwsh - it isn't installed yet)
@@ -145,10 +146,10 @@ Step "Developer Mode"
 
 if ($SkipDevMode) {
     Skip 'asked to skip'
-    Warn 'dev\install.ps1 needs this to symlink KioscoDiagonal into Laragon'
+    Skip 'nothing in the repo needs it since the Laragon symlink went (2026-07-28)'
 }
 else {
-    # Lets a non-elevated process create symlinks. dev\install.ps1 relies on it.
+    # Lets a non-elevated process create symlinks. No script relies on it right now.
     $key = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
     if (-not (Test-Path $key)) { New-Item -Path $key -Force | Out-Null }
     $cur = (Get-ItemProperty -Path $key -Name AllowDevelopmentWithoutDevLicense -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense

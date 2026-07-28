@@ -1,7 +1,7 @@
 # Apps
 
 Which programs I have and **why**. The "what for" column is the important one — in eight
-months you won't remember what Radmin VPN was doing here.
+months you won't remember what TranslucentTB was doing here.
 
 `install.ps1` reads the winget IDs out of the tables below (the ones in `backticks` in the
 first column). Add a row and it gets installed on the next run.
@@ -48,11 +48,8 @@ Nothing works without these. All of them get installed.
 | `Microsoft.WSL`              | WSL2             | Linux for whatever doesn't run on Windows. **Requires a reboot** |
 | `Python.Python.3.14`         | Python 3.14      | The system-wide one. Projects use their own — see § Python    |
 | `Python.Launcher`            | `py`             | `py -3.14`, and what shebangs resolve through                 |
-| `GoLang.Go`                  | Go 1.26          | Go projects                                                   |
 | `Microsoft.DotNet.SDK.10`    | .NET SDK 10      | Current LTS. Was SDK 8 until 2026-07-28 — see § Versions      |
-| `LeNgocKhoa.Laragon`         | Laragon          | Local PHP/MySQL stack. Kiosco-Diagonal runs here              |
 | `Tailscale.Tailscale`        | Tailscale        | VPN to reach my own machines                                  |
-| `Gyan.FFmpeg`                | FFmpeg           | Video/audio conversion from the terminal                      |
 | `RARLab.WinRAR`              | WinRAR           | Archives. License has to be entered by hand                   |
 
 ## Terminal
@@ -67,13 +64,9 @@ only holds **configuration**, not binaries.
 
 ## Desktop / utilities
 
-| winget ID                     | What it is    | What I use it for      |
-| ----------------------------- | ------------- | ---------------------- |
-| `CharlesMilette.TranslucentTB` | TranslucentTB | Transparent taskbar    |
-| `RamenSoftware.Windhawk`      | Windhawk      | Windows UI mods        |
-| `Parsec.Parsec`               | Parsec        | Remote desktop         |
-| `Parsec.ParsecVDD`            | Parsec VDD    | Virtual display for Parsec |
-| `Famatech.RadminVPN`          | Radmin VPN    | Virtual LAN            |
+| winget ID                      | What it is    | What I use it for   |
+| ------------------------------ | ------------- | ------------------- |
+| `CharlesMilette.TranslucentTB` | TranslucentTB | Transparent taskbar |
 
 ---
 
@@ -88,16 +81,50 @@ only holds **configuration**, not binaries.
 | `Ubisoft.Connect`        | Ubisoft Connect | Same                                       |
 | `Logitech.GHUB`          | G HUB           | Only if you're using Logitech peripherals  |
 | `Ollama.Ollama`          | Ollama          | Local models. Heavy and you barely use it  |
-| `SST.OpenCodeDesktop`    | OpenCode        | You already have the CLI via npm           |
+| `SST.OpenCodeDesktop`    | OpenCode        | The desktop app. The CLI was dropped 2026-07-28 |
 | `Anthropic.Claude`       | Claude Desktop  | The app; the CLI is installed from `claude/` |
 | `Famatech.Radmin.Server` | Radmin Server   | Only if this machine is the host           |
 | `Microsoft.Teams`        | Teams           | Only if work requires it                   |
 | `Apple.Bonjour`          | Bonjour         | Leftover, unused                           |
-| `Warp.Warp`              | Warp            | Dropped 2026-07-27 — not used any more     |
-| `JanDeDobbeleer.OhMyPosh` | Oh My Posh     | Dropped 2026-07-27 — was installed for months but never wired into the profile, so the prompt stayed plain PowerShell. Don't like it, don't reinstall |
 
 > `Microsoft.VCRedist.*`, `Microsoft.DotNet.*Runtime*` and `WindowsAppRuntime.*` are **not**
 > in any table on purpose — they get pulled in automatically as dependencies.
+
+---
+
+## Removed — don't reinstall
+
+This section is **not** read by `install.ps1`. That's the point: anything listed here can't
+be installed by any flag, including `-Optional`.
+
+Warp and Oh My Posh used to sit in the Optional table with "don't reinstall" written in the
+reason column — which `install.ps1 -Optional` would have cheerfully ignored, because that
+table is an install list. Tombstones need to live outside it.
+
+### 2026-07-28
+
+| winget ID                | What it was   | Why it went                                          |
+| ------------------------ | ------------- | ---------------------------------------------------- |
+| `GoLang.Go`              | Go            | Not used                                             |
+| `LeNgocKhoa.Laragon`     | Laragon       | Not used. Took the Kiosco-Diagonal symlink with it — see `dev/README.md` |
+| `Gyan.FFmpeg`            | FFmpeg        | Not used                                             |
+| `RamenSoftware.Windhawk` | Windhawk      | Not used                                             |
+| `Parsec.Parsec`          | Parsec        | Not used                                             |
+| `Parsec.ParsecVDD`       | Parsec VDD    | A virtual display driver whose only consumer was Parsec |
+| `Famatech.RadminVPN`     | Radmin VPN    | Not used                                             |
+
+| npm package     | What it was  | Why it went |
+| --------------- | ------------ | ----------- |
+| `@openai/codex` | Codex CLI    | Not used    |
+| `opencode-ai`   | OpenCode CLI | Not used    |
+| `badclaude`     | —            | Not used, and nobody could say what it did |
+
+### 2026-07-27
+
+| winget ID                 | What it was | Why it went                                                  |
+| ------------------------- | ----------- | ------------------------------------------------------------ |
+| `Warp.Warp`               | Warp        | Not used any more                                            |
+| `JanDeDobbeleer.OhMyPosh` | Oh My Posh  | Installed for months but never wired into the profile, so the prompt stayed plain PowerShell. Not wanted |
 
 ---
 
@@ -191,11 +218,8 @@ Nothing is lost in the swap — global packages live in `%APPDATA%\npm`, not her
 | ----------------------- | ------------------------------------------------------------ |
 | `oh-my-claude-sisyphus` | **OMC** — the Claude Code orchestration layer. See `claude/`  |
 | `@anthropic-ai/sdk`     | SDK, for one-off scripts                                     |
-| `@openai/codex`         | Codex CLI                                                    |
-| `opencode-ai`           | OpenCode CLI                                                 |
 | `chrome-devtools-mcp`   | Chrome DevTools MCP                                          |
 | `hostinger-api-mcp`     | Hostinger MCP (hosting)                                      |
-| `badclaude`             | —                                                            |
 
 > `electron@41` was installed globally (~200 MB) but it normally belongs per-project.
 > It does not get reinstalled. If you ever want it back, add a row here — the table *is*
@@ -207,9 +231,9 @@ The Node **zip** ships its own `npmrc` with `prefix=${APPDATA}\npm`, so `npm i -
 executables in `%APPDATA%\npm` and not next to `node.exe`. The zip sets no environment
 variables, so nothing puts that folder on `PATH`.
 
-`install.ps1` adds it explicitly. Without that, a fresh machine installs `codex`,
-`opencode` and `omc` with no errors at all and then can't run any of them. It goes
-unnoticed on the current machine only because an old Node MSI added the entry years ago.
+`install.ps1` adds it explicitly. Without that, a fresh machine installs `omc` and the two
+MCP servers with no errors at all and then can't run any of them. It goes unnoticed on the
+current machine only because an old Node MSI added the entry years ago.
 
 ### `npmrc`
 
@@ -219,7 +243,7 @@ machine, not only global ones.
 
 When a package legitimately needs its install script, allow it for that command —
 `npm install --ignore-scripts=false`, or `npm rebuild <package>` — rather than deleting the
-line. All seven globals above install cleanly with it on (verified 2026-07-28).
+line. All four globals above install cleanly with it on (verified 2026-07-28).
 
 ---
 
@@ -241,6 +265,11 @@ Raw output of `winget export`, holding **everything** that was installed on 2026
 something in the tables above.
 
 **Generated file — don't hand-edit it.** `snapshot.ps1` regenerates it.
+
+> ⚠️ It's a snapshot of the machine, not a wish list. It still contains everything under
+> § Removed — Go, Laragon, FFmpeg, Windhawk, Parsec, Radmin VPN, Warp, Oh My Posh — because
+> they were installed the day it was taken. Feeding it to `winget import` brings all of
+> them back. Use it to *look things up*, not to restore from.
 
 Re-exporting can produce a diff that looks like drift but isn't: winget resolves an
 installed program to whichever source claims it, and that answer can change between runs.

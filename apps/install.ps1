@@ -159,9 +159,9 @@ Write-Step "npm globals"
 
 # npm's builtin npmrc, shipped inside the Node zip, sets prefix=${APPDATA}\npm - global
 # binaries land there, not next to node.exe. The zip touches no environment variables, so
-# nothing puts that directory on PATH. Without this line a fresh machine installs codex,
-# opencode and omc without a single error and then cannot run any of them. It only works
-# on the current machine because an older Node MSI added the entry years ago.
+# nothing puts that directory on PATH. Without this line a fresh machine installs omc and
+# the MCP servers without a single error and then cannot run any of them. It only works on
+# the current machine because an older Node MSI added the entry years ago.
 Add-UserPath (Join-Path $env:APPDATA 'npm')
 
 # Before the installs, so ignore-scripts is already in force for them.

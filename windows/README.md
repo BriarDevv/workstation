@@ -40,10 +40,15 @@ powershell -ExecutionPolicy Bypass -File windows\bootstrap.ps1
 It also installs **PowerShell 7** (via winget, or the MSI from GitHub if winget still isn't
 there) and enables **Developer Mode**.
 
-Developer Mode isn't cosmetic: `dev\install.ps1` symlinks KioscoDiagonal into Laragon's
-`www`, and without it that needs an elevated shell. Verified on this machine — the registry
-value is unset and `New-Item -ItemType SymbolicLink` fails with *"Administrator privilege
-required"*.
+Developer Mode is what lets a **non-elevated** process create symlinks. Verified on this
+machine: with the registry value unset, `New-Item -ItemType SymbolicLink` fails with
+*"Administrator privilege required"*.
+
+Its one consumer in this repo was the KioscoDiagonal → Laragon symlink, which went away
+with Laragon on 2026-07-28. **Nothing here depends on it right now.** It stays on because
+it's a one-time registry flag with no runtime cost and symlinks come up constantly in dev
+work — but if you want a machine with nothing switched on that isn't earning its keep,
+`-SkipDevMode` is the flag and nothing in the repo will break.
 
 Everything after this point can run unelevated.
 
@@ -113,7 +118,7 @@ Use the volume ISO if the plan is to activate later.
 you into local-account creation. None of the Home/Pro workarounds needed.
 
 **What LTSC removes:** Store, Cortana, Widgets, consumer Teams, most inbox UWP apps, Edge
-preinstall. For the work stack — Docker, WSL, Laragon, VS Code, Node, Python — nothing is
+preinstall. For the work stack — Docker, WSL, VS Code, Node, Python — nothing is
 lost. For games, Steam is fine; anything wanting the Xbox app or Game Pass needs the Store
 added back by hand.
 

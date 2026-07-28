@@ -79,14 +79,20 @@ Aliases: `s` (short status), `lg` (graph log), `last`, `unstage`, `amend`.
 | Ynara                    | `BriarDevv/Ynara`                    | `~\Desktop\`                             |
 | EDocente                 | `BriarDevv/Empoderamiento-Docente`   | `~\Desktop\EDocente`                     |
 | Inferiores-Riverplatense | `BriarDevv/Inferiores-riverplatense` | `~\Desktop\`                             |
-| KioscoDiagonal           | `BriarDevv/Kiosco-Diagonal`          | `~\Desktop\` + symlink in `Laragon\www\` |
+| KioscoDiagonal           | `BriarDevv/Kiosco-Diagonal`          | `~\Desktop\`                             |
 | LaBoutique               | `Gaston3000/laboutique`              | `~\Desktop\`                             |
 
 Cloning needs `gh auth login` done first.
 
-**KioscoDiagonal** is served by Laragon from `C:\Briar\Code\Laragon\www\Kiosco-Diagonal`.
-The install creates a **symlink** there pointing at the Desktop copy, so there's only one
-working tree. Needs an elevated shell or Windows Developer Mode enabled.
+**KioscoDiagonal** used to get a **symlink** into `C:\Briar\Code\Laragon\www\`, so Laragon
+could serve it while you edited the Desktop copy. Laragon was dropped from `apps/` on
+2026-07-28, so the symlink went with it — the repo is cloned to the Desktop like every
+other one and nothing serves it.
+
+It's a PHP project, so **it has no way to run locally right now.** Intelephense still gives
+you language support in the editor; there's just no PHP/MySQL stack behind it. If you pick
+this project up again, the two realistic options are putting Laragon back (one row in
+`apps/README.md`) or giving it a `docker-compose.yml`, since Docker is already installed.
 
 > ⚠️ These folders are on **no remote** and are not cloned by anything:
 > `C:\Briar\Facultad`, `C:\Briar\Trabajo`, `C:\Briar\WAND`, `C:\Briar\Pen`,

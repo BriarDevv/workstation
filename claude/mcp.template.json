@@ -22,8 +22,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "C:\\Users\\mateo\\Desktop",
-        "C:\\Briar\\Code\\Laragon\\www"
+        "C:\\Users\\mateo\\Desktop"
       ]
     },
     "memory": {
