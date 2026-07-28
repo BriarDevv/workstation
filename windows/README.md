@@ -58,12 +58,9 @@ Everything after this point can run unelevated.
 
 ### Back this up — it is not anywhere else
 
-```
-C:\Briar\Facultad     C:\Briar\Trabajo     C:\Briar\WAND
-C:\Briar\Pen          C:\Briar\Paginas
-```
-
-No git remote, no cloud copy. Wipe the disk and they're gone.
+Five folders under `C:\Briar\` have no git remote and no cloud copy. Wipe the disk and
+they're gone. **The list lives in the root `README.md` § Before you wipe** — one copy, so
+it can't drift out of sync with the other three places that used to repeat it.
 
 ### Link the digital licence
 

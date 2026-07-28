@@ -125,12 +125,10 @@ What the built USB reported:
 
 ### Back this up — it's the only irreversible part
 
-No git remote, no cloud copy:
-
-```
-C:\Briar\Facultad     C:\Briar\Trabajo     C:\Briar\WAND
-C:\Briar\Pen          C:\Briar\Paginas
-```
+Five folders under `C:\Briar\` exist on this disk and nowhere else: no git remote, no cloud
+copy. **Open the root `README.md` § Before you wipe and copy them off now.** The list is
+kept in exactly one place so it can't go stale; this is the step where a stale copy would
+cost you the data.
 
 ### The way back
 

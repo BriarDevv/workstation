@@ -72,28 +72,11 @@ Aliases: `s` (short status), `lg` (graph log), `last`, `unstage`, `amend`.
 
 ## Repos to clone
 
-| Repo                     | Remote                               | Destination                              |
-| ------------------------ | ------------------------------------ | ---------------------------------------- |
-| Bystellabotella          | `BriarDevv/Bystellabotella`          | `~\Desktop\`                             |
-| Portafolio               | `BriarDevv/Portafolio`               | `~\Desktop\`                             |
-| Ynara                    | `BriarDevv/Ynara`                    | `~\Desktop\`                             |
-| EDocente                 | `BriarDevv/Empoderamiento-Docente`   | `~\Desktop\EDocente`                     |
-| Inferiores-Riverplatense | `BriarDevv/Inferiores-riverplatense` | `~\Desktop\`                             |
-| KioscoDiagonal           | `BriarDevv/Kiosco-Diagonal`          | `~\Desktop\`                             |
-| LaBoutique               | `Gaston3000/laboutique`              | `~\Desktop\`                             |
+In **`repos.md`**, deliberately not here. This file describes the machine; that one
+describes the work, and the work list goes stale far faster than the machine does.
 
-Cloning needs `gh auth login` done first.
+`install.ps1` will read that table the same way `apps/install.ps1` reads its own — the table
+is the list, so the script never carries a second copy of it.
 
-**KioscoDiagonal** used to get a **symlink** into `C:\Briar\Code\Laragon\www\`, so Laragon
-could serve it while you edited the Desktop copy. Laragon was dropped from `apps/` on
-2026-07-28, so the symlink went with it — the repo is cloned to the Desktop like every
-other one and nothing serves it.
-
-It's a PHP project, so **it has no way to run locally right now.** Intelephense still gives
-you language support in the editor; there's just no PHP/MySQL stack behind it. If you pick
-this project up again, the two realistic options are putting Laragon back (one row in
-`apps/README.md`) or giving it a `docker-compose.yml`, since Docker is already installed.
-
-> ⚠️ These folders are on **no remote** and are not cloned by anything:
-> `C:\Briar\Facultad`, `C:\Briar\Trabajo`, `C:\Briar\WAND`, `C:\Briar\Pen`,
-> `C:\Briar\Paginas`. Back them up manually before wiping the machine.
+> ⚠️ Some folders on this disk are on **no remote at all** and nothing here clones them.
+> Root `README.md` § **Before you wipe** has the list.

@@ -197,3 +197,8 @@ C:\Briar\Pen          C:\Briar\Paginas
 ```
 
 Copy them to an external drive or push them to a private repo first.
+
+> **This is the only copy of that list.** `windows/usb.md`, `windows/README.md` and
+> `dev/README.md` each used to repeat it — four places to keep in sync for the one list
+> where being out of date costs you data that doesn't exist anywhere else. They point here
+> now. If you add a folder, add it here and nowhere else.
