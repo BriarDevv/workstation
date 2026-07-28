@@ -21,8 +21,8 @@ It **configures**; it does not install programs. VS Code, git and `gh` all come 
 `apps/`, and when one is missing this says so and carries on rather than trying to fetch it.
 
 Both lists are read out of the markdown beside it — extension IDs from
-`vscode/extensions.md`, repositories from `repos.md` — so a row remains the only place
-either list exists. Failures are collected, printed together at the end, and the script
+`vscode/extensions.md`, repositories from every list in `repos/` — so a row remains the only
+place either list exists. Failures are collected, printed together at the end, and the script
 exits 1: the same contract as `apps/`.
 
 There is no upgrade pass for extensions and no `-SkipUpgrade` to suppress one. VS Code
@@ -84,10 +84,12 @@ Aliases: `s` (short status), `lg` (graph log), `last`, `unstage`, `amend`.
 
 ## Repos to clone
 
-In **`repos.md`**, deliberately not here. This file describes the machine; that one
-describes the work, and the work list goes stale far faster than the machine does.
+In **`repos/`**, deliberately not here. This file describes the machine; those describe the
+work, and the work list goes stale far faster than the machine does.
 
-`install.ps1` reads that table directly, so the script never carries a second copy of it.
+One `.md` per list, and `install.ps1` reads them all — so splitting them by owner, by client
+or by anything else costs nothing, and adding a list means adding a file. `repos/README.md`
+has the format.
 
 > ⚠️ Some folders on this disk are on **no remote at all** and nothing here clones them.
 > Root `README.md` § **Before you wipe** has the list.

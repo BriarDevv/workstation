@@ -36,7 +36,7 @@ don't add it back, and don't record removals: a repo that carries a list of soft
 owner rejected is a repo that ships its own contamination. When you drop something, delete
 the row.
 
-**Never name a project.** `dev/repos.md` is the single file allowed to, because listing
+**Never name a project.** `dev/repos/` is the one place allowed to, because listing
 repositories is its entire job and it is quarantined for exactly that reason. Anywhere else
 — install scripts, READMEs, git config, Claude config, code comments — a project name is a
 bug. What this repo installs serves many projects at once, so justifying a package, an

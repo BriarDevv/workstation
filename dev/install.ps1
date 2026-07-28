@@ -4,8 +4,8 @@
 
 .DESCRIPTION
     Reads its lists out of the markdown next to it, the same way apps/install.ps1 does -
-    extension IDs from vscode/extensions.md, repositories from repos.md. Adding a row is
-    enough; nothing here carries a second copy of either list.
+    extension IDs from vscode/extensions.md, repositories from every list in repos\.
+    Adding a row is enough; nothing here carries a second copy of either list.
 
     The programs themselves come from apps/. This script only configures them, so it
     reports and moves on when one is missing rather than trying to install it.
@@ -54,34 +54,47 @@ function Resolve-Code {
     return $null
 }
 
-# repos.md's table is shaped differently from the ones in apps/README.md: the useful
-# columns are 2 and 3, and column 1 is plain text rather than a backticked ID. That's why
-# Get-IdsFromReadme can't read it and this exists instead.
+# Every .md in repos\ except its README is a clone list, so adding a list is adding a file -
+# there is nothing to register it in. Splitting them by owner, by client, by whatever, costs
+# nothing here.
+#
+# These tables are shaped differently from the ones in apps/README.md: the useful columns
+# are 2 and 3, and column 1 is plain text rather than a backticked ID. That's why
+# Get-IdsFromReadme can't read them and this exists instead.
 #
 # A destination ending in a separator is a parent directory, and the local checkout takes
-# its name from column 1 - which is how a repo can sit on disk under a shorter name than
-# the one its remote carries.
-function Get-ReposFromMd {
-    param([Parameter(Mandatory)][string]$Path)
+# its name from column 1 - so a repo can sit on disk under a different name than the one its
+# remote carries.
+function Get-ReposFromDir {
+    param([Parameter(Mandatory)][string]$Dir)
 
-    $inList = $false
     $repos = [System.Collections.Generic.List[hashtable]]::new()
+    if (-not (Test-Path $Dir)) { return $repos }
 
-    foreach ($line in Get-Content $Path) {
-        if ($line -match '^##\s+(.+?)\s*$') { $inList = ($Matches[1].Trim() -eq 'The list'); continue }
-        if (-not $inList -or $line -notmatch '^\|') { continue }
+    $files = Get-ChildItem $Dir -Filter *.md |
+        Where-Object { $_.Name -ne 'README.md' } | Sort-Object Name
 
-        $cells = $line -split '\|'
-        if ($cells.Count -lt 4) { continue }
+    foreach ($file in $files) {
+        # Reset per file: a table only counts inside a "## The list" section, which is what
+        # lets each list explain itself in prose without confusing the parser.
+        $inList = $false
 
-        $name = ($cells[1] -replace '\*\*|`', '').Trim()
-        if (-not $name -or $name -match '^-+$' -or $name -eq 'Repo') { continue }
+        foreach ($line in Get-Content $file.FullName) {
+            if ($line -match '^##\s+(.+?)\s*$') { $inList = ($Matches[1].Trim() -eq 'The list'); continue }
+            if (-not $inList -or $line -notmatch '^\|') { continue }
 
-        $remote = ($cells[2] -replace '`', '').Trim()
-        $dest = ($cells[3] -replace '`', '').Trim() -replace '^~', $HOME
-        if ($dest -match '[\\/]$') { $dest = Join-Path $dest $name }
+            $cells = $line -split '\|'
+            if ($cells.Count -lt 4) { continue }
 
-        $repos.Add(@{ Name = $name; Remote = $remote; Path = $dest })
+            $name = ($cells[1] -replace '\*\*|`', '').Trim()
+            if (-not $name -or $name -match '^-+$' -or $name -eq 'Repo') { continue }
+
+            $remote = ($cells[2] -replace '`', '').Trim()
+            $dest = ($cells[3] -replace '`', '').Trim() -replace '^~', $HOME
+            if ($dest -match '[\\/]$') { $dest = Join-Path $dest $name }
+
+            $repos.Add(@{ Name = $name; Remote = $remote; Path = $dest; List = $file.BaseName })
+        }
     }
     return $repos
 }
@@ -143,7 +156,7 @@ if (-not (Install-ConfigFile (Join-Path $PSScriptRoot 'git\gitconfig') (Join-Pat
 
 # ---------------------------------------------------------------- repos
 Write-Step 'Repos'
-$repos = Get-ReposFromMd (Join-Path $PSScriptRoot 'repos.md')
+$repos = Get-ReposFromDir (Join-Path $PSScriptRoot 'repos')
 
 if ($SkipRepos) {
     Write-Skip "$($repos.Count) repos skipped - -SkipRepos"
