@@ -126,7 +126,7 @@ pwsh .\snapshot.ps1
 git add -A ; git commit -m "chore: snapshot $(Get-Date -f yyyy-MM-dd)"
 ```
 
-`snapshot.ps1` re-reads the machine and writes the current state back over the repo.
+`snapshot.ps1` re-reads the machine and refreshes the lists the repo already owns.
 
 ---
 
@@ -162,9 +162,14 @@ Decided 2026-07-27. Two things this changes:
 
 Two different problems, two different tools:
 
-- **Mechanical inventory** → `snapshot.ps1`. Installed packages, VS Code extensions, npm
-  globals. No judgment involved, so a script is strictly better: deterministic, instant,
-  and it can't invent anything.
+- **Mechanical inventory** → `snapshot.ps1`. VS Code extensions and npm globals — lists the
+  repo already owns, refreshed in place. No judgment involved, so a script is strictly
+  better: deterministic, instant, and it can't invent anything.
+
+  It deliberately does **not** dump the installed-package list. A raw `winget export` is a
+  photo of the machine rather than a wish list, so it carries back every program the tables
+  leave out — which is precisely how software you removed reappears in the repo that was
+  supposed to have dropped it.
 - **Layered config** → the folder's `CLAUDE.md` + an agent. Deciding whether a changed
   value belongs to the style, the scheme or the base is a judgment call. A script would
   have to guess, and guessing wrong flattens the composition. `terminal/CLAUDE.md` writes

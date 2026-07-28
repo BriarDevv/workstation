@@ -14,7 +14,7 @@ manifests that point at the vendor's own download — chrome from google.com, th
 GitHub, League from Riot. The `msstore` source is the Microsoft Store, and it needs the
 Store to be installed.
 
-**All 21 packages in the tables below come from the `winget` source. None from `msstore`**
+**All 33 packages in the tables below come from the `winget` source. None from `msstore`**
 — verified 2026-07-28 by querying each one. That matters because the target OS is LTSC,
 which has no Store: anything sourced from `msstore` simply cannot resolve there.
 
@@ -30,7 +30,7 @@ exactly the ones that scrolled past you two hundred lines ago.
 
 ```
 === Summary
-  15 winget packages checked, 4 npm globals
+  33 winget packages checked, 4 npm globals
   [ok]   nothing failed
 ```
 
@@ -38,9 +38,8 @@ The reboot warning only appears when something that actually needs one — Docke
 was installed **on that run**. A warning that fires every single time is a warning you stop
 reading.
 
-If `winget` itself is missing, the script points at `windows/bootstrap.ps1` rather than at
-the Microsoft Store. On the target OS the Store isn't there, so that's the one moment the
-old advice was guaranteed to be useless.
+If `winget` itself is missing, the script points at `windows/bootstrap.ps1` — not at the
+Microsoft Store, which on the target OS isn't there to go to.
 
 ---
 
@@ -48,8 +47,8 @@ old advice was guaranteed to be useless.
 
 Nothing here is pinned. `install.ps1` upgrades **every package in the tables** on every
 run, not only the ones it just installed. That covers all four sources — winget packages,
-Node itself, the npm globals, and pnpm/uv, none of which used to be updated once present.
-Pass `-SkipUpgrade` to hold versions still for one run.
+Node itself, the npm globals, and pnpm/uv. Pass `-SkipUpgrade` to hold versions still for
+one run.
 
 "Stable" means the vendor's stable channel, not the newest thing that exists: Node **LTS**
 rather than Current, .NET **LTS** rather than preview, `Microsoft.PowerShell` rather than
@@ -105,9 +104,6 @@ only holds **configuration**, not binaries.
 
 ## Games
 
-This stopped being a work-only machine on 2026-07-28. Pretending otherwise just meant the
-tables didn't match the machine.
-
 | winget ID                        | What it is       | Notes                                                        |
 | -------------------------------- | ---------------- | ------------------------------------------------------------ |
 | `Valve.Steam`                    | Steam            | Also a **dependency**: Wallpaper Engine is sold only through it |
@@ -136,7 +132,8 @@ symptom is a program that won't start and an error naming a file you've never he
 
 Visual C++ runtimes, the whole set. Every program compiled with MSVC links against one of
 these, and each release is a **separate** runtime — having 2013 does nothing for something
-built against 2010. That's why there are six and not one:
+built against 2010. Six releases, and both architectures of each, is why the table is
+twelve rows and not one:
 
 | winget ID                      | Release  |
 | ------------------------------ | -------- |
@@ -181,10 +178,10 @@ package serves all four. The older five are not compatible with each other.
 > `Microsoft.DotNet.*Runtime*` and `WindowsAppRuntime.*` are **not** in any table on
 > purpose — they get pulled in automatically as dependencies.
 >
-> The Visual C++ runtimes used to be left out for that same reason, and it was wrong. It
-> only holds for programs installed **through winget**, which declare their dependencies.
-> Anything installed another way — a store client, an archive you unpacked, an old
-> installer — declares nothing. Hence § Runtimes.
+> That reasoning does **not** extend to § Runtimes, and the difference is easy to miss:
+> automatic dependency resolution only happens for programs installed **through winget**,
+> which declare what they need. Anything installed another way — a store client, an archive
+> you unpacked, an old installer — declares nothing.
 
 ---
 
@@ -220,58 +217,42 @@ It registers as `JetBrainsMono NFM` (Nerd Font Mono), **not** `JetBrainsMono Ner
 Getting that name wrong costs you the font without any warning. Details in
 `terminal/README.md`.
 
-**Not covered here:** the other Nerd Font families sitting on the machine. They were
-installed by other tools, aren't on winget, and nothing in this repo names them. A restored
-machine gets exactly the one font in the table — which is why the name has to be right.
+A restored machine gets **exactly** the one font in that table and nothing else — which is
+why the name has to be right.
 
 ---
 
-## PowerShell — winget installs a different copy than the MSI
+## PowerShell lands in WindowsApps, not Program Files
 
-Worth knowing before it confuses you, because it happened here on 2026-07-28.
+`winget show Microsoft.PowerShell` reports `Installer Type: msix`. So on a restored machine
+`C:\Program Files\PowerShell\7` **never exists** — PowerShell 7 lives in
+`%LOCALAPPDATA%\Microsoft\WindowsApps\` and is reached through the `pwsh.exe` app execution
+alias.
 
-PowerShell 7 on this machine came from the **GitHub MSI**, which lands in
-`C:\Program Files\PowerShell\7` and registers in Add/Remove Programs as `PowerShell 7-x64`.
-winget never correlated that entry to `Microsoft.PowerShell`, so `winget list` reported the
-package as **not installed** — and `install.ps1`, believing it, installed it. What it
-installed was the **MSIX** flavour, into
-`%LOCALAPPDATA%\Microsoft\WindowsApps\Microsoft.PowerShell_8wekyb3d8bbwe\`. The Program
-Files copy was never touched.
+**Never hardcode that Program Files path.** Call `pwsh.exe` and let the alias resolve it;
+that works whichever flavour is installed. `terminal/windows-terminal/settings.json` is the
+one place this matters — a default profile pointing at a path winget never creates means the
+first terminal you open after a format fails to start.
 
-Result: two PowerShell 7 installs side by side, different versions, and the one on `PATH`
-is still the MSI.
+### winget won't always see a program you installed by hand
 
-**On a fresh machine this can't happen** — nothing pre-exists, winget installs the only
-copy and tracks it from then on. It only bites when a program was installed outside winget
-first. If you ever install something by hand that's also in the tables above, expect
-`install.ps1` to install its own copy on the next run.
-
-**What did matter** is the flavour. `winget show Microsoft.PowerShell` reports
-`Installer Type: msix`, so on a restored machine `C:\Program Files\PowerShell\7` **never
-exists** — PowerShell lives in `%LOCALAPPDATA%\Microsoft\WindowsApps\` and is reached
-through the `pwsh.exe` app execution alias.
-
-Windows Terminal's default profile in this repo used to hardcode that Program Files path.
-The first terminal opened after a format would have failed to start its own default
-profile. Fixed in `terminal/windows-terminal/settings.json`: the profile calls `pwsh.exe`
-and lets the alias resolve it, which works with either flavour.
+winget only tracks what it installed. A program put on the machine another way — a vendor
+MSI, an unpacked archive — often fails to correlate to its package, so `winget list` reports
+it as missing and `install.ps1` installs a second copy alongside it, in winget's own
+location. Harmless on a fresh machine, where nothing pre-exists. Worth knowing if you ever
+install something by hand that's also in the tables above.
 
 ---
 
 ## Python
 
-Three Pythons are registered with `py` on this machine right now — 3.10, 3.11 and 3.14 —
-but only **3.14** is in the table above. That's deliberate: nothing on the machine was
-found using 3.10 or 3.11, so a restore drops them. If something turns out to need one, add
-the row; don't reinstall them "just in case".
+`Python.Python.3.14` is the system-wide interpreter and it exists **for the shell** — `py`,
+one-off scripts, anything run outside a project. It is the only Python this repo installs.
 
-More to the point, **the projects don't use system Python at all**. Ynara's backend
-declares `requires-python = ">=3.12"` and both of its `.venv`s point at
-`%APPDATA%\uv\python\cpython-3.12-windows-x86_64-none` — a **uv-managed** interpreter, not
-a winget one. `uv sync` downloads it on demand, so that project works on a fresh machine
-whether or not `Python.Python.3.14` is there.
-
-So `Python.Python.3.14` is for the shell, not for the projects.
+**Projects don't use it.** They pin their own interpreter through `uv`, which downloads
+whatever version they declare into `%APPDATA%\uv\python\` on demand. So a project resolves
+the same on a fresh machine whether or not the winget Python is there, and the version in
+the table has no bearing on it.
 
 ---
 
@@ -303,10 +284,6 @@ Nothing is lost in the swap — global packages live in `%APPDATA%\npm`, not her
 | `chrome-devtools-mcp`   | Chrome DevTools MCP                                          |
 | `hostinger-api-mcp`     | Hostinger MCP (hosting)                                      |
 
-> `electron@41` was installed globally (~200 MB) but it normally belongs per-project.
-> It does not get reinstalled. If you ever want it back, add a row here — the table *is*
-> the list, there's nothing to uncomment in `install.ps1`.
-
 ### Where the binaries go
 
 The Node **zip** ships its own `npmrc` with `prefix=${APPDATA}\npm`, so `npm i -g` puts
@@ -331,31 +308,13 @@ line. All four globals above install cleanly with it on (verified 2026-07-28).
 
 ## Keeping it current
 
+`install.ps1` upgrades every package in the tables on each run — see § Versions. That's the
+intended path and it's deliberately scoped: it touches what this repo asked for, and nothing
+else on the machine.
+
+To sweep everything instead, including whatever was installed outside this repo:
+
 ```powershell
 winget upgrade                              # see what's outdated
 winget upgrade --all --include-unknown      # update everything
 ```
-
-Run `snapshot.ps1` afterwards so `winget-export.json` reflects the new versions.
-
----
-
-## `winget-export.json`
-
-Raw output of `winget export`, holding **everything** that was installed on 2026-07-27
-(**61 packages**, redistributables and games included). It's the backstop in case I forgot
-something in the tables above.
-
-**Generated file — don't hand-edit it.** `snapshot.ps1` regenerates it.
-
-> ⚠️ It's a snapshot of the machine, **not a wish list**. It holds everything that happened
-> to be installed the day it was taken, including plenty the tables above deliberately
-> leave out. Feeding it to `winget import` undoes those decisions in one command. Use it to
-> *look something up*, never to restore from.
-
-Re-exporting can produce a diff that looks like drift but isn't: winget resolves an
-installed program to whichever source claims it, and that answer can change between runs.
-On 2026-07-28 the EA app and Ubisoft Connect came back as the Store IDs `XPFC0VB7MLFWLC`
-and `XPDP2QW12DFSFK` instead of `ElectronicArts.EADesktop` and `Ubisoft.Connect`. Same two
-programs, same 61 packages. Check the count before assuming something was installed or
-removed.
