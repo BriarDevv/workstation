@@ -1,14 +1,14 @@
 <#
 .SYNOPSIS
-    Configures the development environment: VS Code, git, and the repos to clone.
+    Configures git and clones the repos.
 
 .DESCRIPTION
-    Reads its lists out of the markdown next to it, the same way apps/install.ps1 does -
-    extension IDs from vscode/extensions.md, repositories from every list in repos\.
-    Adding a row is enough; nothing here carries a second copy of either list.
+    Reads the repository lists out of the markdown in repos\, the same way
+    apps/install.ps1 reads its own tables. Adding a row is enough; nothing here carries a
+    second copy of the list.
 
-    The programs themselves come from apps/. This script only configures them, so it
-    reports and moves on when one is missing rather than trying to install it.
+    git itself comes from apps/. This script only configures it, so it reports and moves on
+    when something is missing rather than trying to install it.
 
     Idempotent. Exit code 0 means everything asked for is in place; 1 means it isn't, and
     the summary names what.
@@ -36,23 +36,6 @@ Assert-PowerShell7
 $script:DryRun = [bool]$WhatIfOnly
 
 $failed = [System.Collections.Generic.List[string]]::new()
-
-# The binary moves; the config directory doesn't. On this machine VS Code sits in
-# C:\Briar\Code\VSC, and winget restores it to %LOCALAPPDATA%\Programs - so the path is
-# resolved, never assumed. The PATH fallback matters in a fresh restore: apps\install.ps1
-# may have installed VS Code minutes ago in a shell whose PATH predates it, and a `code`
-# that isn't on PATH yet is not the same thing as a VS Code that isn't installed.
-function Resolve-Code {
-    $cmd = Get-Command code -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
-    foreach ($p in @(
-            "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd",
-            "${env:ProgramFiles}\Microsoft VS Code\bin\code.cmd"
-        )) {
-        if (Test-Path $p) { return $p }
-    }
-    return $null
-}
 
 # Every .md in repos\ except its README is a clone list, so adding a list is adding a file -
 # there is nothing to register it in. Splitting them by owner, by client, by whatever, costs
@@ -97,55 +80,6 @@ function Get-ReposFromDir {
         }
     }
     return $repos
-}
-
-# ---------------------------------------------------------------- VS Code
-Write-Step 'VS Code'
-$code = Resolve-Code
-
-# %APPDATA%\Code\User is where VS Code reads user config from, whichever copy is running.
-$userDir = Join-Path $env:APPDATA 'Code\User'
-foreach ($f in 'settings.json', 'keybindings.json') {
-    if (-not (Install-ConfigFile (Join-Path $PSScriptRoot "vscode\$f") (Join-Path $userDir $f))) {
-        $failed.Add("vscode/$f")
-    }
-}
-
-$wanted = Get-IdsFromReadme (Join-Path $PSScriptRoot 'vscode\extensions.md') @(
-    'Frontend', 'TypeScript', 'PHP', 'Python', 'Git',
-    'Docker and remote', 'APIs', 'Themes and icons', 'Utilities'
-)
-
-if (-not $code) {
-    Write-Warn2 "$($wanted.Count) extensions skipped - VS Code isn't installed. Run apps\install.ps1 first."
-    $failed.Add('VS Code (not installed)')
-}
-else {
-    Write-Host "  $($wanted.Count) extensions, from vscode\extensions.md" -ForegroundColor DarkGray
-
-    # There's no upgrade pass here, and no -SkipUpgrade to suppress one. VS Code updates
-    # extensions itself - extensions.autoUpdate defaults to true and settings.json doesn't
-    # override it - so the house "latest stable, always" rule is already satisfied without
-    # this script reinstalling thirty-one things on every run to find that out.
-    Write-Host '  VS Code updates these itself; this only installs what is missing.' -ForegroundColor DarkGray
-
-    # One call, not one per extension. `code --list-extensions` costs about a second of
-    # process startup, and asking it once per row to learn what a single answer already
-    # contains would be most of the runtime of this script.
-    $have = @(& $code --list-extensions 2>$null)
-
-    foreach ($id in $wanted) {
-        if ($have -contains $id) { Write-Skip $id; continue }
-        if ($script:DryRun) { Write-Would "install extension $id"; continue }
-
-        Write-Host "  ...installing $id" -ForegroundColor DarkYellow
-        & $code --install-extension $id --force 2>&1 | Out-Null
-        if ($LASTEXITCODE -eq 0) { Write-Ok $id }
-        else {
-            Write-Warn2 "$id exited with code $LASTEXITCODE"
-            $failed.Add("extension: $id")
-        }
-    }
 }
 
 # ---------------------------------------------------------------- git
@@ -200,7 +134,9 @@ else {
 
 # ---------------------------------------------------------------- summary
 Write-Step 'Summary'
-Write-Host "  $($wanted.Count) extensions, $($repos.Count) repos" -ForegroundColor DarkGray
+$lists = @(Get-ChildItem (Join-Path $PSScriptRoot 'repos') -Filter *.md -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne 'README.md' })
+Write-Host "  $($repos.Count) repos across $($lists.Count) list(s)" -ForegroundColor DarkGray
 
 if ($failed.Count) {
     Write-Host ''

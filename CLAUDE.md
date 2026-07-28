@@ -9,7 +9,7 @@ This repo restores a Windows 11 machine from scratch. When you work here you're 
 0. windows/  bootstrap   winget, if LTSC didn't bring it
 1. apps/                 the binaries
 2. terminal/             the look
-3. dev/                  VS Code, Git, repos
+3. dev/                  Git, repos
 4. claude/               Claude Code
 5. windows/  the rest    Explorer tweaks — restarts Explorer
 ```

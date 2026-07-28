@@ -46,7 +46,7 @@ Each folder answers exactly one question.
 | --------------- | ---------------------------------------------------- | ----------------------------------------------- |
 | **`apps/`**     | Which programs go on, and why I have each one        | When you install something new you want to keep  |
 | **`terminal/`** | How does the terminal look                           | When you change the style                        |
-| **`dev/`**      | How is my dev environment set up — VS Code, Git, repos | When you change editor config or add a repo    |
+| **`dev/`**      | How is git set up, and which repos get cloned         | When you add or drop a repo                     |
 | **`claude/`**   | How does Claude operate                              | **Often.** This one moves the most               |
 | **`windows/`**  | How is the OS set up — LTSC, winget bootstrap, Explorer | Almost never                                  |
 | **`secrets/`**  | Only `.env.example`. Real keys never get committed    | When you add a new service                       |
@@ -60,7 +60,7 @@ installed by `apps/` and configured by `terminal/` — same pattern everywhere.
 0. windows/  bootstrap   winget, if LTSC didn't bring it
 1. apps/                 the binaries
 2. terminal/             the look
-3. dev/                  VS Code, Git, repos
+3. dev/                  Git, repos
 4. claude/               Claude Code
 5. windows/  the rest    Explorer tweaks — restarts Explorer
 ```
@@ -162,9 +162,12 @@ Decided 2026-07-27. Two things this changes:
 
 Two different problems, two different tools:
 
-- **Mechanical inventory** → `snapshot.ps1`. VS Code extensions and npm globals — lists the
-  repo already owns, refreshed in place. No judgment involved, so a script is strictly
-  better: deterministic, instant, and it can't invent anything.
+- **Mechanical inventory** → `snapshot.ps1`. The npm globals — a list the repo already owns,
+  refreshed in place. No judgment involved, so a script is strictly better: deterministic,
+  instant, and it can't invent anything.
+
+  It's a short job on purpose. VS Code extensions aren't here because Settings Sync owns
+  them, and the installed-package set isn't either.
 
   It deliberately does **not** dump the installed-package list. A raw `winget export` is a
   photo of the machine rather than a wish list, so it carries back every program the tables

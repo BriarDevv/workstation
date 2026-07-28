@@ -258,8 +258,9 @@ Install-ConfigFile (Join-Path $PSScriptRoot 'powershell\profile.ps1') $PROFILE.C
 # ================================================================ editor font
 if ($SyncEditorFont) {
     Write-Step 'VS Code font'
-    $vs = Join-Path (Split-Path $PSScriptRoot -Parent) 'dev\vscode\settings.json'
-    foreach ($f in @($vs, (Join-Path $env:APPDATA 'Code\User\settings.json'))) {
+    # The live file only. The repo holds no VS Code config - Settings Sync owns it, see
+    # dev/README.md - so there is no second copy here to keep in step.
+    foreach ($f in @((Join-Path $env:APPDATA 'Code\User\settings.json'))) {
         if (-not (Test-Path $f)) { continue }
         $t = Get-Content $f -Raw
         $t = [regex]::Replace($t, '("editor\.fontFamily"\s*:\s*")[^"]*(")', "`${1}$real, Consolas, monospace`${2}")

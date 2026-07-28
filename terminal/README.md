@@ -265,8 +265,9 @@ Everything it overwrites is backed up to `$HOME\.workstation-backup\<date>\`. It
 writes into Windows Terminal folders that already exist. Running it twice is a no-op —
 every step reports `[skip]` when nothing changed.
 
-`-SyncEditorFont` also writes the style's font into `dev/vscode/settings.json`, so the
-editor matches the terminal.
+`-SyncEditorFont` writes the style's font into the live `%APPDATA%\Code\User\settings.json`
+so the editor matches the terminal. It stops there: the repo holds no VS Code config of its
+own, because Settings Sync owns that — see `dev/README.md`.
 
 ---
 

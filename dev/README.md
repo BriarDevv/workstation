@@ -1,7 +1,7 @@
 # Dev
 
-The development environment: editor, git, and the repos to clone. The programs themselves
-come from `apps/` — this folder only configures them.
+git, and the repos to clone. The programs themselves come from `apps/` — this folder only
+configures them.
 
 ---
 
@@ -13,48 +13,15 @@ pwsh dev\install.ps1 -WhatIfOnly     # report every action, perform none
 pwsh dev\install.ps1 -SkipRepos      # config only, clone nothing
 ```
 
-Three steps in order: VS Code config and extensions, then `~/.gitconfig`, then the clones.
-git comes before the clones on purpose — `credential.helper` is what lets them authenticate
-without a token in a file.
+Two steps: `~/.gitconfig`, then the clones. git goes first on purpose — `credential.helper`
+is what lets the clones authenticate without a token sitting in a file.
 
-It **configures**; it does not install programs. VS Code, git and `gh` all come from
-`apps/`, and when one is missing this says so and carries on rather than trying to fetch it.
+It **configures**; it does not install programs. git and `gh` both come from `apps/`, and
+when one is missing this says so and carries on rather than trying to fetch it.
 
-Both lists are read out of the markdown beside it — extension IDs from
-`vscode/extensions.md`, repositories from every list in `repos/` — so a row remains the only
-place either list exists. Failures are collected, printed together at the end, and the script
-exits 1: the same contract as `apps/`.
-
-There is no upgrade pass for extensions and no `-SkipUpgrade` to suppress one. VS Code
-updates them itself (`extensions.autoUpdate` defaults to on and `settings.json` doesn't
-override it), so "latest stable, always" already holds without reinstalling every extension
-on every run to discover that.
-
----
-
-## `vscode/`
-
-| File               | What it is                                                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `settings.json`    | Catppuccin Mocha, sidebar on the right, activity bar on top, no minimap, ruler at 120, Prettier per language   |
-| `keybindings.json` | One binding: `Shift+Enter` in the terminal sends `ESC + CR` (newline without executing)                        |
-| `extensions.md`    | The extensions, grouped by what they're for. That table is the whole list                      |
-
-Installs to `%APPDATA%\Code\User\`.
-
-### Font
-
-`editor.fontFamily` and `terminal.integrated.fontFamily` are both `JetBrainsMono NFM`,
-matching the terminal. That name is deliberate and not obvious — read
-`../terminal/README.md` § "Font names lie" before changing it. The short version: Windows
-falls back silently when a family name doesn't resolve, and the long form
-`JetBrainsMono Nerd Font Mono` is not what winget registers.
-
-`editor.fontLigatures` is on, which only does anything because the family above resolves —
-Consolas, the silent fallback, has no ligatures.
-
-`pwsh terminal\install.ps1 -SyncEditorFont` rewrites both keys from the active terminal
-style, so the editor follows whatever font the terminal is using.
+The repository lists are read out of `repos/`, so a row there remains the only place any of
+them exists. Failures are collected, printed together at the end, and the script exits 1:
+the same contract as `apps/`.
 
 ---
 
@@ -82,14 +49,30 @@ Aliases: `s` (short status), `lg` (graph log), `last`, `unstage`, `amend`.
 
 ---
 
-## Repos to clone
+## `repos/`
 
-In **`repos/`**, deliberately not here. This file describes the machine; those describe the
-work, and the work list goes stale far faster than the machine does.
+One `.md` per list, and `install.ps1` reads all of them — so splitting them by owner, by
+client or by anything else costs nothing, and adding a list means adding a file.
+`repos/README.md` has the format.
 
-One `.md` per list, and `install.ps1` reads them all — so splitting them by owner, by client
-or by anything else costs nothing, and adding a list means adding a file. `repos/README.md`
-has the format.
+Kept out of this file deliberately: this one describes the **machine**, those describe the
+**work**, and the two go stale at completely different speeds.
 
-> ⚠️ Some folders on this disk are on **no remote at all** and nothing here clones them.
-> Root `README.md` § **Before you wipe** has the list.
+---
+
+## Why VS Code isn't in here
+
+**VS Code Settings Sync owns it.** Signing in restores settings, keybindings and every
+extension, so a copy in this repo wouldn't be a backup — it would be a second source of
+truth for the same three things.
+
+That fails quietly, which is the problem. Change a setting in the editor, Sync stores it,
+this repo doesn't have it, and the next run of a script silently puts the old value back.
+Two config systems agreeing today is exactly the state in which nobody notices they've
+diverged.
+
+So the restore path for the editor is: `apps/` installs VS Code, you sign in, Sync does the
+rest. Nothing here touches `%APPDATA%\Code\User`.
+
+> If you ever turn Sync off, this is the decision to revisit — not by re-adding the files
+> quietly, but by writing down which one wins.
