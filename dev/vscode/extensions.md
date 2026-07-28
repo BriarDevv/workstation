@@ -1,10 +1,9 @@
 # VS Code extensions
 
-31 extensions, grouped by what they're for. `install.ps1` reads the IDs in `backticks` —
-add a row and it gets installed on the next run.
+Grouped by what they're for. `install.ps1` reads the IDs in `backticks` — add a row and it
+gets installed on the next run.
 
-> **This table is the whole list.** It was cut from 60 to 31 on 2026-07-28; what isn't here
-> isn't wanted, and that includes anything a previous version of this file used to mention.
+> **This table is the whole list.** What isn't in it isn't wanted.
 
 ---
 
@@ -35,8 +34,7 @@ add a row and it gets installed on the next run.
 | ------------------------------------- | ---------------------------------------- |
 | `bmewburn.vscode-intelephense-client` | PHP engine: completion, go-to-definition |
 
-The twelve Laravel-specific helpers came out. Intelephense stays, so plain PHP still
-works — only the Blade/artisan/route sugar is gone.
+Intelephense on its own, which covers plain PHP. Nothing framework-specific.
 
 ## Python
 
@@ -47,13 +45,9 @@ works — only the Blade/artisan/route sugar is gone.
 | `ms-python.debugpy`            | Debugger                           |
 | `ms-python.vscode-python-envs` | Environment management             |
 
-These came out in the 2026-07-28 trim and went straight back in. **Ynara has a real Python
-backend** — `apps/backend` with alembic migrations and a test suite covering `api`, `core`,
-`integration`, `llm`, `memory`, `models`, last touched 2026-06-28. Without Pylance there's
-no IntelliSense, no go-to-definition and no type checking on that project; without debugpy
-there are no breakpoints. `ms-python.python` alone is barely past syntax highlighting.
-
-`vscode-python-envs` came back on its own as a dependency.
+All four, not just `ms-python.python` — on its own that one is barely past syntax
+highlighting. Pylance is what gives you IntelliSense, go-to-definition and type checking;
+debugpy is what gives you breakpoints. `vscode-python-envs` arrives as a dependency.
 
 ## Git
 
@@ -99,6 +93,6 @@ there are no breakpoints. `ms-python.python` alone is barely past syntax highlig
 
 ## About `settings.json`
 
-It was trimmed to 75 lines on 2026-07-28 so that every key in it belongs to an extension in
-the table above. If you add an extension, its settings go there; if you drop one, take its
-keys with it. A key with nothing behind it is dead weight that reads like configuration.
+Every key in it belongs to an extension in the table above. If you add an extension, its
+settings go there; if you drop one, take its keys with it. A key with nothing behind it is
+dead weight that reads like configuration.

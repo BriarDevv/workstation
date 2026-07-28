@@ -29,10 +29,14 @@ project, not to the machine.
 
 Cloning needs `gh auth login` done first.
 
-> For whoever writes the parser: this table is **not** shaped like the ones in
-> `apps/README.md`. There the ID is a single backticked value in column 1, which is all
-> `Get-IdsFromReadme` knows how to read. Here the useful columns are 2 and 3, and column 1
-> is plain text. It needs its own reader.
+> This table is **not** shaped like the ones in `apps/README.md`. There the ID is a single
+> backticked value in column 1, which is all `Get-IdsFromReadme` knows how to read. Here the
+> useful columns are 2 and 3 and column 1 is plain text, so `dev/install.ps1` carries its own
+> reader — `Get-ReposFromMd` — rather than bending the shared one to fit two shapes.
+>
+> A destination ending in `\` is a parent directory and the checkout takes its name from
+> column 1. A destination without one is the full path, which is how **EDocente** ends up
+> shorter on disk than its remote.
 
 Two rows carry a decision rather than just a name, which is why the table exists at all
 instead of a `gh repo list`:

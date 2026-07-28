@@ -136,7 +136,7 @@ git add -A ; git commit -m "chore: snapshot $(Get-Date -f yyyy-MM-dd)"
 | ----------- | ---- | ----------- | ------------- | ------------------------------------------- |
 | `apps/`     | ✅   | —           | ✅ tested     | Reads winget IDs straight out of the README |
 | `terminal/` | ✅   | ✅          | ✅ tested     | Style system: one file per look             |
-| `dev/`      | ✅   | —           | ❌ missing    | —                                           |
+| `dev/`      | ✅   | —           | ✅ tested     | Reads extension IDs and repos from markdown |
 | `claude/`   | ✅   | —           | ❌ missing    | —                                           |
 | `windows/`  | ✅   | —           | ✅ tested     | `bootstrap.ps1` + `install.ps1` + `usb.md`  |
 | root        | ✅   | ✅          | ❌ missing    | Needs `install.ps1` + `snapshot.ps1`        |
