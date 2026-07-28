@@ -41,9 +41,9 @@ instead of a `gh repo list`:
 - **LaBoutique** isn't yours — it's `Gaston3000/laboutique`, so it would never show up in
   a listing of your own repos.
 
-Everything is cloned to the Desktop and nothing else happens to it. KioscoDiagonal used to
-also get a symlink into `C:\Briar\Code\Laragon\www\` so Laragon could serve it; that went
-when Laragon was dropped on 2026-07-28, and there's no local PHP/MySQL stack any more.
+Everything is cloned to the Desktop and nothing else happens to it — no symlinks, no
+per-project setup. There's no local PHP/MySQL stack on this machine, so nothing here serves
+anything.
 
 ---
 

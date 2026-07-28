@@ -30,6 +30,12 @@ is put in by hand. Check `Get-Command winget` before assuming anything works.
 `secrets/*` (except `.env.example`), `claude/mcp.json`, `.env`, `*.key`, `*.pem`.
 `.gitignore` already blocks them — don't loosen it.
 
+**The tables are the complete list.** Every README here describes the machine as it should
+be, not the history of what it used to be. If something isn't in a table, it isn't wanted —
+don't add it back, and don't record removals: a repo that carries a list of software the
+owner rejected is a repo that ships its own contamination. When you drop something, delete
+the row.
+
 **Latest stable, never pinned.** Everything this repo installs is the newest **stable**
 release as of the moment you run it — not a snapshot of what was current when the script
 was written. Resolve versions from the vendor at run time (`releases/latest`,
@@ -74,9 +80,8 @@ Most of `C:\Briar\Code\` and `C:\Briar\Programas\` isn't installed software at a
 **saved installers**, about 2 GB of them. A folder there with one `.exe` inside is a
 download, not a program.
 
-Laragon used to live there too and served Kiosco-Diagonal out of
-`C:\Briar\Code\Laragon\www\`. It was dropped 2026-07-28, so **there is no local PHP/MySQL
-stack on this machine any more** — don't write anything that assumes one.
+**There is no local PHP/MySQL stack on this machine.** Don't write anything that assumes
+one.
 
 ## Language
 

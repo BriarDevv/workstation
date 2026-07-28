@@ -44,11 +44,10 @@ Developer Mode is what lets a **non-elevated** process create symlinks. Verified
 machine: with the registry value unset, `New-Item -ItemType SymbolicLink` fails with
 *"Administrator privilege required"*.
 
-Its one consumer in this repo was the KioscoDiagonal → Laragon symlink, which went away
-with Laragon on 2026-07-28. **Nothing here depends on it right now.** It stays on because
-it's a one-time registry flag with no runtime cost and symlinks come up constantly in dev
-work — but if you want a machine with nothing switched on that isn't earning its keep,
-`-SkipDevMode` is the flag and nothing in the repo will break.
+**No script here depends on it right now.** It stays on because it's a one-time registry
+flag with no runtime cost and symlinks come up constantly in dev work — but if you want a
+machine with nothing switched on that isn't earning its keep, `-SkipDevMode` is the flag
+and nothing in the repo will break.
 
 Everything after this point can run unelevated.
 

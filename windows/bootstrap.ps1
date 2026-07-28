@@ -18,9 +18,8 @@
     Run it elevated. Developer Mode and the machine-wide installs need it.
 
 .PARAMETER SkipDevMode
-    Don't enable Developer Mode. Nothing in the repo depends on it since the Laragon
-    symlink was dropped (2026-07-28); it's kept on because it lets a non-elevated process
-    create symlinks at all.
+    Don't enable Developer Mode. No script here depends on it; it's kept on because it's
+    what lets a non-elevated process create symlinks at all.
 
 .EXAMPLE
     # from an elevated Windows PowerShell (not pwsh - it isn't installed yet)
@@ -145,8 +144,7 @@ else {
 Step "Developer Mode"
 
 if ($SkipDevMode) {
-    Skip 'asked to skip'
-    Skip 'nothing in the repo needs it since the Laragon symlink went (2026-07-28)'
+    Skip 'asked to skip - no script here needs it'
 }
 else {
     # Lets a non-elevated process create symlinks. No script relies on it right now.

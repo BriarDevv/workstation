@@ -34,7 +34,7 @@ servers cost no tokens. They do cost startup time, maintenance, and key exposure
 | `pencil`              | —                              | 11                       |
 | `context7`            | —                              | 7                        |
 | `playwright`          | —                              | via plugin               |
-| `filesystem`          | —                              | scoped to `Desktop`. `Laragon\www` was dropped 2026-07-28 |
+| `filesystem`          | —                              | scoped to `Desktop`    |
 | `sequential-thinking` | —                              | —                        |
 | `memory`              | —                              | —                        |
 | `supabase`            | —                              | —                        |

@@ -3,8 +3,8 @@
 31 extensions, grouped by what they're for. `install.ps1` reads the IDs in `backticks` —
 add a row and it gets installed on the next run.
 
-> Trimmed from 60 to 28 on 2026-07-28, then Python support went back in (31). What came out is listed at the bottom, so nothing
-> gets "helpfully" reinstalled later.
+> **This table is the whole list.** It was cut from 60 to 31 on 2026-07-28; what isn't here
+> isn't wanted, and that includes anything a previous version of this file used to mention.
 
 ---
 
@@ -97,48 +97,8 @@ there are no breakpoints. `ms-python.python` alone is barely past syntax highlig
 
 ---
 
-## Removed 2026-07-28 — don't reinstall
+## About `settings.json`
 
-**Laravel (11)** — `onecentlin.laravel-extension-pack`, `onecentlin.laravel-blade`,
-`onecentlin.laravel5-snippets`, `shufo.vscode-blade-formatter`,
-`ihunte.laravel-blade-wrapper`, `amiralizadeh9480.laravel-extra-intellisense`,
-`ryannaddy.laravel-artisan`, `codingyu.laravel-goto-view`, `glitchbl.laravel-create-view`,
-`naoray.laravel-goto-components`, `pgl.laravel-jump-controller`
-
-**Frontend (5)** — `sdras.vue-vscode-snippets`, `volartools.volar-ai`,
-`celianriboulet.webvalidator`, `ritwickdey.liveserver`, `techer.open-in-browser`
-
-**Tooling (7)** — `anthropic.claude-code`, `ms-playwright.playwright`,
-`rangav.vscode-thunder-client`, `damms005.devdb`, `cubewise.canvas`,
-`editorconfig.editorconfig`, `mikestead.dotenv`
-
-**Misc (5)** — `gruntfuggly.todo-tree`, `jeff-hykin.polacode-2019`,
-`samplavigne.p5-vscode`, `ms-vscode.vscode-speech`, `ms-ceintl.vscode-language-pack-es`
-
-**Themes (1)** — `sldobri.bunker`
-
-Removing `anthropic.claude-code` is deliberate, not an oversight: Claude Code runs from the
-terminal here. See `../../claude/`.
-
----
-
-## Settings cleaned out at the same time
-
-The trim left a pile of keys pointing at extensions that no longer existed. Those went too,
-on 2026-07-28 — `settings.json` dropped from 145 lines to 75.
-
-| Removed                                                 | Why                                     |
-| -------------------------------------------------------- | --------------------------------------- |
-| `claudeCode.useTerminal`, `workbench.settings.applyToAllProfiles` | `anthropic.claude-code` is gone |
-| `liveServer.settings.*` (2 keys)                        | `ritwickdey.liveserver` is gone         |
-| `github.copilot.*` (3 keys)                             | Copilot unused for ~6 months            |
-| `chat.agent.maxRequests`, `chat.tools.terminal.autoApprove`, `chat.tools.urls.autoApprove` | Copilot chat surface, nothing behind it |
-| `chat.instructionsFilesLocations`                       | 22 paths, 18 of them Postman junk under `%TEMP%` for three different users |
-| `gitlens.ai.model`, `gitlens.ai.vscode.model`           | Pointed at `copilot:gpt-4.1`, which isn't installed. GitLens itself stays |
-| `workbench.colorCustomizations`                         | An empty object. Did nothing            |
-
-Worth recording, because it was on the list of things to worry about and turned out not to
-be: **no Copilot was installed at all** — not as an extension, not bundled with VS Code.
-Verified against `resources\app\extensions` and `~\.vscode\extensions`. So
-`chat.tools.terminal.autoApprove`, which auto-approved `npx`, `docker exec` and
-`docker-compose`, had nothing to auto-approve. It was never the hole it looked like.
+It was trimmed to 75 lines on 2026-07-28 so that every key in it belongs to an extension in
+the table above. If you add an extension, its settings go there; if you drop one, take its
+keys with it. A key with nothing behind it is dead weight that reads like configuration.

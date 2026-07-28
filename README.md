@@ -97,10 +97,9 @@ Two exceptions, both documented where they live:
 
 - the **offline fallback** version in `apps/install.ps1`, used only when `nodejs.org` can't
   be reached;
-- **major versions baked into a winget ID** — `Python.Python.3.14`,
-  `Microsoft.DotNet.SDK.10`. winget treats every major as a separate package, so
-  `winget upgrade` goes 3.14.0 → 3.14.6 but never 3.14 → 3.15. Those move by editing the
-  table in `apps/README.md`.
+- **a major version baked into a winget ID** — `Python.Python.3.14`. winget treats every
+  major as a separate package, so `winget upgrade` goes 3.14.0 → 3.14.6 but never
+  3.14 → 3.15. That one moves by editing the table in `apps/README.md`.
 
 ---
 
@@ -177,11 +176,9 @@ It's needed either way.
 
 ### Decided
 
-- **Oh My Posh** — dropped 2026-07-27. Installed for months but never wired into the
-  profile, so the prompt stayed plain PowerShell. Not wanted.
-- **Warp** — dropped 2026-07-27, not used any more.
-- **Color schemes** — only Catppuccin Mocha survives. Sakura Pink, Dracula and
-  Color Scheme 15 removed.
+- **The tables are the complete list.** What isn't in them isn't wanted. This repo doesn't
+  keep a record of software that was rejected — that's contamination, not documentation.
+  When something is dropped, the row goes with it.
 - **`--dangerously-skip-permissions`** in `terminal/powershell/profile.ps1` overrides
   whatever `defaultMode` you set in `claude/settings.json`. Left as-is deliberately.
 

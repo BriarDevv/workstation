@@ -59,13 +59,9 @@ Two places still carry a literal version, and both are deliberate:
 
 - **The Node fallback in `install.ps1`.** The version is resolved from `nodejs.org` at run
   time; the literal only applies when the site can't be reached.
-- **Major versions inside a winget ID** — `Python.Python.3.14`, `Microsoft.DotNet.SDK.10`.
-  winget treats every major as a separate package, so `winget upgrade` will take
-  3.14.0 → 3.14.6 but never 3.14 → 3.15. Those move by editing the table.
-
-`Microsoft.DotNet.SDK.8` became `.SDK.10` on 2026-07-28 under this rule — 10 is the current
-LTS. Nothing on the machine was found targeting `net8.0` (no `.csproj`, no `global.json`).
-If something turns out to need the .NET 8 runtime, put the row back; it's one line.
+- **A major version baked into a winget ID** — `Python.Python.3.14`. winget treats every
+  major as a separate package, so `winget upgrade` will take 3.14.0 → 3.14.6 but never
+  3.14 → 3.15. That one moves by editing the table.
 
 ---
 
@@ -85,7 +81,6 @@ Nothing works without these. All of them get installed.
 | `Microsoft.WSL`              | WSL2             | Linux for whatever doesn't run on Windows. **Requires a reboot** |
 | `Python.Python.3.14`         | Python 3.14      | The system-wide one. Projects use their own — see § Python    |
 | `Python.Launcher`            | `py`             | `py -3.14`, and what shebangs resolve through                 |
-| `Microsoft.DotNet.SDK.10`    | .NET SDK 10      | Current LTS. Was SDK 8 until 2026-07-28 — see § Versions      |
 | `Tailscale.Tailscale`        | Tailscale        | VPN to reach my own machines                                  |
 | `RARLab.WinRAR`              | WinRAR           | Archives. License has to be entered by hand                   |
 
@@ -134,13 +129,11 @@ Two traps in that second row:
 
 | winget ID                  | What it is      | Why it's excluded                               |
 | -------------------------- | --------------- | ----------------------------------------------- |
-| `ElectronicArts.EADesktop` | EA app          | Only when there's something to play on it       |
-| `Ubisoft.Connect`          | Ubisoft Connect | Same                                            |
-| `Ollama.Ollama`            | Ollama          | Local models. Heavy and you barely use it       |
-| `SST.OpenCodeDesktop`      | OpenCode        | The desktop app. The CLI was dropped 2026-07-28 |
-| `Famatech.Radmin.Server`   | Radmin Server   | Only if this machine is the host                |
-| `Microsoft.Teams`          | Teams           | Only if work requires it                        |
-| `Apple.Bonjour`            | Bonjour         | Leftover, unused                                |
+| `ElectronicArts.EADesktop` | EA app          | Only when there's something to play on it |
+| `Ubisoft.Connect`          | Ubisoft Connect | Same                                      |
+| `Ollama.Ollama`            | Ollama          | Local models. Heavy and you barely use it |
+| `SST.OpenCodeDesktop`      | OpenCode        | The desktop app                           |
+| `Microsoft.Teams`          | Teams           | Only if work requires it                  |
 
 > `Microsoft.VCRedist.*`, `Microsoft.DotNet.*Runtime*` and `WindowsAppRuntime.*` are **not**
 > in any table on purpose — they get pulled in automatically as dependencies.
@@ -169,42 +162,6 @@ Also by hand, for reasons that have nothing to do with winget:
 
 ---
 
-## Removed — don't reinstall
-
-This section is **not** read by `install.ps1`. That's the point: anything listed here can't
-be installed by any flag, including `-Optional`.
-
-Warp and Oh My Posh used to sit in the Optional table with "don't reinstall" written in the
-reason column — which `install.ps1 -Optional` would have cheerfully ignored, because that
-table is an install list. Tombstones need to live outside it.
-
-### 2026-07-28
-
-| winget ID                | What it was   | Why it went                                          |
-| ------------------------ | ------------- | ---------------------------------------------------- |
-| `GoLang.Go`              | Go            | Not used                                             |
-| `LeNgocKhoa.Laragon`     | Laragon       | Not used. Took the Kiosco-Diagonal symlink with it — see `dev/README.md` |
-| `Gyan.FFmpeg`            | FFmpeg        | Not used                                             |
-| `RamenSoftware.Windhawk` | Windhawk      | Not used                                             |
-| `Parsec.Parsec`          | Parsec        | Not used                                             |
-| `Parsec.ParsecVDD`       | Parsec VDD    | A virtual display driver whose only consumer was Parsec |
-| `Famatech.RadminVPN`     | Radmin VPN    | Not used                                             |
-
-| npm package     | What it was  | Why it went |
-| --------------- | ------------ | ----------- |
-| `@openai/codex` | Codex CLI    | Not used    |
-| `opencode-ai`   | OpenCode CLI | Not used    |
-| `badclaude`     | —            | Not used, and nobody could say what it did |
-
-### 2026-07-27
-
-| winget ID                 | What it was | Why it went                                                  |
-| ------------------------- | ----------- | ------------------------------------------------------------ |
-| `Warp.Warp`               | Warp        | Not used any more                                            |
-| `JanDeDobbeleer.OhMyPosh` | Oh My Posh  | Installed for months but never wired into the profile, so the prompt stayed plain PowerShell. Not wanted |
-
----
-
 ## Fonts
 
 `DEVCOM.JetBrainsMonoNerdFont` installs machine-wide into `C:\Windows\Fonts`, so it
@@ -215,9 +172,9 @@ It registers as `JetBrainsMono NFM` (Nerd Font Mono), **not** `JetBrainsMono Ner
 Getting that name wrong costs you the font without any warning. Details in
 `terminal/README.md`.
 
-**Not covered here:** the 12 Meslo Nerd Font families on this machine. They came from Oh
-My Posh's own installer (`oh-my-posh font install meslo`), aren't on winget, and nothing
-depends on them now that the JetBrains name is correct.
+**Not covered here:** the other Nerd Font families sitting on the machine. They were
+installed by other tools, aren't on winget, and nothing in this repo names them. A restored
+machine gets exactly the one font in the table — which is why the name has to be right.
 
 ---
 
@@ -343,10 +300,10 @@ something in the tables above.
 
 **Generated file — don't hand-edit it.** `snapshot.ps1` regenerates it.
 
-> ⚠️ It's a snapshot of the machine, not a wish list. It still contains everything under
-> § Removed — Go, Laragon, FFmpeg, Windhawk, Parsec, Radmin VPN, Warp, Oh My Posh — because
-> they were installed the day it was taken. Feeding it to `winget import` brings all of
-> them back. Use it to *look things up*, not to restore from.
+> ⚠️ It's a snapshot of the machine, **not a wish list**. It holds everything that happened
+> to be installed the day it was taken, including plenty the tables above deliberately
+> leave out. Feeding it to `winget import` undoes those decisions in one command. Use it to
+> *look something up*, never to restore from.
 
 Re-exporting can produce a diff that looks like drift but isn't: winget resolves an
 installed program to whichever source claims it, and that answer can change between runs.

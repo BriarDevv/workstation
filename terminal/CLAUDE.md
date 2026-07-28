@@ -137,16 +137,14 @@ version. Same for fastfetch and its logo color slots.
 
 ---
 
-## Deliberate omissions
+## What's here is what's wanted
 
-Don't "helpfully" re-add these:
+`schemes/` holds one scheme and `styles/` holds one style. That's not an unfinished folder
+— it's the whole set. Don't add a prompt engine, a second terminal, or extra colour schemes
+because they'd "fit"; if something isn't in these folders, it was left out on purpose.
 
-- **Oh My Posh** — removed 2026-07-27. Was installed for months but never initialised in
-  the profile, so the prompt stayed plain PowerShell. Not wanted.
-- **Warp** — removed 2026-07-27, not used any more.
-- **Sakura Pink, Dracula, Color Scheme 15** — removed. Only Catppuccin Mocha survives.
-- **Meslo Nerd Fonts** — installed on the machine by Oh My Posh's own installer, not on
-  winget, and nothing depends on them now that the JetBrains font name is correct.
+The machine also has Nerd Font families that no style names. They came from other
+installers, nothing here depends on them, and they should not be written into a style.
 
 `--dangerously-skip-permissions` in `powershell/profile.ps1` is a known, deliberate choice.
 It overrides `defaultMode` in `claude/settings.json`. Flag it if asked, don't remove it.

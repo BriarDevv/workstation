@@ -30,9 +30,9 @@ What a style never contains: profiles, keybindings, anything structural. Those l
 There's no `fastfetch/config.jsonc` in the repo — it's **generated** from the style on
 every install, so there is exactly one place to edit and nothing to keep in sync.
 
-One style right now, on purpose. Sakura Pink, Dracula and Color Scheme 15 were removed —
-nobody remembered what they were, and the fastfetch palette had been Catppuccin all along,
-so the terminal scheme was the odd one out. Adding more is a file copy; see below.
+One style and one scheme right now, on purpose — Catppuccin Mocha, which is what the
+fastfetch palette had always been anyway. The structure exists so a second look is a file
+copy rather than a rewrite; see below.
 
 ---
 
@@ -172,9 +172,10 @@ JetBrainsMono Nerd Font Mono     NO
 JetBrainsMono NFM                YES
 ```
 
-This config used to ask for the long name. Windows Terminal couldn't resolve it, fell back
-to a default font, and pulled the missing glyphs from the Meslo Nerd Fonts that Oh My Posh
-had installed. It looked close enough that nobody noticed for months.
+This config used to ask for the long name. Windows Terminal couldn't resolve it, silently
+fell back to a default font, and filled the missing glyphs from another Nerd Font family
+that happened to be on the machine. It looked close enough that nobody noticed for months —
+which is the whole danger: the failure mode is "slightly wrong", not "broken".
 
 **`install.ps1` now guards against this.** If a style names a font that isn't registered,
 it looks for the Mono variant of the same family and uses that, telling you what it

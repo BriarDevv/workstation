@@ -11,7 +11,7 @@ come from `apps/` — this folder only configures them.
 | ------------------ | ------------------------------------------------------------------------------------------------------------ |
 | `settings.json`    | Catppuccin Mocha, sidebar on the right, activity bar on top, no minimap, ruler at 120, Prettier per language   |
 | `keybindings.json` | One binding: `Shift+Enter` in the terminal sends `ESC + CR` (newline without executing)                        |
-| `extensions.md`    | The 28 extensions, grouped by what they're for, plus the 32 removed on 2026-07-28              |
+| `extensions.md`    | The 31 extensions, grouped by what they're for. That table is the whole list                   |
 
 Installs to `%APPDATA%\Code\User\`.
 
