@@ -31,6 +31,3 @@
 
 [credential "https://github.com"]
 	helper = !gh auth git-credential
-
-[safe]
-	directory = %(prefix)///wsl.localhost/Ubuntu/home/briar/src/ClawScout

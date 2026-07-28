@@ -36,6 +36,14 @@ don't add it back, and don't record removals: a repo that carries a list of soft
 owner rejected is a repo that ships its own contamination. When you drop something, delete
 the row.
 
+**Never name a project.** `dev/repos.md` is the single file allowed to, because listing
+repositories is its entire job and it is quarantined for exactly that reason. Anywhere else
+— install scripts, READMEs, git config, Claude config, code comments — a project name is a
+bug. What this repo installs serves many projects at once, so justifying a package, an
+extension or a setting by naming one of them is both wrong and guaranteed to rot: the
+project ends, the machine doesn't. Describe the shape of the problem instead of the repo you
+last hit it in. Per-project knowledge belongs in a `CLAUDE.md` inside that project.
+
 **Latest stable, never pinned.** Everything this repo installs is the newest **stable**
 release as of the moment you run it — not a snapshot of what was current when the script
 was written. Resolve versions from the vendor at run time (`releases/latest`,

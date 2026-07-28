@@ -66,13 +66,15 @@ read the detail when it needs it. A skill that loads on demand beats 400 lines i
 
 **5. Repo-specific content is the only thing that adds value.** Generic rules ("write
 tests", "handle errors") Claude already knows — they just take up room. What it **can't**
-guess:
+guess is the shape of the repo it's standing in:
 
-> KioscoDiagonal: pnpm monorepo. Prisma commands run from `packages/db`, not the root.
-> Everything exportable funnels through `packages/core/src/index.ts`. Server actions go
-> in an `actions.ts` next to the page. Migrations are timestamped by hand.
+> which package a command has to be run from rather than the root · where the one
+> exportable barrel file lives · which file a new handler belongs beside · whether
+> migrations are generated or written by hand
 
-That's four lines and it's worth more than the ten generic rules combined.
+Four lines of that beat ten generic rules. But they belong in a `CLAUDE.md` **inside that
+repo**, never here — this file configures the machine, and a machine outlives any project
+on it.
 
 ---
 

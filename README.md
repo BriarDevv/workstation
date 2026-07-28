@@ -208,8 +208,8 @@ A stash lives in `.git/refs/stash` and **no `git push` ever uploads it**, not ev
 git stash list          # in every repo, before wiping
 ```
 
-As of 2026-07-28 there were five, and the two in Ynara were real work — one config change,
-one explicitly labelled *parked*. The three in Bystellabotella called themselves `tmp`.
+There were five across all repos on 2026-07-28, reviewed and written off deliberately.
+Count them again before wiping: that number is only true for the day it was taken.
 
 To keep one, turn it into something the remote can hold:
 
@@ -221,10 +221,10 @@ git push -u origin keep/<name>
 The other thing worth a glance is `??` entries in `git status` — an untracked file that
 belongs in the repo looks exactly like one that doesn't.
 
-Read the path before acting on it. Ynara shows an untracked `uv.lock`, which looks alarming
-until you notice it's a 4-line stub at the repo root, where `pyproject.toml` declares only
-shared dev tooling. The lockfile that matters, `apps/backend/uv.lock` with its 289 pinned
-packages, has been tracked all along.
+Read the path before acting on it. A lockfile sitting untracked at a repo root can be a stub
+while the one that actually pins the dependencies lives in a subdirectory and has been
+tracked all along. The alarming filename and the file that matters are not always the same
+file.
 
 > **This is the only copy of that list.** `windows/usb.md`, `windows/README.md` and
 > `dev/README.md` each used to repeat it — four places to keep in sync for the one list

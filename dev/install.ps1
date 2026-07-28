@@ -59,7 +59,8 @@ function Resolve-Code {
 # Get-IdsFromReadme can't read it and this exists instead.
 #
 # A destination ending in a separator is a parent directory, and the local checkout takes
-# its name from column 1 - which is how EDocente ends up shorter than its remote.
+# its name from column 1 - which is how a repo can sit on disk under a shorter name than
+# the one its remote carries.
 function Get-ReposFromMd {
     param([Parameter(Mandatory)][string]$Path)
 
