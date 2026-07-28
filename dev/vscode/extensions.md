@@ -1,9 +1,9 @@
 # VS Code extensions
 
-28 extensions, grouped by what they're for. `install.ps1` reads the IDs in `backticks` —
+31 extensions, grouped by what they're for. `install.ps1` reads the IDs in `backticks` —
 add a row and it gets installed on the next run.
 
-> Trimmed from 60 to 28 on 2026-07-28. What came out is listed at the bottom, so nothing
+> Trimmed from 60 to 28 on 2026-07-28, then Python support went back in (31). What came out is listed at the bottom, so nothing
 > gets "helpfully" reinstalled later.
 
 ---
@@ -40,14 +40,20 @@ works — only the Blade/artisan/route sugar is gone.
 
 ## Python
 
-| ID                 | What it does                         |
-| ------------------ | ------------------------------------ |
-| `ms-python.python` | Interpreter selection, basic support |
+| ID                             | What it does                       |
+| ------------------------------ | ---------------------------------- |
+| `ms-python.python`             | Interpreter selection, base support |
+| `ms-python.vscode-pylance`     | IntelliSense, go-to-definition, type checking |
+| `ms-python.debugpy`            | Debugger                           |
+| `ms-python.vscode-python-envs` | Environment management             |
 
-> ⚠️ **Pylance and debugpy were removed.** Without Pylance there's no IntelliSense, no
-> go-to-definition and no type checking; without debugpy there's no debugger.
-> `ms-python.python` on its own is not much past syntax highlighting. If Python is still
-> part of the work, put `ms-python.vscode-pylance` back.
+These came out in the 2026-07-28 trim and went straight back in. **Ynara has a real Python
+backend** — `apps/backend` with alembic migrations and a test suite covering `api`, `core`,
+`integration`, `llm`, `memory`, `models`, last touched 2026-06-28. Without Pylance there's
+no IntelliSense, no go-to-definition and no type checking on that project; without debugpy
+there are no breakpoints. `ms-python.python` alone is barely past syntax highlighting.
+
+`vscode-python-envs` came back on its own as a dependency.
 
 ## Git
 
@@ -99,9 +105,6 @@ works — only the Blade/artisan/route sugar is gone.
 `ryannaddy.laravel-artisan`, `codingyu.laravel-goto-view`, `glitchbl.laravel-create-view`,
 `naoray.laravel-goto-components`, `pgl.laravel-jump-controller`
 
-**Python (3)** — `ms-python.vscode-pylance`, `ms-python.debugpy`,
-`ms-python.vscode-python-envs`
-
 **Frontend (5)** — `sdras.vue-vscode-snippets`, `volartools.volar-ai`,
 `celianriboulet.webvalidator`, `ritwickdey.liveserver`, `techer.open-in-browser`
 
@@ -119,24 +122,23 @@ terminal here. See `../../claude/`.
 
 ---
 
-## Settings with no owner left
+## Settings cleaned out at the same time
 
-These keys are still in `settings.json` and now do nothing:
+The trim left a pile of keys pointing at extensions that no longer existed. Those went too,
+on 2026-07-28 — `settings.json` dropped from 145 lines to 75.
 
-| Key                                     | Extension it needed                  |
-| --------------------------------------- | ------------------------------------ |
-| `claudeCode.useTerminal`                | `anthropic.claude-code`              |
-| `workbench.settings.applyToAllProfiles` | same                                 |
-| `liveServer.settings.*`                 | `ritwickdey.liveserver`              |
-| `github.copilot.*` (7 keys)             | Copilot — **never installed at all** |
-| `chat.tools.terminal.autoApprove`       | same                                 |
-| `chat.instructionsFilesLocations`       | same                                 |
+| Removed                                                 | Why                                     |
+| -------------------------------------------------------- | --------------------------------------- |
+| `claudeCode.useTerminal`, `workbench.settings.applyToAllProfiles` | `anthropic.claude-code` is gone |
+| `liveServer.settings.*` (2 keys)                        | `ritwickdey.liveserver` is gone         |
+| `github.copilot.*` (3 keys)                             | Copilot unused for ~6 months            |
+| `chat.agent.maxRequests`, `chat.tools.terminal.autoApprove`, `chat.tools.urls.autoApprove` | Copilot chat surface, nothing behind it |
+| `chat.instructionsFilesLocations`                       | 22 paths, 18 of them Postman junk under `%TEMP%` for three different users |
+| `gitlens.ai.model`, `gitlens.ai.vscode.model`           | Pointed at `copilot:gpt-4.1`, which isn't installed. GitLens itself stays |
+| `workbench.colorCustomizations`                         | An empty object. Did nothing            |
 
-Harmless — VS Code ignores settings with no owner. Listed so nobody spends an afternoon
-wondering why they do nothing.
-
-The Copilot ones are worth knowing about: **no Copilot is installed**, not as an extension
-and not bundled with VS Code. Verified against `resources\app\extensions` and
-`~\.vscode\extensions` — nothing matching. So `chat.tools.terminal.autoApprove`, which
-auto-approves `npx`, `docker exec` and `docker-compose`, has nothing to auto-approve. It
-was never the risk it looked like.
+Worth recording, because it was on the list of things to worry about and turned out not to
+be: **no Copilot was installed at all** — not as an extension, not bundled with VS Code.
+Verified against `resources\app\extensions` and `~\.vscode\extensions`. So
+`chat.tools.terminal.autoApprove`, which auto-approved `npx`, `docker exec` and
+`docker-compose`, had nothing to auto-approve. It was never the hole it looked like.

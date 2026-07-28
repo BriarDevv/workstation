@@ -20,6 +20,8 @@
   "editor.linkedEditing": true,
   "editor.inlineSuggest.enabled": true,
 
+  // Must match the terminal. JetBrainsMono NFM is what winget actually registers -
+  // the long "Nerd Font Mono" form does not exist. See terminal/README.md.
   "editor.fontFamily": "JetBrainsMono NFM, Consolas, monospace",
   "terminal.integrated.fontFamily": "JetBrainsMono NFM",
   "editor.fontLigatures": true,
@@ -32,16 +34,16 @@
 
   // --- Emmet ---
   "emmet.includeLanguages": {
-    "javascript": "javascriptreact",
+    "javascript": "javascriptreact"
   },
 
-  // --- Formatting / Save Actions ---
+  // --- Formatting / save actions ---
   "editor.codeActionsOnSave": {
     "source.fixAll": "explicit",
-    "source.organizeImports": "explicit",
+    "source.organizeImports": "explicit"
   },
 
-  // --- Prettier (por lenguaje, como ya tenías) ---
+  // --- Prettier, per language ---
   "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[html]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[css]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
@@ -51,95 +53,23 @@
   // --- Workbench ---
   "workbench.startupEditor": "none",
   "workbench.editor.enablePreview": false,
+  "workbench.colorTheme": "Catppuccin Mocha",
   "workbench.iconTheme": "catppuccin-mocha",
   "workbench.sideBar.location": "right",
+  "workbench.activityBar.location": "top",
+  "window.commandCenter": false,
+  "window.menuBarVisibility": "compact",
   "explorer.confirmDelete": false,
   "explorer.confirmDragAndDrop": false,
-  "window.menuBarVisibility": "compact",
 
-  // --- Theme (dejé esto “neutral”: tu colorCustomizations no hacía nada real) ---
-  "workbench.colorCustomizations": {
-    "[Material Theme Darker High Contrast]": {},
-  },
-
-  // --- Live Server ---
-  "liveServer.settings.donotVerifyTags": true,
-  "liveServer.settings.donotShowInfoMsg": true,
-
-  // --- Terminal (PRO: PS7 si lo tenés) ---
-  // Si tu perfil se llama distinto, elegilo desde: Terminal > Select Default Profile
+  // --- Terminal ---
+  // If the profile is named differently: Terminal > Select Default Profile
   "terminal.integrated.defaultProfile.windows": "PowerShell",
   "terminal.integrated.smoothScrolling": true,
   "terminal.integrated.cursorBlinking": true,
   "terminal.integrated.cursorStyle": "line",
 
-  // --- Copilot ---
-  "github.copilot.enable": {
-    "*": true,
-    "plaintext": false,
-    "markdown": false,
-    "scminput": false,
-    "yaml": false,
-    "css": true,
-  },
-  "github.copilot.nextEditSuggestions.enabled": true,
-
-  // --- GitLens (lo dejo como estaba) ---
-  "gitlens.ai.model": "vscode",
-  "gitlens.ai.vscode.model": "copilot:gpt-4.1",
-
-  // --- Chat / Agentes (ojo: algunas keys pueden ser ignoradas según versión/extensión) ---
-  "chat.agent.maxRequests": 1000,
-  "github.copilot.chat.anthropic.thinking.budgetTokens": 32000,
-
-  "chat.instructionsFilesLocations": {
-    ".github/instructions": true,
-    ".claude/rules": true,
-    "~/.copilot/instructions": true,
-    "~/.claude/rules": true,
-    "C:\\Users\\USER\\AppData\\Local\\Temp\\postman-collections-post-response.instructions.md": true,
-    "C:\\Users\\USER\\AppData\\Local\\Temp\\postman-collections-pre-request.instructions.md": true,
-    "C:\\Users\\USER\\AppData\\Local\\Temp\\postman-folder-post-response.instructions.md": true,
-    "C:\\Users\\USER\\AppData\\Local\\Temp\\postman-folder-pre-request.instructions.md": true,
-    "C:\\Users\\USER\\AppData\\Local\\Temp\\postman-http-request-post-response.instructions.md": true,
-    "C:\\Users\\USER\\AppData\\Local\\Temp\\postman-http-request-pre-request.instructions.md": true,
-    "C:\\Users\\mateo\\AppData\\Local\\Temp\\postman-collections-post-response.instructions.md": true,
-    "C:\\Users\\mateo\\AppData\\Local\\Temp\\postman-collections-pre-request.instructions.md": true,
-    "C:\\Users\\mateo\\AppData\\Local\\Temp\\postman-folder-post-response.instructions.md": true,
-    "C:\\Users\\mateo\\AppData\\Local\\Temp\\postman-folder-pre-request.instructions.md": true,
-    "C:\\Users\\mateo\\AppData\\Local\\Temp\\postman-http-request-post-response.instructions.md": true,
-    "C:\\Users\\mateo\\AppData\\Local\\Temp\\postman-http-request-pre-request.instructions.md": true,
-    "C:\\Users\\Alumno\\AppData\\Local\\Temp\\postman-collections-post-response.instructions.md": true,
-    "C:\\Users\\Alumno\\AppData\\Local\\Temp\\postman-collections-pre-request.instructions.md": true,
-    "C:\\Users\\Alumno\\AppData\\Local\\Temp\\postman-folder-post-response.instructions.md": true,
-    "C:\\Users\\Alumno\\AppData\\Local\\Temp\\postman-folder-pre-request.instructions.md": true,
-    "C:\\Users\\Alumno\\AppData\\Local\\Temp\\postman-http-request-post-response.instructions.md": true,
-    "C:\\Users\\Alumno\\AppData\\Local\\Temp\\postman-http-request-pre-request.instructions.md": true
-  },
-
-  // --- Auto-approve (⚠️ ojo seguridad) ---
-  "chat.tools.terminal.autoApprove": {
-    "docker-compose": true,
-    "timeout": true,
-    "npx": true,
-    "docker exec": true,
-    "npm run tw:build": true,
-  },
-  "chat.tools.urls.autoApprove": {
-    "https://bystellabotella.com": {
-      "approveRequest": true,
-      "approveResponse": false,
-    },
-  },
-
-  // --- Claude Code ext ---
-  "workbench.settings.applyToAllProfiles": ["claudeCode.useTerminal"],
-  "claudeCode.useTerminal": true,
-  "window.commandCenter": false,
-  "workbench.activityBar.location": "top",
-  "workbench.colorTheme": "Catppuccin Mocha",
+  // --- Trust ---
   "security.workspace.trust.untrustedFiles": "open",
-  "security.allowedUNCHosts": [
-    "wsl.localhost"
-  ],
+  "security.allowedUNCHosts": ["wsl.localhost"]
 }
