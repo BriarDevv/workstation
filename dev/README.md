@@ -47,8 +47,9 @@ Installs to `~/.gitconfig`.
 
 Aliases: `s` (short status), `lg` (graph log), `last`, `unstage`, `amend`.
 
-**Manual afterwards:** `gh auth login` → account `BriarDevv`, HTTPS, scopes
-`gist, read:org, repo, workflow`. There's no way to script an OAuth flow.
+**Manual afterwards:** `gh auth login` → the GitHub account with access to the `BriarDevv`
+repos, HTTPS, scopes `gist, read:org, repo, workflow`. The login username and repository
+owner do not need to be the same. There's no way to script an OAuth flow.
 
 ### Merging goes through a pull request
 

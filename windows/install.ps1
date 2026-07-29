@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Phase 5. LTSC-like Windows 11 Pro profile: shell, privacy, Edge, services, and power.
+    Phase 6. LTSC-like Windows 11 Pro profile: shell, privacy, Edge, services, and power.
 
 .DESCRIPTION
     Runs LAST, because it restarts Explorer.
@@ -36,7 +36,7 @@ $admin = Test-Admin
 $edition = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').EditionID
 $build = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuild
 
-Write-Step "Phase 5 - Windows"
+Write-Step "Phase 6 - Windows"
 Write-Host "  edition $edition  ·  build $build  ·  $(if ($admin) { 'elevated' } else { 'NOT elevated' })"
 if ($edition -like '*Eval*') {
     Write-Warn2 "This is an Evaluation SKU - 90 days, then hourly reboots. See usb.md."

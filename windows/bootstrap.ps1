@@ -54,8 +54,24 @@ if (-not $isAdmin) {
 }
 Ok "running elevated"
 
-$work = Join-Path $env:TEMP 'ws-bootstrap'
+$tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
+$work = [IO.Path]::GetFullPath((Join-Path $tempRoot "workstation-bootstrap-$PID-$([guid]::NewGuid().ToString('N'))"))
+if (-not $work.StartsWith(($tempRoot + [IO.Path]::DirectorySeparatorChar),
+        [StringComparison]::OrdinalIgnoreCase)) {
+    Fail "Unsafe temporary path: $work is not below $tempRoot"
+    exit 1
+}
 New-Item -ItemType Directory -Force -Path $work | Out-Null
+
+function Remove-BootstrapTree {
+    param([Parameter(Mandatory)][string]$Path)
+    $resolved = [IO.Path]::GetFullPath($Path)
+    if (-not $resolved.StartsWith(($work + [IO.Path]::DirectorySeparatorChar),
+            [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing recursive removal outside the bootstrap workspace: $resolved"
+    }
+    Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 function Get-File {
     param([string]$Url, [string]$Out)
@@ -87,7 +103,7 @@ else {
         $zip = Join-Path $work $depsAsset.name
         Get-File $depsAsset.browser_download_url $zip
         $ext = Join-Path $work 'deps'
-        Remove-Item $ext -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-BootstrapTree $ext
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [IO.Compression.ZipFile]::ExtractToDirectory($zip, $ext)
 
@@ -146,8 +162,16 @@ else {
     if (-not $msi) { Fail 'no x64 MSI in the latest PowerShell release'; exit 1 }
     $out = Join-Path $work $msi.name
     Get-File $msi.browser_download_url $out
-    Start-Process msiexec.exe -Wait -ArgumentList "/i `"$out`" /qn ADD_PATH=1"
-    Ok "PowerShell 7 ($($rel.tag_name))"
+    $installer = Start-Process msiexec.exe -Wait -PassThru `
+        -ArgumentList "/i `"$out`" /qn ADD_PATH=1"
+    if ($installer.ExitCode -in @(0, 1641, 3010)) {
+        Ok "PowerShell 7 ($($rel.tag_name))"
+        if ($installer.ExitCode -ne 0) { Warn "PowerShell requested a reboot (MSI exit $($installer.ExitCode))" }
+    }
+    else {
+        Warn "PowerShell installation failed (MSI exit $($installer.ExitCode))"
+        $failed.Add('PowerShell 7')
+    }
 }
 
 # ================================================================ Developer Mode

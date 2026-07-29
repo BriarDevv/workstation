@@ -91,6 +91,14 @@ function Get-ReposFromDir {
     return $repos
 }
 
+function Get-GitHubSlug {
+    param([string]$Url)
+    if ($Url -match '^(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)([^/]+/[^/]+?)(?:\.git)?/?$') {
+        return $Matches[1]
+    }
+    return $null
+}
+
 # ---------------------------------------------------------------- git
 Write-Step 'git'
 if (-not (Install-ConfigFile (Join-Path $PSScriptRoot 'git\gitconfig') (Join-Path $HOME '.gitconfig'))) {
@@ -110,20 +118,31 @@ elseif (-not (Test-Cmd git) -or -not (Test-Cmd gh)) {
     foreach ($tool in $missingTools) { $failed.Add("$tool (not installed)") }
 }
 else {
-    # Checked once, up front. Every clone here is over HTTPS against a private account, so
-    # without a login they would all fail for the same reason, producing one misleading
-    # problem per repository.
+    # Checked once, up front. The list contains private repositories, so without a login
+    # some clones would all fail for the same reason and produce one misleading problem per
+    # repository.
     gh auth status 2>&1 | Out-Null
     $authed = $LASTEXITCODE -eq 0
 
     if (-not $authed -and -not $script:DryRun) {
         Write-Warn2 "$($repos.Count) repos skipped - not logged in. Run:  gh auth login"
-        Write-Host '         Account BriarDevv, HTTPS. An OAuth flow cannot be scripted.' -ForegroundColor DarkGray
+        Write-Host '         Use the GitHub account that can access the BriarDevv repos, over HTTPS.' -ForegroundColor DarkGray
         $failed.Add('gh auth login')
     }
     else {
         foreach ($r in $repos) {
-            if (Test-Path (Join-Path $r.Path '.git')) { Write-Skip "$($r.Name) already cloned"; continue }
+            if (Test-Path (Join-Path $r.Path '.git')) {
+                $actualUrl = (& git -C $r.Path remote get-url origin 2>$null | Out-String).Trim()
+                $actualSlug = if ($LASTEXITCODE -eq 0) { Get-GitHubSlug $actualUrl } else { $null }
+                if ($actualSlug -and $actualSlug -ieq $r.Remote) {
+                    Write-Skip "$($r.Name) already cloned from $($r.Remote)"
+                }
+                else {
+                    Write-Warn2 "$($r.Name) exists but origin is '$actualUrl'; expected $($r.Remote), left alone"
+                    $failed.Add("repo origin: $($r.Name)")
+                }
+                continue
+            }
             if (Test-Path $r.Path) {
                 Write-Warn2 "$($r.Name) - $($r.Path) exists and is not a git repo, left alone"
                 $failed.Add("repo: $($r.Name)")

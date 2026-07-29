@@ -64,6 +64,35 @@ Test-Case 'manifest tables contain no duplicate package IDs' {
     Assert-True ($duplicates.Count -eq 0) "duplicate IDs: $($duplicates.Name -join ', ')"
 }
 
+Test-Case 'repository clone manifest has unique valid entries' {
+    $names = [System.Collections.Generic.List[string]]::new()
+    $remotes = [System.Collections.Generic.List[string]]::new()
+    foreach ($file in Get-ChildItem (Join-Path $repo 'dev\repos') -Filter *.md |
+            Where-Object Name -ne 'README.md') {
+        $inList = $false
+        foreach ($line in Get-Content $file.FullName) {
+            if ($line -match '^##\s+(.+?)\s*$') { $inList = $Matches[1].Trim() -eq 'The list'; continue }
+            if (-not $inList -or $line -notmatch '^\|\s*([^|]+?)\s*\|\s*`([^`]+)`\s*\|') { continue }
+            $name = $Matches[1].Trim()
+            $remote = $Matches[2].Trim()
+            if ($name -eq 'Repo' -or $name -match '^-+$') { continue }
+            Assert-True ($name -match '^[^\\/:*?"<>|]+$') "invalid local repo folder: $name"
+            Assert-True ($remote -match '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') "invalid GitHub slug: $remote"
+            $names.Add("$($file.BaseName)/$name")
+            $remotes.Add($remote.ToLowerInvariant())
+        }
+    }
+    Assert-True ($remotes.Count -gt 0) 'no repository entries were parsed'
+    Assert-True (@($names | Group-Object | Where-Object Count -gt 1).Count -eq 0) `
+        'duplicate local repository paths'
+    Assert-True (@($remotes | Group-Object | Where-Object Count -gt 1).Count -eq 0) `
+        'duplicate GitHub remotes'
+
+    $installer = Get-Content (Join-Path $repo 'dev\install.ps1') -Raw
+    Assert-True $installer.Contains('remote get-url origin') `
+        'existing clones are not checked against the declared origin'
+}
+
 Test-Case 'Windows removal and keep manifests cannot contradict each other' {
     $windows = Join-Path $repo 'windows\README.md'
     $removeAppx = @(Get-IdsFromReadme $windows @('Inbox apps'))
@@ -108,6 +137,8 @@ Test-Case 'Windows removal and keep manifests cannot contradict each other' {
 
 Test-Case 'Windows profile encodes the selected balanced privacy policy' {
     $source = Get-Content (Join-Path $repo 'windows\install.ps1') -Raw
+    Assert-True ($source -match 'Phase 6') 'Windows installer is not numbered as the final canonical phase'
+    Assert-True ($source -notmatch 'Phase 5') 'stale Windows phase number remains'
     Assert-True ($source -match '381b4222-f694-41f0-9685-ff5bb260df2e') 'Balanced power scheme is not selected'
     Assert-True ($source -notmatch '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c') 'High performance scheme remains selected'
     foreach ($token in @('DiagTrack', 'DODownloadMode', 'DisableAIDataAnalysis',
@@ -123,7 +154,7 @@ Test-Case 'Windows profile encodes the selected balanced privacy policy' {
     Assert-True (Test-Path (Join-Path $repo 'docs\pre-format.md')) 'pre-format checklist is missing'
 }
 
-Test-Case 'MCP placeholders all have a secrets.example entry' {
+Test-Case 'MCP placeholders all have a declared value source' {
     $manifestPath = Join-Path $repo 'claude\mcp.template.json'
     $manifestText = Get-Content $manifestPath -Raw
     $manifest = $manifestText | ConvertFrom-Json -AsHashtable
@@ -132,11 +163,15 @@ Test-Case 'MCP placeholders all have a secrets.example entry' {
 
     $required = @([regex]::Matches($manifestText, '\$\{([A-Za-z_][A-Za-z0-9_]*)\}') |
             ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
-    $declared = @(Get-Content (Join-Path $repo 'secrets\.env.example') |
+    $secretVars = @(Get-Content (Join-Path $repo 'secrets\.env.example') |
             Where-Object { $_ -match '^([A-Za-z_][A-Za-z0-9_]*)=' } |
-            ForEach-Object { $Matches[1] }) + 'LAYOUT_REPOS'
+            ForEach-Object { $Matches[1] })
+    $installerVars = @('LAYOUT_REPOS', 'CLAUDE_MEMORY_FILE')
+    $declared = @($secretVars + $installerVars)
     $missing = @($required | Where-Object { $_ -notin $declared })
-    Assert-True ($missing.Count -eq 0) "missing example variables: $($missing -join ', ')"
+    $unusedSecrets = @($secretVars | Where-Object { $_ -notin $required })
+    Assert-True ($missing.Count -eq 0) "placeholders with no value source: $($missing -join ', ')"
+    Assert-True ($unusedSecrets.Count -eq 0) "unused secret variables: $($unusedSecrets -join ', ')"
 }
 
 Test-Case 'Claude settings contain only current repo-owned structure' {
@@ -170,6 +205,16 @@ Test-Case 'Claude plugins and MCPs are clean-machine reproducible' {
         'obsolete local GitHub MCP remains'
     Assert-True $mcpText.Contains('https://api.githubcopilot.com/mcp/') `
         'hosted GitHub MCP endpoint missing'
+    foreach ($name in @('sequential-thinking', 'filesystem', 'memory')) {
+        Assert-True ($mcp.mcpServers[$name].command -eq 'cmd') `
+            "$name does not use the documented Windows cmd wrapper"
+        Assert-True (@($mcp.mcpServers[$name].args)[0] -eq '/c') `
+            "$name cmd wrapper has no /c argument"
+        Assert-True (@($mcp.mcpServers[$name].args)[1] -eq 'npx') `
+            "$name cmd wrapper does not invoke npx"
+    }
+    Assert-True ($mcp.mcpServers.memory.env.MEMORY_FILE_PATH -eq '${CLAUDE_MEMORY_FILE}') `
+        'Memory MCP has no stable installer-derived storage path'
 
     $installer = Get-Content (Join-Path $repo 'claude\install.ps1') -Raw
     Assert-True $installer.Contains('plugin marketplace add') 'marketplaces are not installed'
@@ -194,12 +239,27 @@ Test-Case 'all normal installers expose WhatIfOnly and explicit success' {
     Assert-True ($rootText.Contains('if ($WhatIfOnly) { $argv.WhatIfOnly = $true }')) 'root does not forward dry run'
 }
 
+Test-Case 'bootstrap recursive cleanup is confined to a unique temp workspace' {
+    $source = Get-Content (Join-Path $repo 'windows\bootstrap.ps1') -Raw
+    Assert-True $source.Contains('workstation-bootstrap-$PID-') 'bootstrap temp path is not unique'
+    Assert-True $source.Contains('Refusing recursive removal outside the bootstrap workspace') `
+        'bootstrap recursive removal has no boundary guard'
+    Assert-True (-not $source.Contains('Remove-Item $ext -Recurse')) `
+        'unguarded bootstrap dependency cleanup remains'
+    Assert-True $source.Contains('Start-Process msiexec.exe -Wait -PassThru') `
+        'PowerShell MSI exit code cannot be verified'
+}
+
 Test-Case 'root preserves canonical order and contains child exceptions' {
     $rootText = Get-Content (Join-Path $repo 'install.ps1') -Raw
     Assert-True $rootText.Contains('$STEPS | Where-Object { $_.Name -in $Only }') `
         'selected folders follow caller order instead of canonical order'
     Assert-True ($rootText -match '(?s)try\s*\{\s*& \$script @argv.*?catch\s*\{') `
         'unexpected child errors are not contained'
+    Assert-True $rootText.Contains("if (`$Secrets) { `$resumeArgs.Add('-Secrets') }") `
+        'post-reboot command drops the requested MCP secret sync'
+    Assert-True $rootText.Contains("if (`$SkipUpgrade) { `$resumeArgs.Add('-SkipUpgrade') }") `
+        'post-reboot command drops the requested upgrade policy'
 }
 
 Test-Case 'clean-machine previews do not require files they only plan to create' {
@@ -214,6 +274,8 @@ Test-Case 'clean-machine previews do not require files they only plan to create'
         'apps does not model planned Node separately'
     Assert-True ($appsText -match 'Invoke-RestMethod "https://registry\.npmjs\.org/') `
         'npm version checks still require a local npm command during dry run'
+    Assert-True $appsText.Contains('unsafe Node path in layout/LAYOUT.md') `
+        'recursive Node replacement has no strict layout-root boundary check'
 
     $terminalText = Get-Content (Join-Path $repo 'terminal\install.ps1') -Raw
     Assert-True $terminalText.Contains('$script:DryRun -and -not (Test-WingetInstalled $id)') `
@@ -225,6 +287,24 @@ Test-Case 'debloat is deliberately current-user only' {
     Assert-True (-not $source.Contains('AllUsers')) 'all-user debloat logic remains'
     Assert-True (-not $source.Contains('Get-AppxProvisionedPackage')) 'provisioned packages remain in scope'
     Assert-True $source.Contains('Get-AppxPackage -Name $name') 'current-user package query is missing'
+}
+
+Test-Case 'optional packages are informational in snapshot drift' {
+    $source = Get-Content (Join-Path $repo 'snapshot.ps1') -Raw
+    Assert-True ($source.Contains("`$optionalIds = @(Get-IdsFromReadme `$readme @('Optional'))")) `
+        'snapshot does not track optional packages separately'
+    $requiredLine = @($source -split "`r?`n" | Where-Object { $_ -match '^\s*\$ids = .*Get-IdsFromReadme' })
+    Assert-True ($requiredLine.Count -eq 1) 'required winget snapshot declaration is ambiguous'
+    Assert-True (-not $requiredLine[0].Contains("'Optional'")) `
+        'optional packages are still counted as required drift'
+}
+
+Test-Case 'layout ACL checks use language-independent SIDs' {
+    $source = Get-Content (Join-Path $repo 'layout\install.ps1') -Raw
+    Assert-True $source.Contains("Get-AclRulesForSid `$acl 'S-1-5-11'") `
+        'Authenticated Users ACL detection is not SID-based'
+    Assert-True (-not $source.Contains("IdentityReference.Value -eq 'NT AUTHORITY\Authenticated Users'")) `
+        'locale-dependent Authenticated Users comparison remains'
 }
 
 Test-Case 'Windows audit covers desired policy, power, and debloat state' {
@@ -243,6 +323,9 @@ Test-Case 'post-format handoff contains every human bootstrap prerequisite' {
         Assert-True $guide.Contains($token) "post-format guide is missing: $token"
     }
     Assert-True $guide.Contains('nunca uses -AllUsers') 'handoff does not lock debloat to the current user'
+    $instructions = Get-Content (Join-Path $repo 'CLAUDE.md') -Raw
+    Assert-True $instructions.Contains('`docs/post-format.md` handoff, which stays in Spanish') `
+        'repository language rule contradicts the Spanish post-format handoff'
 }
 
 Test-Case 'relative Markdown links resolve inside the repository' {

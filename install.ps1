@@ -177,12 +177,16 @@ Write-Host "  ran: $($ran -join ', ')" -ForegroundColor DarkGray
 
 if ($stoppedAt) {
     $left = @($plan.Name | Where-Object { $_ -notin $ran })
+    $resumeArgs = [System.Collections.Generic.List[string]]::new()
+    foreach ($name in $left) { $resumeArgs.Add($name) }
+    if ($SkipUpgrade) { $resumeArgs.Add('-SkipUpgrade') }
+    if ($Secrets) { $resumeArgs.Add('-Secrets') }
     Write-Host ''
     Write-Warn2 'REBOOT REQUIRED - stopped here on purpose.'
     Write-Host '         Docker and WSL do not work until the machine restarts, and everything' -ForegroundColor DarkGray
     Write-Host '         left configures programs. Restart, then finish with:' -ForegroundColor DarkGray
     Write-Host ''
-    Write-Host "             pwsh .\install.ps1 $($left -join ' ')" -ForegroundColor DarkGray
+    Write-Host "             pwsh .\install.ps1 $($resumeArgs -join ' ')" -ForegroundColor DarkGray
     Write-Host ''
 }
 

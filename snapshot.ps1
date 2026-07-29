@@ -69,16 +69,18 @@ if (-not (Test-Cmd winget)) {
     Write-Warn2 'winget is missing - see windows\README.md'
 }
 else {
-    $ids = @(Get-IdsFromReadme $readme @('Essentials', 'Terminal', 'Desktop / utilities', 'Games', 'Runtimes', 'Optional'))
+    $ids = @(Get-IdsFromReadme $readme @('Essentials', 'Terminal', 'Desktop / utilities', 'Games', 'Runtimes'))
+    $optionalIds = @(Get-IdsFromReadme $readme @('Optional'))
     $storeIds = @(Get-IdsFromReadme $readme @('Microsoft Store'))
     $allIds = @($ids + $storeIds)
     $gone = @($ids | Where-Object { -not (Test-WingetInstalled $_) })
     $goneStore = @($storeIds | Where-Object { -not (Test-WingetInstalled $_) })
+    $installedOptional = @($optionalIds | Where-Object { Test-WingetInstalled $_ })
 
-    Write-Host "  $($allIds.Count) in the tables, $($allIds.Count - $gone.Count - $goneStore.Count) installed" -ForegroundColor DarkGray
+    Write-Host "  $($allIds.Count) required in the tables, $($allIds.Count - $gone.Count - $goneStore.Count) installed" -ForegroundColor DarkGray
     if ($gone -or $goneStore) {
         Write-Host ''
-        Write-Warn2 "$($gone.Count + $goneStore.Count) in the tables that winget can't see:"
+        Write-Warn2 "$($gone.Count + $goneStore.Count) required package(s) that winget can't see:"
         foreach ($p in @($gone + $goneStore)) { Write-Host "         $p" -ForegroundColor Red }
         Write-Host '         Usually means not installed - fix with:  pwsh apps\install.ps1' -ForegroundColor DarkGray
         # Not stated as fact: package correlation can miss software installed by its own
@@ -87,6 +89,10 @@ else {
         Write-Host '         treating the report as proof that the application is absent.' -ForegroundColor DarkGray
     }
     else { Write-Ok 'everything in the tables is on the machine' }
+
+    if ($optionalIds.Count) {
+        Write-Host "  optional: $($installedOptional.Count)/$($optionalIds.Count) installed; absence is not drift" -ForegroundColor DarkGray
+    }
 
     # The other direction is deliberately not reported. `winget list` returns several hundred
     # packages, nearly all of them Windows' own, and reading that as "rows you forgot to add"

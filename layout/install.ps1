@@ -86,6 +86,20 @@ if (-not (Install-ConfigFile (Join-Path $PSScriptRoot 'LAYOUT.md') (Join-Path (G
 Write-Step 'Permissions'
 $root = Get-LayoutPath 'root'
 
+# IdentityReference.Value is localised (for example, "Usuarios autentificados" on a
+# Spanish Windows install). Compare well-known SIDs so the verification means the same
+# thing on every display language.
+function Get-AclRulesForSid {
+    param($Acl, [Parameter(Mandatory)][string]$Sid)
+    return @($Acl.Access | Where-Object {
+            try {
+                $_.IdentityReference.Translate(
+                    [Security.Principal.SecurityIdentifier]).Value -eq $Sid
+            }
+            catch { $false }
+        })
+}
+
 if (-not (Test-Path $root)) {
     # On a clean-machine dry run the Tree phase only previews creation, so there is no ACL
     # to inspect yet. The real run creates the root before reaching this point.
@@ -99,39 +113,45 @@ if (-not (Test-Path $root)) {
 }
 else {
     $acl = Get-Acl $root
-    $loose = @($acl.Access | Where-Object { $_.IdentityReference.Value -eq 'NT AUTHORITY\Authenticated Users' })
+    $loose = @(Get-AclRulesForSid $acl 'S-1-5-11')
 
     if (-not $acl.AreAccessRulesProtected -or $loose.Count) {
-    $me = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-    if ($script:DryRun) {
-        Write-Would "stop $root inheriting from C:\, drop Authenticated Users, grant SYSTEM, Administrators and $me full control"
-    }
-    else {
-        # Splatted, not written inline. A native command takes its arguments as an array, and
-        # writing them out with backticks and commas turns the commas into array literals -
-        # icacls then sees one argument where it expected four and reports success anyway.
-        $icaclsArgs = @(
-            '/inheritance:r'
-            '/grant', '*S-1-5-18:(OI)(CI)F'        # SYSTEM
-            '/grant', '*S-1-5-32-544:(OI)(CI)F'    # BUILTIN\Administrators
-            '/grant', "${me}:(OI)(CI)F"            # the interactive user
-            '/q'
-        )
-        & icacls $root @icaclsArgs | Out-Null
-
-        # icacls exit code alone isn't enough - re-read and check the thing we actually want.
-        $after = Get-Acl $root
-        $still = @($after.Access | Where-Object { $_.IdentityReference.Value -eq 'NT AUTHORITY\Authenticated Users' })
-        $mine = @($after.Access | Where-Object { $_.IdentityReference.Value -eq $me -and $_.FileSystemRights -band [Security.AccessControl.FileSystemRights]::Write })
-
-        if ($LASTEXITCODE -eq 0 -and -not $still.Count -and $mine.Count) {
-            Write-Ok "$root - Authenticated Users removed, $me keeps full control"
+        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $me = $identity.Name
+        $meSid = $identity.User.Value
+        if ($script:DryRun) {
+            Write-Would "stop $root inheriting from C:\, drop Authenticated Users, grant SYSTEM, Administrators and $me full control"
         }
         else {
-            Write-Fail "$root - icacls exited $LASTEXITCODE, Authenticated Users present: $([bool]$still.Count), you can still write: $([bool]$mine.Count)"
-            $failed.Add('root ACL')
+            # Splatted, not written inline. A native command takes its arguments as an array,
+            # and writing them out with backticks and commas turns the commas into array
+            # literals - icacls then sees one argument where it expected four and reports
+            # success anyway.
+            $icaclsArgs = @(
+                '/inheritance:r'
+                '/grant', '*S-1-5-18:(OI)(CI)F'        # SYSTEM
+                '/grant', '*S-1-5-32-544:(OI)(CI)F'    # BUILTIN\Administrators
+                '/grant', "*${meSid}:(OI)(CI)F"        # the interactive user
+                '/q'
+            )
+            & icacls $root @icaclsArgs | Out-Null
+
+            # icacls exit code alone isn't enough - re-read and check the state we want.
+            $icaclsExit = $LASTEXITCODE
+            $after = Get-Acl $root
+            $still = @(Get-AclRulesForSid $after 'S-1-5-11')
+            $mine = @(Get-AclRulesForSid $after $meSid | Where-Object {
+                    $_.FileSystemRights -band [Security.AccessControl.FileSystemRights]::Write
+                })
+
+            if ($icaclsExit -eq 0 -and -not $still.Count -and $mine.Count) {
+                Write-Ok "$root - Authenticated Users removed, $me keeps full control"
+            }
+            else {
+                Write-Fail "$root - icacls exited $icaclsExit, Authenticated Users present: $([bool]$still.Count), you can still write: $([bool]$mine.Count)"
+                $failed.Add('root ACL')
+            }
         }
-    }
     }
     else {
         Write-Skip "$root already hardened"

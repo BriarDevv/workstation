@@ -84,8 +84,8 @@ function Get-SkillOverrides {
 function Test-HooksShape {
     param($Hooks)
     if ($null -eq $Hooks -or $Hooks -isnot [System.Collections.IDictionary]) { return $false }
-    foreach ($event in $Hooks.Keys) {
-        $matchers = $Hooks[$event]
+    foreach ($eventName in $Hooks.Keys) {
+        $matchers = $Hooks[$eventName]
         if ($matchers -isnot [System.Collections.IList]) { return $false }
         foreach ($matcher in $matchers) {
             if ($matcher -isnot [System.Collections.IDictionary]) { return $false }
@@ -320,7 +320,11 @@ else {
             $vars[$line.Substring(0, $i).Trim()] = $line.Substring($i + 1).Trim().Trim('"')
         }
 
+        # Installer-derived paths are machine state, not secrets. Keep Memory's graph out
+        # of npx's package/cache directory so an npm cache cleanup or package update cannot
+        # silently erase it.
         $vars['LAYOUT_REPOS'] = Get-LayoutPath 'repos'
+        $vars['CLAUDE_MEMORY_FILE'] = Join-Path $claudeHome 'mcp-memory.jsonl'
 
         $templateText = Get-Content (Join-Path $PSScriptRoot 'mcp.template.json') -Raw
         $required = @([regex]::Matches($templateText, '\$\{([A-Za-z_][A-Za-z0-9_]*)\}') |

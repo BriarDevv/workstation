@@ -50,4 +50,5 @@ After script changes, parse every PowerShell file and run `pwsh .\tests\run.ps1`
 restore-path change, also run the relevant `-WhatIfOnly` command and confirm it makes no
 tracked or user-config writes. Report actual failures and remaining manual steps.
 
-Documentation and code comments in this repo are in English.
+Documentation and code comments in this repo are in English, except the user-facing
+`docs/post-format.md` handoff, which stays in Spanish.

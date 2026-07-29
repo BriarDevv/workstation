@@ -135,7 +135,12 @@ if (-not $SkipUpgrade) {
 Write-Step "Node"
 # layout\LAYOUT.md owns this. A literal here would be the second place the path is written
 # down, and the tree it points into is created by a script that reads the first one.
-$nodeDir = Get-LayoutPath 'node'
+$layoutRoot = [IO.Path]::GetFullPath((Get-LayoutPath 'root')).TrimEnd('\', '/')
+$nodeDir = [IO.Path]::GetFullPath((Get-LayoutPath 'node')).TrimEnd('\', '/')
+$layoutPrefix = $layoutRoot + [IO.Path]::DirectorySeparatorChar
+if (-not $nodeDir.StartsWith($layoutPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "unsafe Node path in layout/LAYOUT.md: $nodeDir is not below $layoutRoot"
+}
 
 # Resolved at run time, not pinned: a hardcoded version in a restore script is stale the
 # day after you write it. LTS rather than Current - "latest stable" for Node means the LTS
@@ -176,7 +181,12 @@ elseif ($script:DryRun) {
 }
 else {
     Write-Host "  ...$(if ($nodeCurrent) { "Node $nodeCurrent -> $nodeVersion" } else { "downloading Node $nodeVersion" })" -ForegroundColor DarkYellow
-    $nodeStage = Join-Path ([IO.Path]::GetTempPath()) "workstation-node-$PID-$([guid]::NewGuid().ToString('N'))"
+    $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
+    $nodeStage = [IO.Path]::GetFullPath((Join-Path $tempRoot "workstation-node-$PID-$([guid]::NewGuid().ToString('N'))"))
+    if (-not $nodeStage.StartsWith(($tempRoot + [IO.Path]::DirectorySeparatorChar),
+            [StringComparison]::OrdinalIgnoreCase)) {
+        throw "unsafe Node staging path: $nodeStage is not below $tempRoot"
+    }
     $nodeOld = "$nodeDir.workstation-old-$PID-$([guid]::NewGuid().ToString('N'))"
     try {
         New-Item -ItemType Directory -Path $nodeStage | Out-Null

@@ -53,5 +53,6 @@ instructions, no per-project stack notes — those belong to the project itself.
 `CLAUDE.md` states it as a hard rule: outside this folder, naming a project at all is a bug,
 because the machine outlives every project on it.
 
-Before erasing the machine, use [`docs/pre-format.md`](../../docs/pre-format.md) to verify
-remotes, unpushed commits, stashes, and untracked files from current state.
+Before erasing the machine, follow [`docs/pre-format.md`](../../docs/pre-format.md). For this
+reset only the published workstation repository is a required recovery source; other local
+checkout state is intentionally disposable.

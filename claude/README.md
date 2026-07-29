@@ -72,6 +72,11 @@ GitHub uses its current hosted HTTP MCP endpoint. Its credential remains local i
 `secrets/.env` and in Claude's user-scope configuration; the repository contains a
 placeholder only.
 
+The three local reference servers run through `cmd /c npx`, the Windows launch form
+documented by the MCP project. Memory stores its graph at
+`~/.claude/mcp-memory.jsonl` instead of inside npx's package cache, so updating the package
+does not discard it. That JSONL file is local data, not a secret and not versioned here.
+
 ## What stays manual
 
 | What | How |

@@ -103,16 +103,16 @@ if ($List) {
     $wanted = @(Get-IdsFromReadme $readme @('Inbox apps'))
     $win32Wanted = @(Get-IdsFromReadme $readme @('Win32 apps'))
     $apps = @(Get-AppxPackage | Where-Object { -not $_.IsFramework -and $_.NonRemovable -ne $true } | Sort-Object Name)
+    $candidates = @($apps | Where-Object { -not (Test-Protected $_.Name) })
 
-    foreach ($a in $apps) {
-        if (Test-Protected $a.Name) { continue }
+    foreach ($a in $candidates) {
         $mark = if ($wanted -contains $a.Name) { '[in table]' } else { '          ' }
         $colour = if ($wanted -contains $a.Name) { 'Yellow' } else { 'Gray' }
         Write-Host ("  $mark {0}" -f $a.Name) -ForegroundColor $colour
     }
 
     Write-Host ''
-    Write-Host "  $($apps.Count) removable, $(@($apps | Where-Object { $wanted -contains $_.Name }).Count) of them named in the table." -ForegroundColor DarkGray
+    Write-Host "  $($candidates.Count) removable, $(@($candidates | Where-Object { $wanted -contains $_.Name }).Count) of them named in the table." -ForegroundColor DarkGray
     Write-Host '  Anything above without [in table] that you do not want needs a row in README.md.' -ForegroundColor DarkGray
 
     if ($win32Wanted.Count) {
@@ -195,7 +195,8 @@ if ($win32Wanted.Count) {
 
 # ---------------------------------------------------------------- summary
 Write-Step 'Summary'
-Write-Host "  $removed removed, $($absent.Count) not present, $($failed.Count) failed" -ForegroundColor DarkGray
+$verb = if ($script:DryRun) { 'planned for removal' } else { 'removed' }
+Write-Host "  $removed $verb, $($absent.Count) not present, $($failed.Count) failed" -ForegroundColor DarkGray
 
 if ($absent.Count) {
     Write-Host ''

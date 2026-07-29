@@ -1,8 +1,8 @@
 # Layout
 
-Everything the machine keeps lives under one root, and **this table is the only place any of
-those paths is written down**. A script that needs one asks `Get-LayoutPath`; it never holds
-a literal. Move a folder by editing a row here.
+Everything assigned a custom workstation path lives under one root, and **this table is the
+only place any of those paths is written down**. A script that needs one asks
+`Get-LayoutPath`; it never holds a literal. Move a folder by editing a row here.
 
 ## Paths
 
