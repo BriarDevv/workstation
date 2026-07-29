@@ -39,10 +39,6 @@ So adding a category is one file and nothing else:
 New-Item dev\repos\clients.md
 ```
 
-There used to be a third column holding the destination. It was six identical cells, each of
-which could be mistyped, and all of which had to be kept in step — a column that says the
-same thing on every row isn't data, it's a chance to be wrong.
-
 Anything outside a `## The list` section is prose and gets ignored, so a file can explain
 itself without confusing the parser.
 
@@ -57,5 +53,5 @@ instructions, no per-project stack notes — those belong to the project itself.
 `CLAUDE.md` states it as a hard rule: outside this folder, naming a project at all is a bug,
 because the machine outlives every project on it.
 
-> ⚠️ Some folders on this disk are on **no remote at all** and nothing here clones them.
-> Root `README.md` § **Before you wipe** has the list.
+Before erasing the machine, use [`docs/pre-format.md`](../../docs/pre-format.md) to verify
+remotes, unpushed commits, stashes, and untracked files from current state.

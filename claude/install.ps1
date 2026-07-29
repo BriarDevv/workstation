@@ -3,20 +3,18 @@
     Applies this folder's Claude Code configuration to ~/.claude.
 
 .DESCRIPTION
-    Four steps: CLAUDE.md, the rules, settings.json, and - only with -Secrets - the MCP
-    servers.
+    Reconciles the Claude Code CLI prerequisite, marketplaces, plugins, CLAUDE.md, rules,
+    settings.json, and - only with -Secrets - the user-scope MCP servers declared here.
 
-    settings.json is MERGED rather than copied. oh-my-claudecode owns "hooks" and
-    "statusLine" in the live file and this repo deliberately carries neither, so a straight
-    copy would delete them and take the HUD and every hook with it. Keys present here win;
-    keys only present live are left alone.
+    settings.json is merged rather than copied. Repo keys win and valid unmanaged live keys
+    remain. Legacy hook shapes that make Claude reject the whole file are not preserved.
 
     Idempotent. Exit code 0 means everything asked for is in place; 1 means it isn't, and
     the summary names what.
 
 .PARAMETER Secrets
-    Also resolve mcp.template.json into ~/.claude/mcp-configs/mcp-servers.json, reading the
-    values from secrets/.env. Off by default: without it this script never touches a file
+    Resolve mcp.template.json with secrets/.env and apply each declared server through
+    `claude mcp --scope user`. Off by default: without it this script never touches a file
     that holds API keys.
 
 .PARAMETER WhatIfOnly
@@ -39,37 +37,9 @@ Assert-PowerShell7
 $script:DryRun = [bool]$WhatIfOnly
 $failed = [System.Collections.Generic.List[string]]::new()
 $claudeHome = Join-Path $HOME '.claude'
-
-# Write a file, backing up whatever was there first. Install-ConfigFile copies a file from
-# the repo; this one takes text that was generated, which is why it exists separately.
-function Write-ConfigText {
-    param(
-        [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Text,
-        [Parameter(Mandatory)][string]$Label
-    )
-    if ((Test-Path $Path) -and ((Get-Content $Path -Raw) -eq $Text)) {
-        Write-Skip "$Label already identical"
-        return $true
-    }
-    if ($script:DryRun) { Write-Would "write $Path"; return $true }
-
-    try {
-        if (Test-Path $Path) {
-            $bak = Join-Path $script:BackupDir (Split-Path $Path -Leaf)
-            New-Item -ItemType Directory -Force -Path (Split-Path $bak -Parent) | Out-Null
-            Copy-Item $Path $bak -Force
-            Write-Warn2 "backed up original -> $bak"
-        }
-        New-Item -ItemType Directory -Force -Path (Split-Path $Path -Parent) | Out-Null
-        # -NoNewline: the text already ends how it should, and Set-Content would otherwise
-        # append a newline every run and break the idempotency check above.
-        Set-Content -Path $Path -Value $Text -NoNewline -Encoding utf8
-        Write-Ok $Label
-        return $true
-    }
-    catch { Write-Fail "$Label - $($_.Exception.Message)"; return $false }
-}
+$configChanged = $false
+$repoSettingsPath = Join-Path $PSScriptRoot 'settings.json'
+$repoSettings = Get-Content $repoSettingsPath -Raw | ConvertFrom-Json -AsHashtable
 
 # Sort every object's keys, at every depth, so ConvertTo-Json emits the same text for the
 # same content.
@@ -94,52 +64,179 @@ function ConvertTo-Sorted {
 
 # Every skill in ~/.claude/skills gets hidden from the model; plugin skills don't.
 #
-# Read off the disk rather than from a list in the repo, and that's the whole point. A list
-# would be 176 names of things you don't want - the contamination the root CLAUDE.md
-# forbids - and it would go stale the first time anything installs a skill. This can't:
-# a new plugin's skills are protected automatically, and anything new in the folder is
-# quiet by default. skills.md explains it.
+# Read off the disk rather than maintaining a stale inventory. Anything new in the user
+# skill directory is quiet by default, while plugin skills remain available.
 function Get-SkillOverrides {
     $overrides = [ordered]@{}
     $skillsDir = Join-Path $claudeHome 'skills'
     if (-not (Test-Path $skillsDir)) { return $overrides }
 
-    # Names a plugin also provides. skillOverrides is keyed by name, so disabling the folder
-    # copy of a shared name risks taking the plugin's copy with it - and the plugin's is the
-    # one being used. Real case, not hypothetical: frontend-design exists in both places.
-    $fromPlugins = @()
-    $cache = Join-Path $claudeHome 'plugins\cache'
-    if (Test-Path $cache) {
-        $fromPlugins = @(Get-ChildItem $cache -Directory -Recurse -Depth 4 -Filter skills -ErrorAction SilentlyContinue |
-                ForEach-Object { (Get-ChildItem $_.FullName -Directory -ErrorAction SilentlyContinue).Name }) |
-            Select-Object -Unique
-    }
-
     foreach ($s in Get-ChildItem $skillsDir -Directory | Sort-Object Name) {
-        if ($fromPlugins -contains $s.Name) { continue }
-        # Not 'off': both cost the model nothing, but this keeps /skill-name working, so
-        # turning one back on never means editing a file.
+        # Plugin skills are not affected by skillOverrides. The same name can safely exist in
+        # both places; this setting applies only to the user-directory copy.
         $overrides[$s.Name] = 'user-invocable-only'
     }
     return $overrides
 }
 
+# Claude rejects an entire user settings file when one hook has the legacy object shape.
+# Preserve third-party hooks only when every event and matcher uses the current array form.
+function Test-HooksShape {
+    param($Hooks)
+    if ($null -eq $Hooks -or $Hooks -isnot [System.Collections.IDictionary]) { return $false }
+    foreach ($event in $Hooks.Keys) {
+        $matchers = $Hooks[$event]
+        if ($matchers -isnot [System.Collections.IList]) { return $false }
+        foreach ($matcher in $matchers) {
+            if ($matcher -isnot [System.Collections.IDictionary]) { return $false }
+            if (-not $matcher.ContainsKey('hooks') -or $matcher.hooks -isnot [System.Collections.IList]) {
+                return $false
+            }
+        }
+    }
+    return $true
+}
+
+# ---------------------------------------------------------------- CLI and plugins
+Write-Step 'Claude Code CLI'
+$hasClaude = Test-Cmd claude.exe
+if (-not $hasClaude) {
+    Write-Fail 'claude.exe is missing. Install it before running the restore:'
+    Write-Host '         irm https://claude.ai/install.ps1 | iex' -ForegroundColor DarkGray
+    Write-Host '         Then open a new PowerShell 7 window.' -ForegroundColor DarkGray
+    $failed.Add('Claude Code CLI')
+}
+else {
+    $claudeVersion = (& claude.exe --version 2>$null | Out-String).Trim()
+    Write-Ok "Claude Code $claudeVersion"
+}
+
+Write-Step 'Plugin marketplaces and plugins'
+if (-not $hasClaude) {
+    Write-Warn2 'plugin sync skipped - Claude Code CLI is missing'
+}
+else {
+    $marketplaceManifest = Get-Content (Join-Path $PSScriptRoot 'marketplaces.json') -Raw |
+        ConvertFrom-Json -AsHashtable
+    $marketplaces = @()
+    try {
+        $marketplaces = @((& claude.exe plugin marketplace list --json 2>$null | Out-String) |
+                ConvertFrom-Json)
+    }
+    catch {
+        Write-Fail "could not inspect Claude plugin marketplaces: $($_.Exception.Message)"
+        $failed.Add('plugin marketplace inspection')
+    }
+
+    foreach ($name in $marketplaceManifest.marketplaces.Keys) {
+        if ($marketplaces.name -contains $name) {
+            Write-Skip "$name marketplace already registered"
+            continue
+        }
+
+        $source = $marketplaceManifest.marketplaces[$name]
+        if ($script:DryRun) {
+            Write-Would "register $name marketplace from $source"
+            continue
+        }
+
+        & claude.exe plugin marketplace add --scope user $source 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok "$name marketplace registered"
+            $configChanged = $true
+        }
+        else {
+            Write-Fail "$name marketplace could not be registered from $source"
+            $failed.Add("plugin marketplace: $name")
+        }
+    }
+
+    $installedPlugins = @()
+    try {
+        $installedPlugins = @((& claude.exe plugin list --json 2>$null | Out-String) |
+                ConvertFrom-Json)
+    }
+    catch {
+        Write-Fail "could not inspect installed Claude plugins: $($_.Exception.Message)"
+        $failed.Add('plugin inspection')
+    }
+
+    $wantedPlugins = @($repoSettings.enabledPlugins.Keys | Where-Object {
+            $repoSettings.enabledPlugins[$_]
+        })
+    foreach ($id in $wantedPlugins) {
+        $installed = $installedPlugins | Where-Object id -eq $id | Select-Object -First 1
+        if ($installed -and $installed.enabled) {
+            Write-Skip "$id already installed and enabled"
+            continue
+        }
+
+        $action = if ($installed) { 'enable' } else { 'install' }
+        if ($script:DryRun) {
+            Write-Would "$action user plugin $id"
+            continue
+        }
+
+        if ($installed) { & claude.exe plugin enable $id --scope user 2>&1 | Out-Null }
+        else { & claude.exe plugin install $id --scope user 2>&1 | Out-Null }
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok "$id $(if ($installed) { 'enabled' } else { 'installed' })"
+            $configChanged = $true
+        }
+        else {
+            Write-Fail "$id could not be $(if ($action -eq 'enable') { 'enabled' } else { 'installed' })"
+            $failed.Add("plugin: $id")
+        }
+    }
+}
+
 # ---------------------------------------------------------------- CLAUDE.md
 Write-Step 'CLAUDE.md'
-# The whole file sits between OMC:START / OMC:END markers, which the repo copy carries too -
-# so this is a plain overwrite, and re-running it is how you recover after omc-setup or an
-# OMC update stomps your edits. See README.md.
-if (-not (Install-ConfigFile (Join-Path $PSScriptRoot 'CLAUDE.md') (Join-Path $claudeHome 'CLAUDE.md'))) {
+$claudeMdPath = Join-Path $claudeHome 'CLAUDE.md'
+$ownedText = (Get-Content (Join-Path $PSScriptRoot 'CLAUDE.md') -Raw).TrimEnd()
+$omcBlock = $null
+if (Test-Path $claudeMdPath) {
+    $liveClaudeText = Get-Content $claudeMdPath -Raw
+    $match = [regex]::Match($liveClaudeText, '(?s)<!-- OMC:START -->.*?<!-- OMC:END -->')
+    if ($match.Success) { $omcBlock = $match.Value }
+}
+$claudeText = $ownedText + "`n"
+if ($omcBlock) {
+    $claudeText += "`n" + $omcBlock.Trim() + "`n"
+    Write-Host '  preserving the current OMC-generated block from the live file' -ForegroundColor DarkGray
+}
+$claudeNeedsWrite = -not (Test-Path $claudeMdPath -PathType Leaf) -or
+    ((Get-Content $claudeMdPath -Raw) -cne $claudeText)
+if (-not (Install-ConfigText -Destination $claudeMdPath -Text $claudeText -Label 'CLAUDE.md')) {
     $failed.Add('CLAUDE.md')
 }
+elseif ($claudeNeedsWrite -and -not $script:DryRun) { $configChanged = $true }
 
 # ---------------------------------------------------------------- rules
 Write-Step 'Rules'
 $rulesSrc = Join-Path $PSScriptRoot 'rules\common'
 $rulesDst = Join-Path $claudeHome 'rules\common'
-foreach ($f in @(Get-ChildItem $rulesSrc -Filter *.md -ErrorAction SilentlyContinue | Sort-Object Name)) {
+$repoRules = @(Get-ChildItem $rulesSrc -Filter *.md -ErrorAction SilentlyContinue | Sort-Object Name)
+foreach ($f in $repoRules) {
     if (-not (Install-ConfigFile $f.FullName (Join-Path $rulesDst $f.Name))) {
         $failed.Add("rule: $($f.Name)")
+    }
+}
+# This directory is declarative: a removed repo rule must stop loading globally. Backups
+# make the first cleanup recoverable, and unrelated rule directories are untouched.
+$wantedRuleNames = @($repoRules.Name)
+foreach ($liveRule in @(Get-ChildItem $rulesDst -Filter *.md -ErrorAction SilentlyContinue)) {
+    if ($liveRule.Name -in $wantedRuleNames) { continue }
+    if ($script:DryRun) { Write-Would "remove undeclared global rule $($liveRule.FullName)"; continue }
+    try {
+        Backup-ExistingFile $liveRule.FullName | Out-Null
+        Remove-Item -LiteralPath $liveRule.FullName -Force
+        $configChanged = $true
+        Write-Ok "removed undeclared global rule $($liveRule.Name)"
+    }
+    catch {
+        Write-Fail "could not remove global rule $($liveRule.Name): $($_.Exception.Message)"
+        $failed.Add("rule cleanup: $($liveRule.Name)")
     }
 }
 
@@ -147,37 +244,67 @@ foreach ($f in @(Get-ChildItem $rulesSrc -Filter *.md -ErrorAction SilentlyConti
 Write-Step 'settings.json'
 $settingsPath = Join-Path $claudeHome 'settings.json'
 
-$repoSettings = Get-Content (Join-Path $PSScriptRoot 'settings.json') -Raw | ConvertFrom-Json -AsHashtable
 # _notes documents the repo's copy for a human reading it. It is not configuration and does
 # not belong in the live file.
 $repoSettings.Remove('_notes')
 
-$liveSettings = if (Test-Path $settingsPath) {
-    Get-Content $settingsPath -Raw | ConvertFrom-Json -AsHashtable
+$liveSettings = @{}
+if (Test-Path $settingsPath) {
+    try { $liveSettings = Get-Content $settingsPath -Raw | ConvertFrom-Json -AsHashtable }
+    catch {
+        Write-Warn2 "live settings.json is invalid JSON and will not be merged: $($_.Exception.Message)"
+    }
 }
-else { @{} }
 
 $merged = @{}
-foreach ($k in $liveSettings.Keys) { $merged[$k] = $liveSettings[$k] }
+$discarded = [System.Collections.Generic.List[string]]::new()
+foreach ($k in $liveSettings.Keys) {
+    if ($k -eq 'hooks' -and -not (Test-HooksShape $liveSettings[$k])) {
+        $discarded.Add('hooks (legacy/invalid shape)')
+        continue
+    }
+    $merged[$k] = $liveSettings[$k]
+}
 foreach ($k in $repoSettings.Keys) { $merged[$k] = $repoSettings[$k] }
 
 $overrides = Get-SkillOverrides
 if ($overrides.Count) { $merged['skillOverrides'] = $overrides }
+else { $merged.Remove('skillOverrides') }
 
-$kept = @($liveSettings.Keys | Where-Object { -not $repoSettings.ContainsKey($_) })
+$kept = @($liveSettings.Keys | Where-Object {
+        -not $repoSettings.ContainsKey($_) -and $_ -notin @('hooks', 'skillOverrides')
+    })
 if ($kept.Count) { Write-Host "  keeping $($kept.Count) key(s) this repo doesn't manage: $($kept -join ', ')" -ForegroundColor DarkGray }
-Write-Host "  $($overrides.Count) skill(s) hidden from the model, $(@(Get-ChildItem (Join-Path $claudeHome 'skills') -Directory -EA SilentlyContinue).Count - $overrides.Count) left to their plugin" -ForegroundColor DarkGray
+if ($discarded.Count) {
+    Write-Warn2 "not preserving invalid live setting(s): $($discarded -join ', ')"
+    Write-Host '         The complete old file is backed up before the repaired one is written.' -ForegroundColor DarkGray
+}
+Write-Host "  $($overrides.Count) user-directory skill(s) hidden from the model; plugin skills are unaffected" -ForegroundColor DarkGray
 
 $json = ((ConvertTo-Sorted $merged) | ConvertTo-Json -Depth 100) + "`n"
-if (-not (Write-ConfigText -Path $settingsPath -Text $json -Label 'settings.json')) {
+$settingsNeedsWrite = -not (Test-Path $settingsPath -PathType Leaf) -or
+    ((Get-Content $settingsPath -Raw) -cne $json)
+$settingsInstalled = Install-ConfigText -Destination $settingsPath -Text $json -Label 'settings.json'
+if (-not $settingsInstalled) {
     $failed.Add('settings.json')
+}
+else {
+    if ($settingsNeedsWrite -and -not $script:DryRun) { $configChanged = $true }
+}
+if ($settingsInstalled -and -not $script:DryRun -and $hasClaude) {
+    $doctor = & claude.exe doctor 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0 -or $doctor -match '(?m)^Invalid settings') {
+        Write-Fail 'Claude rejected the resulting settings.json; run: claude doctor'
+        $failed.Add('settings.json validation')
+    }
+    else { Write-Ok 'claude doctor accepted settings.json' }
 }
 
 # ---------------------------------------------------------------- MCP
 Write-Step 'MCP servers'
 if (-not $Secrets) {
-    Write-Skip 'mcp-servers.json skipped - pass -Secrets to write it'
-    Write-Host '         It holds API keys, so it is never written by accident.' -ForegroundColor DarkGray
+    Write-Skip 'user-scope MCP sync skipped - pass -Secrets to apply it'
+    Write-Host '         It contains API keys, so it is never changed by accident.' -ForegroundColor DarkGray
 }
 else {
     $envFile = Join-Path $PSScriptRoot '..\secrets\.env'
@@ -193,25 +320,139 @@ else {
             $vars[$line.Substring(0, $i).Trim()] = $line.Substring($i + 1).Trim().Trim('"')
         }
 
-        # layout\LAYOUT.md owns the path, the same as every .ps1 here. Backslashes are
-        # doubled because the value lands inside JSON, where a lone one starts an escape.
-        $vars['LAYOUT_REPOS'] = (Get-LayoutPath 'repos').Replace('\', '\\')
+        $vars['LAYOUT_REPOS'] = Get-LayoutPath 'repos'
 
-        # .Replace and not -replace: an API key can contain $ or \, which the regex operator
-        # would read as a backreference or an escape and silently corrupt.
-        $text = Get-Content (Join-Path $PSScriptRoot 'mcp.template.json') -Raw
-        foreach ($k in $vars.Keys) { $text = $text.Replace('${' + $k + '}', $vars[$k]) }
-
-        $missing = [regex]::Matches($text, '\$\{([A-Za-z_][A-Za-z0-9_]*)\}') |
-            ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
+        $templateText = Get-Content (Join-Path $PSScriptRoot 'mcp.template.json') -Raw
+        $required = @([regex]::Matches($templateText, '\$\{([A-Za-z_][A-Za-z0-9_]*)\}') |
+                ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
+        $missing = @($required | Where-Object {
+                -not $vars.ContainsKey($_) -or [string]::IsNullOrWhiteSpace([string]$vars[$_])
+            })
         if ($missing) {
             Write-Warn2 "$($missing.Count) placeholder(s) with no value in secrets\.env: $($missing -join ', ')"
-            Write-Host '         Those servers will start and fail to authenticate.' -ForegroundColor DarkGray
+            Write-Host '         No MCP configuration was changed.' -ForegroundColor DarkGray
+            $failed.Add('MCP placeholders')
         }
+        elseif (-not $hasClaude) {
+            Write-Warn2 'claude.exe is missing - cannot apply user-scope MCP servers'
+            $failed.Add('claude.exe')
+        }
+        else {
+            # Resolve placeholders as values inside the parsed object, then serialize. This
+            # correctly escapes quotes and backslashes inside credentials and paths.
+            function Resolve-TemplateValue {
+                param($Value)
+                if ($Value -is [System.Collections.IDictionary]) {
+                    $out = [ordered]@{}
+                    foreach ($k in $Value.Keys) { $out[$k] = Resolve-TemplateValue $Value[$k] }
+                    return $out
+                }
+                if ($Value -is [object[]] -or $Value -is [System.Collections.IList]) {
+                    return @($Value | ForEach-Object { Resolve-TemplateValue $_ })
+                }
+                if ($Value -is [string]) {
+                    if ($Value -match '^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$') { return [string]$vars[$Matches[1]] }
+                    $text = $Value
+                    foreach ($k in $vars.Keys) { $text = $text.Replace('${' + $k + '}', [string]$vars[$k]) }
+                    return $text
+                }
+                return $Value
+            }
 
-        $mcpPath = Join-Path $claudeHome 'mcp-configs\mcp-servers.json'
-        if (-not (Write-ConfigText -Path $mcpPath -Text $text -Label 'mcp-servers.json')) {
-            $failed.Add('mcp-servers.json')
+            $template = $templateText | ConvertFrom-Json -AsHashtable
+            $desiredServers = (Resolve-TemplateValue $template).mcpServers
+            $userJsonPath = Join-Path $HOME '.claude.json'
+            $userState = @{}
+            if (Test-Path $userJsonPath) {
+                try { $userState = Get-Content $userJsonPath -Raw | ConvertFrom-Json -AsHashtable }
+                catch {
+                    Write-Fail "~/.claude.json is invalid JSON; no MCP server was changed"
+                    $failed.Add('~/.claude.json')
+                }
+            }
+            $currentServers = if ($userState.mcpServers) { $userState.mcpServers } else { @{} }
+
+            # Claude normalizes stdio entries by adding type=stdio and sometimes env={}. Do
+            # not remove/re-add a server on every run solely because of those CLI defaults.
+            function Get-ComparableMcpJson {
+                param($Server)
+                $copy = @{}
+                foreach ($key in $Server.Keys) { $copy[$key] = $Server[$key] }
+                if ($copy.type -eq 'stdio') { $copy.Remove('type') }
+                if ($copy.env -is [System.Collections.IDictionary] -and $copy.env.Count -eq 0) {
+                    $copy.Remove('env')
+                }
+                return (ConvertTo-Sorted $copy) | ConvertTo-Json -Depth 100 -Compress
+            }
+
+            $userJsonExisted = Test-Path $userJsonPath
+            $userJsonBackup = $null
+            $mcpMigrationComplete = -not ($failed -contains '~/.claude.json')
+            foreach ($name in @($desiredServers.Keys)) {
+                if ($failed -contains '~/.claude.json') { break }
+                $wantJson = (ConvertTo-Sorted $desiredServers[$name]) | ConvertTo-Json -Depth 100 -Compress
+                $haveJson = if ($currentServers.ContainsKey($name)) {
+                    Get-ComparableMcpJson $currentServers[$name]
+                }
+                else { $null }
+
+                $wantComparable = Get-ComparableMcpJson $desiredServers[$name]
+                if ($haveJson -ceq $wantComparable) { Write-Skip "$name already configured at user scope"; continue }
+                if ($script:DryRun) {
+                    Write-Would "$(if ($haveJson) { 'update' } else { 'add' }) user-scope MCP server $name"
+                    continue
+                }
+
+                if (-not $userJsonBackup -and (Test-Path $userJsonPath)) {
+                    $userJsonBackup = Backup-ExistingFile $userJsonPath
+                }
+                if ($haveJson) {
+                    & claude.exe mcp remove --scope user $name 2>&1 | Out-Null
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Fail "$name could not be removed before update"
+                        $failed.Add("MCP: $name")
+                        if ($userJsonBackup) {
+                            Copy-Item -LiteralPath $userJsonBackup -Destination $userJsonPath -Force
+                            Write-Warn2 'restored the pre-run ~/.claude.json after the MCP failure'
+                        }
+                        $mcpMigrationComplete = $false
+                        break
+                    }
+                }
+
+                & claude.exe mcp add-json --scope user $name $wantJson 2>&1 | Out-Null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Ok "$name configured at user scope"
+                    $configChanged = $true
+                }
+                else {
+                    Write-Fail "$name could not be configured"
+                    $failed.Add("MCP: $name")
+                    if ($userJsonBackup) {
+                        Copy-Item -LiteralPath $userJsonBackup -Destination $userJsonPath -Force
+                        Write-Warn2 'restored the pre-run ~/.claude.json after the MCP failure'
+                    }
+                    elseif (-not $userJsonExisted -and (Test-Path $userJsonPath)) {
+                        Remove-Item -LiteralPath $userJsonPath -Force
+                        Write-Warn2 'removed the partial ~/.claude.json created by this run'
+                    }
+                    $mcpMigrationComplete = $false
+                    break
+                }
+            }
+
+            # Older Claude versions and OMC used this path. Current Claude Code ignores it;
+            # once the user-scope migration succeeds, remove the plaintext duplicate.
+            $legacyMcpPath = Join-Path $claudeHome 'mcp-configs\mcp-servers.json'
+            if ($mcpMigrationComplete -and (Test-Path $legacyMcpPath)) {
+                if ($script:DryRun) { Write-Would "archive and remove obsolete $legacyMcpPath" }
+                else {
+                    Backup-ExistingFile $legacyMcpPath | Out-Null
+                    Remove-Item -LiteralPath $legacyMcpPath -Force
+                    $configChanged = $true
+                    Write-Ok 'obsolete mcp-configs/mcp-servers.json removed after migration'
+                }
+            }
         }
     }
 }
@@ -221,19 +462,24 @@ Write-Step 'Left to do by hand'
 foreach ($row in Get-RowsFromReadme (Join-Path $PSScriptRoot 'README.md') @('What stays manual')) {
     Write-Host "         $row" -ForegroundColor DarkGray
 }
-# ~/.claude.json holds the OAuth token, so it is gitignored and nothing here writes it. Any
-# MCP server living in there is invisible to this repo and would survive a format only by
-# being typed back in.
+# Claude Code stores user-scope MCP servers in ~/.claude.json. The CLI owns writes to that
+# file; this report only calls out entries not declared by the template.
 $userJson = Join-Path $HOME '.claude.json'
 if (Test-Path $userJson) {
-    $u = Get-Content $userJson -Raw | ConvertFrom-Json -AsHashtable
-    $stray = @($u.mcpServers.Keys | Where-Object { $_ })
-    if ($stray.Count) {
-        Write-Host ''
-        Write-Warn2 "$($stray.Count) MCP server(s) live in ~\.claude.json, which this repo cannot manage:"
-        Write-Host "         $($stray -join ', ')" -ForegroundColor DarkGray
-        Write-Host '         That file is gitignored (OAuth token). Move anything worth keeping into' -ForegroundColor DarkGray
-        Write-Host '         mcp.template.json, or it is gone after a format.' -ForegroundColor DarkGray
+    try {
+        $u = Get-Content $userJson -Raw | ConvertFrom-Json -AsHashtable
+        $manifest = Get-Content (Join-Path $PSScriptRoot 'mcp.template.json') -Raw |
+            ConvertFrom-Json -AsHashtable
+        $declared = @($manifest.mcpServers.Keys) + @($manifest.externalServers)
+        $unexpected = @($u.mcpServers.Keys | Where-Object { $_ -and $_ -notin $declared })
+        if ($unexpected.Count) {
+            Write-Host ''
+            Write-Warn2 "$($unexpected.Count) undeclared user-scope MCP server(s), preserved but not managed here:"
+            Write-Host "         $($unexpected -join ', ')" -ForegroundColor DarkGray
+        }
+    }
+    catch {
+        Write-Warn2 "could not inspect ~/.claude.json: $($_.Exception.Message)"
     }
 }
 
@@ -251,5 +497,8 @@ if ($failed.Count) {
 
 Write-Ok 'nothing failed'
 Write-Host ''
-Write-Host '  Restart Claude Code for settings.json to take effect.' -ForegroundColor DarkGray
+if ($script:DryRun) { Write-Host '  Dry run complete; no Claude files changed.' -ForegroundColor DarkGray }
+elseif ($configChanged) { Write-Host '  Restart Claude Code for the changes to take effect.' -ForegroundColor DarkGray }
+else { Write-Host '  Claude configuration was already current.' -ForegroundColor DarkGray }
 Write-Host ''
+exit 0

@@ -45,25 +45,24 @@ The copy of `LAYOUT.md` at the root of the tree is documentation left where it w
 
 ## The permissions step
 
-`C:\Briar` was created by hand at the root of `C:` and inherited that ACL, which grants
-**`Authenticated Users`** write access to everything below it. `Program Files` does not work
-that way:
+The custom root may inherit an ACL that grants **`Authenticated Users`** write access to
+everything below it. The installer replaces inheritance with an application-directory
+style ACL:
 
 | Path | Who can write |
 | ---- | ------------- |
 | `C:\Program Files` | SYSTEM, Administrators, TrustedInstaller |
 | `%LOCALAPPDATA%\Programs` | the above **+ the user** |
-| `C:\Briar` **before** this step | the above **+ `Authenticated Users`** |
+| Declared root before hardening | may include `Authenticated Users` |
 
 So the script drops inheritance and re-grants SYSTEM, Administrators and you — landing on the
 `%LOCALAPPDATA%\Programs` shape.
 
 ### Two things about that code that look wrong and aren't
 
-**`icacls`, not `Set-Acl`.** `Set-Acl` cannot remove an inherited ACE. `RemoveAccessRule`
-returns `$true`, `Set-Acl` raises nothing, and the entry is still there afterwards — measured
-on this machine, twice. A permissions change that fails silently is worse than one that
-doesn't run.
+**`icacls`, not `Set-Acl`.** `Set-Acl` cannot reliably remove an inherited ACE;
+`RemoveAccessRule` can return `$true` while the entry remains. A permissions change that
+fails silently is worse than one that doesn't run.
 
 **The explicit grant back to you is not belt-and-braces.** `C:` gives `BUILTIN\Users` only
 `ReadAndExecute`. Drop inheritance without re-granting and the tree goes read-only for any
@@ -78,7 +77,7 @@ Neither needs elevation. Being the folder's owner is enough.
 
 - **It doesn't move anything.** It creates folders and sets one ACL. Programs put themselves
   where `LAYOUT.md` says at install time — see `apps/`.
-- **It doesn't clean up.** The old hand-made tree is the format's problem, and root
-  `README.md` § *Before you wipe* is the decision record for what gets written off.
+- **It doesn't clean up or migrate existing data.** Use
+  [`docs/pre-format.md`](../docs/pre-format.md) before erasing or replacing a disk.
 - **It doesn't decide where a program goes.** `LAYOUT.md` § *Which folder* does, in four rows,
   so the question is answered the same way twice.

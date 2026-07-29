@@ -1,150 +1,37 @@
-# terminal/ — instructions
+# terminal instructions
 
-Read this before changing anything in this folder. The usual request is:
+The live configuration is composed; never copy a live Windows Terminal `settings.json` back
+over the repo base.
 
-> "I made a couple of styles and tweaked some settings on the machine — read the repo and
-> bring it up to date."
+```text
+windows-terminal/settings.json + schemes/*.json + styles/<active>.json
+    -> live Windows Terminal settings.json
 
-That job is below under **Syncing the machine back into the repo**.
-
----
-
-## The model
-
-Nothing here is a copy of what's on the machine. The live config is **composed** at install
-time:
-
-```
-windows-terminal/settings.json   base: profiles, keybindings, structure
-  + schemes/*.json               all of them, merged into the schemes array
-  + styles/<active>.json         font, colorScheme, opacity, padding, cursor
-  ────────────────────────────▶  %LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_*\LocalState\settings.json
-
-styles/<active>.json             logo, colors, module list
-  ────────────────────────────▶  ~\.config\fastfetch\config.jsonc     (fully generated)
+styles/<active>.json
+    -> ~/.config/fastfetch/config.jsonc
 ```
 
-`style.json` holds one key: which style is active.
+Route changes by ownership:
 
-**There is no `fastfetch/config.jsonc` in the repo.** It's generated. If you find yourself
-creating one, you've misunderstood the design.
+| Change | Source file |
+| --- | --- |
+| Font, opacity, scheme choice, padding, cursor | `styles/<name>.json` |
+| Fastfetch logo, colors, or modules | `styles/<name>.json` |
+| Palette values | `schemes/<name>.json` |
+| Profiles, keybindings, tabs, structure | `windows-terminal/settings.json` |
+| Active style name | `style.json` |
 
----
+When syncing from the machine, compose the expected output and diff it with the live files.
+Route only intentional differences; ignore defaults that Windows Terminal added by itself.
+If ownership is ambiguous, ask before flattening it into a layer.
 
-## The rule that matters most
+Keep these invariants:
 
-**Never write a live `settings.json` back into `windows-terminal/settings.json`.**
-
-The live file is the *composed output*. Copying it back flattens schemes and style values
-into the base, which destroys the style system — you end up with one big file again, which
-is exactly what this structure exists to avoid.
-
-When something changed on the machine, figure out **which layer it belongs to** and edit
-that layer:
-
-| What changed                                          | Where it goes                        |
-| ----------------------------------------------------- | ------------------------------------ |
-| Font family, size, weight, cellHeight                 | `styles/<name>.json` → `font`        |
-| Color scheme name, opacity, acrylic, padding, cursor  | `styles/<name>.json` → `terminal`    |
-| ASCII art choice, logo colors, fetch modules          | `styles/<name>.json` → `fastfetch`   |
-| The colors *inside* a scheme                          | `schemes/<name>.json`                |
-| Profiles, keybindings, tab behaviour, newTabMenu      | `windows-terminal/settings.json`     |
-| Which style is active                                 | `style.json`                         |
-
-If a value could plausibly belong to two layers, **ask** rather than guessing. Putting a
-per-look value in the base means every future style inherits it silently.
-
----
-
-## Syncing the machine back into the repo
-
-1. **Read the live files.**
-   - `%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json`
-   - `~\.config\fastfetch\config.jsonc`
-   - `$PROFILE.CurrentUserCurrentHost`
-
-2. **Compose what the repo *would* produce** for the active style, and diff against live.
-   Only the differences matter — don't rewrite files that already agree.
-
-3. **Route each difference** to its layer using the table above.
-
-4. **Watch for keys Windows Terminal added on its own.** It writes new keys with default
-   values after an upgrade. Those are noise, not intent — don't capture them just because
-   they appeared. If a key looks new and no one asked for it, leave it out and mention it.
-
-5. **New styles**: if the machine has a look that isn't in `styles/`, create the file with
-   `install.ps1 -NewStyle <name>` and fill it in. Kebab-case names.
-
-6. **Re-run `install.ps1`** and confirm every line reports `[skip]`. That's the proof the
-   repo and the machine agree. If something still says `[ok]` with a backup warning, the
-   sync is incomplete.
-
-   One false positive to know about: with **Windows Terminal open**, WT rewrites its own
-   `settings.json` shortly after the script writes it, reordering keys inside objects
-   without changing a single value. The next run then sees a different hash and reports
-   `[ok]` again. Run it twice back to back, or close the terminal first — if the second
-   run says `[skip]`, there was never anything wrong.
-
-7. **Report** what moved to which layer, and anything you deliberately left out.
-
----
-
-## Hard rules
-
-**`ascii-arts/*.txt` are assets, not documentation.** fastfetch reads them raw. The `$1`…`$9`
-markers are color slots. Don't convert them to `.md`, don't reformat them, don't "fix" the
-whitespace.
-
-**Fonts fail silently.** Windows falls back without any error when a family name doesn't
-resolve. Before putting a font name in a style, confirm it's registered:
-
-```powershell
-Add-Type -AssemblyName System.Drawing
-[System.Drawing.FontFamily]::Families.Name | Where-Object { $_ -match 'NFM|Nerd Font Mono' }
-```
-
-Nerd Fonts ships both `JetBrainsMono NFM` and `JetBrainsMono Nerd Font Mono` depending on
-the release. This repo was shipping the second one for months while only the first was
-installed. `install.ps1` now substitutes and warns, but don't rely on the safety net.
-
-**A style must name a scheme that exists** in `schemes/`, and an `asciiArt` that exists in
-`ascii-arts/`. `install.ps1` validates both and stops rather than half-applying.
-
-**The PowerShell profile calls `pwsh.exe`, not a full path.** It used to hardcode
-`C:\Program Files\PowerShell\7\pwsh.exe`, which is where the **MSI** from GitHub installs.
-`winget install Microsoft.PowerShell` ships an **msixbundle** and creates no such folder —
-it lands in `%LOCALAPPDATA%\Microsoft\WindowsApps\`. Since `apps/` installs PowerShell
-through winget, a restored machine would have opened Windows Terminal to a default profile
-pointing at a path that doesn't exist. Found 2026-07-28, before it could happen. Let the
-app execution alias resolve it.
-
-**Scripts are idempotent.** Running twice reports `[skip]` everywhere. If a change breaks
-that, the change is wrong.
-
-**Everything overwritten is backed up** to `$HOME\.workstation-backup\<date>\` first. Keep
-it that way.
-
----
-
-## Keep Windows Terminal current
-
-Windows Terminal **silently drops settings keys it doesn't recognise**. This config uses
-`font.builtinGlyphs`, `font.colorGlyphs` and `font.cellHeight`, all recent additions — on
-an old build the terminal opens fine and just renders wrong, with nothing pointing at the
-version. Same for fastfetch and its logo color slots.
-
-`install.ps1` upgrades both on every run. Don't add `-SkipUpgrade` to any default path.
-
----
-
-## What's here is what's wanted
-
-`schemes/` holds one scheme and `styles/` holds one style. That's not an unfinished folder
-— it's the whole set. Don't add a prompt engine, a second terminal, or extra colour schemes
-because they'd "fit"; if something isn't in these folders, it was left out on purpose.
-
-The machine also has Nerd Font families that no style names. They came from other
-installers, nothing here depends on them, and they should not be written into a style.
-
-`--dangerously-skip-permissions` in `powershell/profile.ps1` is a known, deliberate choice.
-It overrides `defaultMode` in `claude/settings.json`. Flag it if asked, don't remove it.
+- `ascii-arts/*.txt` are raw assets; preserve whitespace and `$1`…`$9` color markers.
+- A style must reference an existing scheme and ASCII asset and contain fastfetch modules.
+- Font names must resolve to a registered mono family; Windows silently falls back.
+- The base profile resolves `pwsh.exe` through PATH rather than assuming MSI paths.
+- Default runs upgrade Windows Terminal and fastfetch; `-SkipUpgrade` stays opt-in.
+- All writes use the shared backup/config helpers and remain idempotent.
+- `-WhatIfOnly` must not modify live config or `style.json`.
+- The Claude bypass flag in `powershell/profile.ps1` is deliberate and remains in place.

@@ -13,10 +13,6 @@
     Without winget, apps\install.ps1 can't run, which means nothing in this repo can. This
     breaks that deadlock by fetching App Installer straight from GitHub.
 
-    It was written when the plan was Enterprise LTSC, where the Store is absent and this was
-    unavoidable. It still earns its place: recovering a missing winget from the Store
-    requires the Store to work, and the failure mode where it doesn't is exactly this one.
-
     IMPORTANT: this is the only script in the repo written for **Windows PowerShell 5.1**.
     A fresh Windows has nothing else — PowerShell 7 is one of the things this installs. So no
     &&, no ternaries, no ??, and TLS 1.2 has to be forced by hand.
@@ -35,6 +31,7 @@
 param([switch]$SkipDevMode)
 
 $ErrorActionPreference = 'Stop'
+$failed = New-Object System.Collections.Generic.List[string]
 
 function Say  { param($m) Write-Host "  $m" }
 function Ok   { param($m) Write-Host "  [ok]   $m" -ForegroundColor Green }
@@ -118,7 +115,10 @@ else {
                 [Environment]::GetEnvironmentVariable('Path', 'User')
 
     if (Get-Command winget -ErrorAction SilentlyContinue) { Ok "winget $(winget --version)" }
-    else { Warn "installed, but not on PATH yet - open a new terminal and check again" }
+    else {
+        Warn "installed, but not on PATH yet - open a new terminal and check again"
+        $failed.Add('winget verification')
+    }
 }
 
 # ================================================================ PowerShell 7
@@ -132,7 +132,11 @@ elseif (Get-Command winget -ErrorAction SilentlyContinue) {
     Say "installing via winget"
     winget install --id Microsoft.PowerShell --exact --silent `
         --accept-package-agreements --accept-source-agreements --disable-interactivity
-    if ($LASTEXITCODE -eq 0) { Ok 'PowerShell 7' } else { Warn "winget exited $LASTEXITCODE" }
+    if ($LASTEXITCODE -eq 0) { Ok 'PowerShell 7' }
+    else {
+        Warn "PowerShell installation failed (winget exit $LASTEXITCODE)"
+        $failed.Add('PowerShell 7')
+    }
 }
 else {
     # No winget: pull the MSI straight from the PowerShell repo.
@@ -169,10 +173,18 @@ else {
 # ================================================================ done
 Step "Next"
 Write-Host ''
+if ($failed.Count -gt 0) {
+    Fail "$($failed.Count) bootstrap step(s) need attention: $($failed -join ', ')"
+    Write-Host ''
+    exit 1
+}
 Say 'Open a NEW terminal so PATH picks up winget and pwsh, then:'
 Write-Host ''
-Write-Host '    pwsh apps\install.ps1' -ForegroundColor White
+Write-Host '    pwsh windows\audit.ps1 -Label stock' -ForegroundColor White
+Write-Host '    pwsh .\install.ps1 -WhatIfOnly' -ForegroundColor White
+Write-Host '    pwsh .\install.ps1' -ForegroundColor White
 Write-Host ''
-Say 'Order after that: terminal -> dev -> claude -> windows\install.ps1'
-Say 'apps installs Docker and WSL, which need a reboot. It will tell you.'
+Say 'Close other applications and let the machine settle before the stock audit.'
+Say 'The root orchestrator owns canonical order and stops when a reboot is required.'
 Write-Host ''
+exit 0

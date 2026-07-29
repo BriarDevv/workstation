@@ -1,28 +1,25 @@
 <#
 .SYNOPSIS
-    Removes the inbox apps listed in README.md.
+    Removes the AppX and Win32 apps listed in README.md.
 
 .DESCRIPTION
-    Reads the package names straight out of README.md's "Inbox apps" table, so adding a row
-    there is enough. The table is the complete list - this script holds no names of its own.
+    Reads AppX names from README.md's "Inbox apps" table and winget IDs from "Win32 apps".
+    The tables are the complete removal manifest - this script holds no removable names of
+    its own.
 
     This is the one script in the repo that DELETES rather than configures, so it is the one
-    that most deserves a dry run first. It is also the least trustworthy on day one: package
-    names change between Windows releases, and this table was written before the machine
-    existed. -List is how you reconcile the two.
+    that most deserves a dry run first. Package names can change between Windows releases;
+    -List is how you compare the manifest with the current machine.
 
-    Per-user by default, which is reversible - reinstall from the Store. -AllUsers also
-    removes the provisioned package so new profiles don't get it back, and needs elevation.
+    AppX removal is intentionally limited to the current user and is reversible through the
+    Store. This personal workstation has one account, so provisioned packages and unrelated
+    profiles are outside the desired state. Win32 targets are uninstalled through winget.
 
     Idempotent: an app that isn't there is a skip, not a failure.
 
 .PARAMETER List
     Show every removable app on this machine and exit. Removes nothing. Use it to check the
     table against reality before believing either.
-
-.PARAMETER AllUsers
-    Also remove the provisioned copy, so a newly created profile doesn't get the app back.
-    Needs an elevated shell.
 
 .PARAMETER WhatIfOnly
     Report every action without performing any of them.
@@ -31,12 +28,10 @@
     pwsh windows\debloat.ps1 -List
     pwsh windows\debloat.ps1 -WhatIfOnly
     pwsh windows\debloat.ps1
-    pwsh windows\debloat.ps1 -AllUsers
 #>
 [CmdletBinding()]
 param(
     [switch]$List,
-    [switch]$AllUsers,
     [switch]$WhatIfOnly
 )
 
@@ -52,13 +47,45 @@ $readme = Join-Path $PSScriptRoot 'README.md'
 $PROTECTED = @(
     'Microsoft.WindowsStore'              # one-way door on Pro
     'Microsoft.DesktopAppInstaller'       # winget itself
+    'Microsoft.StorePurchaseApp'          # Store licensing and purchases
     'Microsoft.VCLibs'                    # C++ runtime, half the Store depends on it
     'Microsoft.UI.Xaml'                   # UI framework, same
     'Microsoft.NET'                       # .NET native framework
+    'MicrosoftCorporationII.WinAppRuntime' # current Windows App Runtime packages
+    'Microsoft.Winget.Source'             # winget package source metadata
+    'Microsoft.PowerShell'                # Store-distributed PowerShell, when present
+    'Microsoft.ApplicationCompatibilityEnhancements' # compatibility fixes from Store
+    'MicrosoftCorporationII.WindowsSubsystemForLinux' # WSL application package
     'Microsoft.WindowsTerminal'           # apps\ installs it on purpose
-    'MicrosoftWindows.Client'             # the shell itself
+    'Microsoft.WindowsCalculator'         # chosen local fallback
+    'Microsoft.WindowsNotepad'            # chosen local fallback
+    'Microsoft.ScreenSketch'              # Snipping Tool
     'Microsoft.Windows.Photos'            # default image handler, no replacement installed
+    'Microsoft.ZuneMusic'                 # Media Player
+    'Microsoft.AV1VideoExtension'         # media codecs used by browsers and local players
+    'Microsoft.AVCEncoderVideoExtension'
+    'Microsoft.HEIFImageExtension'
+    'Microsoft.HEVCVideoExtension'
+    'Microsoft.MPEG2VideoExtension'
+    'Microsoft.RawImageExtension'
+    'Microsoft.VP9VideoExtensions'
+    'Microsoft.WebMediaExtensions'
+    'Microsoft.WebpImageExtension'
+    'Microsoft.GamingApp'                 # Xbox / Game Pass
+    'Microsoft.GamingServices'            # Store and Game Pass runtime
+    'Microsoft.Xbox'                      # every Xbox integration package
+    'Microsoft.Edge.GameAssist'           # Xbox Game Bar browser overlay
+    'Microsoft.MicrosoftEdge'             # Edge stays installed but dormant
+    'MicrosoftWindows.Client.CBS'          # shell servicing components
+    'MicrosoftWindows.Client.Core'
+    'MicrosoftWindows.Client.CoreAI'
+    'MicrosoftWindows.Client.FileExp'
+    'MicrosoftWindows.Client.OOBE'
+    'MicrosoftWindows.Client.Photon'
     'Microsoft.SecHealthUI'               # Windows Security UI
+    'AdvancedMicroDevicesInc-2.AMDRadeonSoftware' # display-driver control panel
+    'NVIDIACorp.NVIDIAControlPanel'
+    'RealtekSemiconductorCorp.RealtekAudioControl'
 )
 
 function Test-Protected {
@@ -74,6 +101,7 @@ if ($List) {
     Write-Host ''
 
     $wanted = @(Get-IdsFromReadme $readme @('Inbox apps'))
+    $win32Wanted = @(Get-IdsFromReadme $readme @('Win32 apps'))
     $apps = @(Get-AppxPackage | Where-Object { -not $_.IsFramework -and $_.NonRemovable -ne $true } | Sort-Object Name)
 
     foreach ($a in $apps) {
@@ -86,6 +114,15 @@ if ($List) {
     Write-Host ''
     Write-Host "  $($apps.Count) removable, $(@($apps | Where-Object { $wanted -contains $_.Name }).Count) of them named in the table." -ForegroundColor DarkGray
     Write-Host '  Anything above without [in table] that you do not want needs a row in README.md.' -ForegroundColor DarkGray
+
+    if ($win32Wanted.Count) {
+        Write-Host ''
+        Write-Host '  Win32 removals:' -ForegroundColor DarkGray
+        foreach ($id in $win32Wanted) {
+            $state = if ((Test-Cmd winget) -and (Test-WingetInstalled $id)) { '[installed]' } else { '[absent]' }
+            Write-Host "    $state $id" -ForegroundColor $(if ($state -eq '[installed]') { 'Yellow' } else { 'DarkGray' })
+        }
+    }
     Write-Host ''
     exit 0
 }
@@ -93,18 +130,13 @@ if ($List) {
 # ---------------------------------------------------------------- remove
 Write-Step 'Inbox apps'
 $wanted = @(Get-IdsFromReadme $readme @('Inbox apps'))
-if (-not $wanted.Count) {
-    Write-Fail 'no packages found under "## Inbox apps" in README.md'
+$win32Wanted = @(Get-IdsFromReadme $readme @('Win32 apps'))
+if (-not $wanted.Count -and -not $win32Wanted.Count) {
+    Write-Fail 'no packages found under "## Inbox apps" or "## Win32 apps" in README.md'
     exit 1
 }
 
-if ($AllUsers -and -not (Test-Admin)) {
-    Write-Warn2 '-AllUsers needs an elevated shell. Doing the per-user removal only.'
-    Write-Host '         The provisioned copies stay, so a NEW Windows profile would get them back.' -ForegroundColor DarkGray
-    $AllUsers = $false
-}
-
-Write-Host "  $($wanted.Count) in the table$(if ($AllUsers) { ', removing for all users' } else { ', current user only' })" -ForegroundColor DarkGray
+Write-Host "  $($wanted.Count) in the table, current user only" -ForegroundColor DarkGray
 
 $removed = 0
 $absent = [System.Collections.Generic.List[string]]::new()
@@ -118,8 +150,9 @@ foreach ($name in $wanted) {
 
     $pkg = @(Get-AppxPackage -Name $name -ErrorAction SilentlyContinue)
     if (-not $pkg.Count) {
-        # Not a failure. Either Windows stopped shipping it or it was never there, and both
-        # mean the row is stale rather than the machine being wrong.
+        # Not a failure. It may already have been removed, or this Windows build may not ship
+        # it. In both cases the declared end state is satisfied; keep the row so a later
+        # feature update or fresh install cannot silently bring it back.
         $absent.Add($name)
         continue
     }
@@ -128,11 +161,6 @@ foreach ($name in $wanted) {
 
     try {
         $pkg | Remove-AppxPackage -ErrorAction Stop
-        if ($AllUsers) {
-            Get-AppxProvisionedPackage -Online |
-                Where-Object { $_.DisplayName -eq $name } |
-                ForEach-Object { Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction Stop | Out-Null }
-        }
         Write-Ok $name
         $removed++
     }
@@ -142,22 +170,39 @@ foreach ($name in $wanted) {
     }
 }
 
+# ---------------------------------------------------------------- Win32 remove
+if ($win32Wanted.Count) {
+    Write-Step 'Win32 apps'
+    if (-not (Test-Cmd winget)) {
+        Write-Warn2 'winget is unavailable - Win32 removals cannot run'
+        foreach ($id in $win32Wanted) { $failed.Add($id) }
+    }
+    else {
+        foreach ($id in $win32Wanted) {
+            if (-not (Test-WingetInstalled $id)) {
+                $absent.Add($id)
+                continue
+            }
+            if ($script:DryRun) { Write-Would "uninstall $id through winget"; $removed++; continue }
+
+            & winget uninstall --id $id --exact --silent --disable-interactivity --accept-source-agreements 2>&1 |
+                Select-Object -Last 2 | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkGray }
+            if ($LASTEXITCODE -eq 0) { Write-Ok $id; $removed++ }
+            else { Write-Warn2 "$id - winget exit $LASTEXITCODE"; $failed.Add($id) }
+        }
+    }
+}
+
 # ---------------------------------------------------------------- summary
 Write-Step 'Summary'
 Write-Host "  $removed removed, $($absent.Count) not present, $($failed.Count) failed" -ForegroundColor DarkGray
 
 if ($absent.Count) {
     Write-Host ''
-    Write-Skip "$($absent.Count) named in the table but not on this machine:"
+    Write-Skip "$($absent.Count) already absent on this machine:"
     foreach ($a in $absent) { Write-Host "         $a" -ForegroundColor DarkGray }
-    Write-Host '         Stale rows. Windows renames and drops packages between releases - check' -ForegroundColor DarkGray
-    Write-Host '         with -List, then delete the rows. A row that matches nothing is noise.' -ForegroundColor DarkGray
-}
-
-if (-not $AllUsers -and $removed) {
-    Write-Host ''
-    Write-Warn2 'Removed for this user only. A new Windows profile gets them all back.'
-    Write-Host '         Elevate and re-run with -AllUsers to strip the provisioned copies too.' -ForegroundColor DarkGray
+    Write-Host '         Kept in the desired-state list so a fresh install or feature update' -ForegroundColor DarkGray
+    Write-Host '         cannot reintroduce them unnoticed.' -ForegroundColor DarkGray
 }
 
 if ($failed.Count) {
@@ -170,6 +215,7 @@ if ($failed.Count) {
 
 Write-Ok 'nothing failed'
 Write-Host ''
-Write-Host '  install.ps1 sets DisableWindowsConsumerFeatures, which is what stops Windows' -ForegroundColor DarkGray
-Write-Host '  putting a fresh batch of suggested apps back on the next feature update.' -ForegroundColor DarkGray
+Write-Host '  install.ps1 disables the Pro-supported consumer surfaces. Re-run this script' -ForegroundColor DarkGray
+Write-Host '  after a feature update if the package inventory changes.' -ForegroundColor DarkGray
 Write-Host ''
+exit 0

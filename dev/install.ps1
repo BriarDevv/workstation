@@ -40,10 +40,9 @@ $failed = [System.Collections.Generic.List[string]]::new()
 # Every .md in repos\ except its README is a clone list, so adding a list is adding a file -
 # there is nothing to register it in.
 #
-# The file's own name is the folder: mine.md clones into <repos>\mine\. That used to be a
-# third column holding the destination, repeated identically on every row. layout\LAYOUT.md
+# The file's own name is the folder: mine.md clones into <repos>\mine\. layout\LAYOUT.md
 # owns the root it hangs off, and layout\install.ps1 creates the folder from the same
-# filename - so the two cannot disagree about where a list lives.
+# filename, so the two cannot disagree about where a list lives.
 #
 # These tables are shaped differently from the ones in apps/README.md: the useful columns
 # are 1 and 2, and column 1 is plain text rather than a backticked ID. That's why
@@ -105,14 +104,15 @@ $repos = Get-ReposFromDir (Join-Path $PSScriptRoot 'repos')
 if ($SkipRepos) {
     Write-Skip "$($repos.Count) repos skipped - -SkipRepos"
 }
-elseif (-not (Test-Cmd gh)) {
-    Write-Warn2 "$($repos.Count) repos skipped - gh isn't installed. Run apps\install.ps1 first."
-    $failed.Add('gh (not installed)')
+elseif (-not (Test-Cmd git) -or -not (Test-Cmd gh)) {
+    $missingTools = @(@('git', 'gh') | Where-Object { -not (Test-Cmd $_) })
+    Write-Warn2 "$($repos.Count) repos skipped - missing $($missingTools -join ', '). Run apps\install.ps1 first."
+    foreach ($tool in $missingTools) { $failed.Add("$tool (not installed)") }
 }
 else {
     # Checked once, up front. Every clone here is over HTTPS against a private account, so
-    # without a login they would all fail the same way - and failing seven times for one
-    # reason reads like seven problems.
+    # without a login they would all fail for the same reason, producing one misleading
+    # problem per repository.
     gh auth status 2>&1 | Out-Null
     $authed = $LASTEXITCODE -eq 0
 
@@ -160,3 +160,4 @@ if ($failed.Count) {
 
 Write-Ok 'nothing failed'
 Write-Host ''
+exit 0

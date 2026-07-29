@@ -1,237 +1,208 @@
 # Windows
 
-The operating system itself. Target edition: **Windows 11 Pro**.
+Target operating system: Windows 11 Pro. This folder owns the operating-system layer rather
+than application configuration.
 
-This folder runs at both ends of the install: the bootstrap goes **first** when it's needed
-at all, the tweaks go **last** because they restart Explorer.
+| File | Use |
+| --- | --- |
+| `usb.md` | Optional recovery-media fallback when Windows recovery cannot be used |
+| `bootstrap.ps1` | PowerShell 5.1 fallback for missing winget, PowerShell 7, and Developer Mode |
+| `audit.ps1` | Read-only before/after process, service, startup, AppX, and policy report |
+| `install.ps1` | User UI/privacy settings and power-plan configuration |
+| `debloat.ps1` | Explicit removal of selected inbox applications |
 
-| File | When | What |
-| --------------- | ------- | ---------------------------------------------------------- |
-| `usb.md` | before | Building the install USB: which ISO, Rufus options, BIOS |
-| `bootstrap.ps1` | phase 0 | winget, PowerShell 7, Developer Mode. **Runs on PS 5.1** |
-| `debloat.ps1` | by hand | Removes the inbox apps. **Not run by the orchestrator** — see below |
-| `install.ps1` | phase 5 | Explorer, power, telemetry. Restarts Explorer |
+## Reinstall from the PC
 
----
+The normal path does not need a USB: Settings → System → Recovery → Reset this PC → Remove
+everything → Cloud download. Do not restore manufacturer applications if Windows offers that
+choice. Complete [`docs/pre-format.md`](../docs/pre-format.md) first. Use `usb.md` only when
+Windows recovery fails, the machine cannot boot, or the target disk must be repartitioned
+manually.
 
-## Pro, not LTSC — and what that costs
+## Local account and sign-in
 
-Decided **2026-07-29**, reversing the earlier plan. The reasoning was never that LTSC is
-worse; it's that Pro is what the licence activates and what the machine will actually run.
+Prefer a local account during setup when Windows offers it. If Cloud reset requires a
+Microsoft account, complete setup with it, then create a local administrator under Settings
+→ Accounts → Other users → Add account → I don't have this person's sign-in information →
+Add a user without a Microsoft account. Leave the password fields blank for the chosen
+passwordless local profile.
 
-| | LTSC | **Pro (this machine)** |
-| ----------------- | -------------------------- | ---------------------------------- |
-| Microsoft Store | absent | **present** |
-| `winget` | may be missing | **ships with Windows** |
-| `msstore` source | can't resolve | **works** |
-| Your Retail key | **doesn't activate it** | **activates, from the digital licence** |
-| Feature updates | none for ~5 years | annual |
-| Inbox apps | mostly stripped | **all there — see `debloat.ps1`** |
-| Local account at OOBE | "Join a domain instead" | **needs a workaround, see `usb.md`** |
+Sign into the new local account, verify that it is an administrator and that its files are
+correct, then remove the temporary Microsoft-linked account if it is no longer wanted. Skip
+or remove Windows Hello PIN and biometric methods under Settings → Accounts → Sign-in
+options. The installer disables the biometric service, but it never creates accounts,
+enables automatic logon, stores credentials, or changes passwords.
 
-The trade in one line: **LTSC is a machine that doesn't change under you; Pro is a machine
-you have to configure.** This folder is that configuration. It's also why `debloat.ps1`
-exists at all — on LTSC there would be almost nothing for it to do.
+## Bootstrap
 
----
-
-## Bootstrap: usually not needed now
-
-**Pro ships `winget`** inside App Installer, so on a fresh Pro install
-`apps/install.ps1` normally just runs.
-
-```powershell
-Get-Command winget -ErrorAction SilentlyContinue   # nothing = you need the bootstrap
-```
-
-It's still worth checking rather than assuming. A brand-new install sometimes has App
-Installer *provisioned but not yet registered* for your user — winget is missing for a few
-minutes after first login until Windows finishes, and it can stay missing if the machine has
-no network during OOBE.
-
-If it is missing, `bootstrap.ps1` asks GitHub for the current winget-cli release, installs
-the dependencies first, then the bundle. Run it from an **elevated Windows PowerShell**:
+Windows 11 normally provides winget through App Installer. If `Get-Command winget` returns
+nothing before the repository is cloned, update **App Installer** from Microsoft Store and
+open a new terminal. If the repository was obtained as a ZIP and winget still does not
+register, run this from elevated Windows PowerShell 5.1:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File windows\bootstrap.ps1
 ```
 
-> **`bootstrap.ps1` is the only script here written for PowerShell 5.1.** A fresh Windows has
-> nothing else — PowerShell 7 is one of the things it installs. No `&&`, no ternaries, no
-> `??`, and TLS 1.2 gets forced by hand because 5.1 still defaults to SSL3/TLS1.0 and GitHub
-> refuses that.
+This is the only PowerShell 5.1 script in the repo because it may run before PowerShell 7
+exists. It obtains the current winget release and dependencies, installs PowerShell 7, and
+enables Developer Mode unless `-SkipDevMode` is passed.
 
-It also installs **PowerShell 7** (via winget, or the MSI from GitHub if winget still isn't
-there) and enables **Developer Mode**.
+## Post-format order
 
-Developer Mode is what lets a **non-elevated** process create symlinks. Verified on this
-machine: with the registry value unset, `New-Item -ItemType SymbolicLink` fails with
-*"Administrator privilege required"*.
+1. Finish Windows Update and hardware-driver installation, including every required reboot.
+2. Establish the local administrator profile and sign-in choices described above.
+3. Clone this repository. Close browsers, Claude, launchers, and other applications; wait
+   five to ten minutes after boot, then capture `pwsh windows\audit.ps1 -Label stock`.
+4. Run the root restore with `-WhatIfOnly`, then for real. Reboot whenever it stops for a
+   pending restart, and continue until all six phases complete.
+5. Run the elevated `windows\install.ps1` command printed by the final phase, then reboot.
+6. Review debloat with `-List` and `-WhatIfOnly`, then perform the current-user removal and
+   reboot.
+7. Capture `pwsh windows\audit.ps1 -Label optimized` under the same idle conditions.
+8. Review startup applications manually, reboot, and take a final audit if any are changed.
 
-**No script here depends on it right now.** It stays on because it's a one-time registry
-flag with no runtime cost and symlinks come up constantly in dev work — but if you want a
-machine with nothing switched on that isn't earning its keep, `-SkipDevMode` is the flag and
-nothing in the repo will break.
+Audit JSON is written to `%LOCALAPPDATA%\workstation-audits`. The command itself adds a
+PowerShell and terminal process, so compare reports captured in the same way rather than
+treating one process count as an absolute score. It records names and counts but omits
+process and startup command lines to avoid collecting secrets.
 
-Everything after this point can run unelevated.
-
----
-
-## Before you install
-
-### Back this up — it is not anywhere else
-
-Five folders under `C:\Briar\` have no git remote and no cloud copy. Wipe the disk and
-they're gone. **The list lives in the root `README.md` § Before you wipe** — one copy, so it
-can't drift out of sync with the other three places that used to repeat it.
-
-### Link the digital licence
-
-Settings → System → Activation. If it doesn't mention your Microsoft account, link it now.
-
-Current licence, captured 2026-07-27:
-
-| | |
-| --------------- | ----------------------------------- |
-| Edition | Windows 11 Pro, 25H2, build 26200.8875 |
-| Channel | **Retail** |
-| Key (last 5) | `3V66T` |
-| OEM key in firmware | none |
-| KMS | no |
-
-**Reinstalling Pro on this board reactivates itself** from the hardware-linked digital
-licence — you don't need to type the key. Retail is the good case besides: transferable, not
-welded to the motherboard.
-
-You can still click *"I don't have a product key"* at setup and let it activate afterwards;
-it's a supported flow, and unlike an Evaluation ISO there's no time bomb attached.
-
-### BIOS checklist
-
-| Setting | Why |
-| ------------------ | ----------------------------------- |
-| TPM 2.0 (fTPM) | Windows 11 requires it |
-| Secure Boot | Windows 11 requires it |
-| SVM / virtualisation | **WSL2 and Docker Desktop need it** |
-
-Board is an ASUS ROG STRIX X870-A GAMING WIFI, fully supported on current Windows 11.
-
----
-
-## `debloat.ps1`
-
-Removes the inbox apps Pro ships and LTSC didn't. **Read its own section in this file before
-running it** — it's the one script here that deletes rather than configures.
+## System configuration
 
 ```powershell
-pwsh windows\debloat.ps1 -WhatIfOnly    # always do this first
+pwsh windows\install.ps1 -WhatIfOnly
+Start-Process pwsh -Verb RunAs -ArgumentList '-File windows\install.ps1'
+```
+
+The script applies current-user Explorer/taskbar preferences, sets Windows diagnostic data
+to the minimum supported by Pro, disables the selected diagnostic services and scheduled
+tasks, removes consumer surfaces, leaves Edge installed but idle, and uses the built-in
+Balanced power scheme. AC standby and hibernation remain disabled for long development,
+Docker, and game sessions. Explorer restarts only after a real run.
+
+Delivery Optimization is set to HTTP-only mode: Windows Update and Store downloads continue,
+but this PC does not exchange update payloads with peers. Recall and Click to Do where the
+current build supports that policy, activity-history upload, feedback prompts, cloud search,
+search highlights, and Edge diagnostic/personalization reporting are disabled. The Bing
+Search package is removed separately by `debloat.ps1`. Pro still sends service data required
+for security, licensing, certificates, Store, Xbox, and updates; the profile deliberately
+does not block Microsoft hosts or damage those dependencies.
+
+Power command failures are collected and produce exit code 1. The dry run performs no
+registry, power, or Explorer changes.
+
+## Debloat
+
+`debloat.ps1` is excluded from the root orchestrator because package removal deserves a
+separate confirmation:
+
+```powershell
+pwsh windows\debloat.ps1 -List
+pwsh windows\debloat.ps1 -WhatIfOnly
 pwsh windows\debloat.ps1
 ```
 
-The table below is the complete list — the script reads it, exactly like `apps/install.ps1`
-reads its own. It removes **per-user** by default, which is reversible from the Store;
-`-AllUsers` also strips the provisioned copy so new profiles don't get it back.
+The canonical post-format run affects only the current account. This is a one-user personal
+workstation, so registrations for unrelated profiles and provisioned copies for hypothetical
+future users are deliberately outside scope. The script also removes the Win32 packages
+declared below through winget. A package that is already absent is the desired state, not
+stale-manifest evidence; review `-List` when deciding whether to change the tables.
 
-Pair it with `install.ps1`, which sets `DisableWindowsConsumerFeatures` — without that,
-Windows reinstalls a fresh batch of suggestions on the next feature update and you get to do
-this twice.
+## Intended profile
 
-### Day one: check the list before trusting it
+This is a personal LTSC-like profile on Windows 11 Pro, not an attempt to turn Pro into the
+LTSC servicing channel. It removes the consumer and cloud-facing applications that are not
+used while retaining the Microsoft infrastructure required by the workstation:
 
-**This table was written before the machine existed.** Package names change between Windows
-releases, and a name that's gone is a row that does nothing.
+- Xbox, Game Pass, Game Bar, Gaming Services, DirectX, and GameInput stay.
+- Store, App Installer/winget, Terminal, WSL, Hyper-V, and Windows Security stay.
+- Calculator, Notepad, Snipping Tool, Photos, and Media Player stay as small local fallbacks.
+- Edge stays installed for Windows compatibility and WebView2, but background mode, startup
+  boost, first-run promotion, and default-browser prompts are disabled. Chrome is selected
+  manually as the default browser after the restore.
+- Phone Link, Cross Device, OneDrive, Widgets, Copilot, Microsoft 365 consumer applications,
+  suggestions, news, weather, and web results in Start search go away.
+- Windows Update, Defender, Firewall, SmartScreen, Search, SysMain, Bluetooth, notifications,
+  printing to PDF, and Store servicing are not optimization targets.
 
-```powershell
-pwsh windows\debloat.ps1 -List        # everything removable on this machine
-pwsh windows\debloat.ps1 -WhatIfOnly  # what the table would actually remove
-```
+## Startup applications
 
-`-List` is the reconciliation. Anything it shows that you don't want gets a row here;
-anything the table names and it doesn't show gets reported as *not found*, which means the
-row is stale and should go.
+Startup is intentionally a review step rather than a hard-coded registry purge: package
+updates rename startup entries, and disabling the wrong entry can silently break a driver or
+VPN. In Task Manager → Startup apps, normally keep Windows Security notifications, Realtek,
+Tailscale, and Logitech G Hub when its device profiles are needed. Vanguard remains when a
+game requires it.
+
+Chrome/Edge auto-launch, Discord, Steam, Riot Client, EA, Docker Desktop, Ollama, Spotify,
+Claude, Porofessor, and similar launchers are better started on demand. This changes idle
+process count far more than forcing unrelated Windows services off. Re-run `audit.ps1` after
+making the final choices.
 
 ## Inbox apps
 
-| Package | What it is |
-| --------------------------------------- | ------------------------------------------------ |
-| `Microsoft.BingNews`                     | News                                             |
-| `Microsoft.BingWeather`                  | Weather                                          |
-| `Microsoft.BingSearch`                   | Web results inside the Start menu search         |
-| `Microsoft.GetHelp`                      | "Get Help"                                       |
-| `Microsoft.Getstarted`                   | "Tips"                                           |
-| `Microsoft.MicrosoftOfficeHub`           | Office upsell tile, not Office                   |
-| `Microsoft.MicrosoftSolitaireCollection` | Solitaire, with ads                              |
-| `Microsoft.People`                       | People                                           |
-| `Microsoft.WindowsFeedbackHub`           | Feedback Hub                                     |
-| `Microsoft.WindowsMaps`                  | Maps                                             |
-| `Microsoft.ZuneVideo`                    | Movies & TV                                      |
-| `Microsoft.Todos`                        | To Do                                            |
-| `Microsoft.PowerAutomateDesktop`         | Power Automate                                   |
-| `Microsoft.OutlookForWindows`            | The new Outlook, preinstalled                    |
-| `Microsoft.WindowsSoundRecorder`         | Sound Recorder                                   |
-| `Microsoft.QuickAssist`                  | Quick Assist                                     |
-| `Clipchamp.Clipchamp`                    | Video editor                                     |
-| `MSTeams`                                | Consumer Teams. You said you don't use it        |
-| `Microsoft.549981C3F5F10`                | Cortana. May already be gone on this build       |
+| Package | Application |
+| --- | --- |
+| `Microsoft.BingNews` | News |
+| `Microsoft.BingWeather` | Weather |
+| `Microsoft.BingSearch` | Web results in Start search |
+| `Microsoft.GetHelp` | Get Help |
+| `Microsoft.Getstarted` | Tips |
+| `Microsoft.MicrosoftOfficeHub` | Office promotion hub |
+| `Microsoft.MicrosoftSolitaireCollection` | Solitaire |
+| `Microsoft.People` | People |
+| `Microsoft.WindowsFeedbackHub` | Feedback Hub |
+| `Microsoft.WindowsMaps` | Maps |
+| `Microsoft.ZuneVideo` | Movies & TV |
+| `Microsoft.Todos` | Microsoft To Do |
+| `Microsoft.PowerAutomateDesktop` | Power Automate |
+| `Microsoft.OutlookForWindows` | New Outlook |
+| `Microsoft.WindowsSoundRecorder` | Sound Recorder |
+| `MicrosoftCorporationII.QuickAssist` | Quick Assist |
+| `Clipchamp.Clipchamp` | Clipchamp |
+| `MSTeams` | Consumer Teams |
+| `Microsoft.549981C3F5F10` | Cortana package, when present |
+| `Microsoft.Copilot` | Copilot application, when present |
+| `Microsoft.Windows.DevHome` | Dev Home |
+| `Microsoft.MicrosoftStickyNotes` | Sticky Notes |
+| `Microsoft.WindowsAlarms` | Clock |
+| `Microsoft.WindowsCamera` | Camera |
+| `Microsoft.Paint` | Paint |
+| `Microsoft.YourPhone` | Phone Link |
+| `MicrosoftWindows.CrossDevice` | Cross-device integration |
+| `MicrosoftCorporationII.MicrosoftFamily` | Microsoft Family, when present |
+| `Microsoft.StartExperiencesApp` | Widgets feed experience |
+| `Microsoft.WidgetsPlatformRuntime` | Widgets runtime |
+| `MicrosoftWindows.Client.WebExperience` | Windows Web Experience Pack |
+
+## Win32 apps
+
+| winget ID | Application |
+| --- | --- |
+| `Microsoft.OneDrive` | OneDrive sync client |
 
 ## Deliberately kept
 
-**This has to be its own `##` section, not a second table under the one above.**
-`Get-IdsFromReadme` reads by section, so two tables under one heading are one list — and the
-first version of this file put them together, which made `debloat.ps1` plan to remove the
-exact five apps documented here as keepers. The dry run caught it; nothing else would have.
+| Package | Reason |
+| --- | --- |
+| `Microsoft.DesktopAppInstaller` | App Installer and winget |
+| `Microsoft.StorePurchaseApp` | Store licensing and purchases |
+| `Microsoft.WindowsTerminal` | Terminal used by PowerShell, WSL, and the restore |
+| `Microsoft.WindowsCalculator` | Small local calculator |
+| `Microsoft.WindowsNotepad` | Small local text editor |
+| `Microsoft.ScreenSketch` | Snipping Tool |
+| `Microsoft.Windows.Photos` | Default local image handler |
+| `Microsoft.ZuneMusic` | Current Media Player and default audio handler |
+| `Microsoft.GamingApp` | Xbox and Game Pass |
+| `Microsoft.GamingServices` | Microsoft Store and Game Pass game runtime |
+| `Microsoft.XboxGamingOverlay` | Xbox Game Bar |
+| `Microsoft.XboxIdentityProvider` | Xbox authentication |
+| `Microsoft.Xbox.TCUI` | Xbox sign-in interface |
+| `Microsoft.XboxSpeechToTextOverlay` | Xbox accessibility integration |
+| `Microsoft.WindowsStore` | Store and Store-only package source |
 
-Judgement calls rather than bloat:
+Framework packages, WebView2, Windows Security, the shell, codecs, and driver control panels
+are also protected by `debloat.ps1`; they are infrastructure rather than user-facing bloat.
 
-| Kept | Why |
-| ------------------------- | ------------------------------------------------------------ |
-| `Microsoft.ZuneMusic` | This is Media Player now, not Zune. It's the default audio handler |
-| `Microsoft.GamingApp` | The Xbox app. You game — removing it also removes Game Pass  |
-| `Microsoft.YourPhone` | Phone Link. Useless until you pair a phone, harmless if you do |
-| `Microsoft.WindowsCamera` | Small, and there's no second camera app                       |
-| `Microsoft.WindowsStore` | Removing the Store is a one-way door on Pro                   |
-
----
-
-## Explorer tweaks (`install.ps1`)
-
-The Explorer settings you always end up redoing:
-
-- Show file extensions
-- Show hidden files
-- Open to "This PC" instead of "Quick access"
-- Don't group taskbar buttons
-- Remove the taskbar search box
-
-Only touches `HKCU:` — no admin needed, no effect on other users. Restarts `explorer.exe` at
-the end, which is why this folder runs last.
-
-### Telemetry, and a Pro-specific catch
-
-`AllowTelemetry = 0` means "Security", and **Pro does not honour it** — it clamps to `1`
-("Required"). Level 0 needs Enterprise, Education or LTSC.
-
-The script still writes 0, so the intent survives an edition change, but its message says
-what actually happens. A line claiming "Security" on a Pro box is a lie you would only catch
-by reading Microsoft's own documentation.
-
----
-
-## Install order
-
-The root `install.ps1` runs this. The order lives in that script's `$STEPS` table.
-
-```
-0. windows/  bootstrap    winget, only if Windows didn't bring it
-1. layout/                the folder tree
-2. apps/                  the binaries
-3. terminal/              the look
-4. dev/                   Git, repos
-5. claude/                Claude Code
-6. windows/  the rest     Explorer tweaks — restarts Explorer
-```
-
-**`debloat.ps1` is deliberately not in that list.** It's the one script here that deletes,
-and its table was written before the machine existed — running it unattended as part of a
-restore would remove things nobody checked. Run it yourself, after `-List`, once you've seen
-what the machine actually shipped with.
+Keep these tables under their own headings: the parser treats every backticked first cell
+under `## Inbox apps` as an AppX removal target and every one under `## Win32 apps` as a
+winget uninstall target.

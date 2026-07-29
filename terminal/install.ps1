@@ -8,7 +8,6 @@
         styles/<name>.json   the knobs you actually change (font, scheme, opacity, art)
         schemes/*.json       Windows Terminal color schemes, one file each
         windows-terminal/    the base settings.json: profiles, keybindings, everything else
-        fastfetch/           the base config.jsonc: which modules to show
 
     So trying a new look means adding one file, not editing a 200-line settings.json and
     losing the old one.
@@ -24,7 +23,8 @@
     this machine. Changes nothing.
 
 .PARAMETER SyncEditorFont
-    Also write the style's font into dev\vscode\settings.json, so the editor matches.
+    Also write the style's font into the current user's live VS Code settings, so the
+    editor matches. Settings Sync remains the owner of every other editor setting.
 
 .PARAMETER NewStyle
     Scaffold a new style from the active one and stop. Edit the file it prints, then apply
@@ -33,12 +33,16 @@
 .PARAMETER SkipUpgrade
     Don't upgrade Windows Terminal / fastfetch. Only when offline or deliberately pinned.
 
+.PARAMETER WhatIfOnly
+    Compose and compare every output, but write nothing and install nothing.
+
 .EXAMPLE
     pwsh terminal\install.ps1                          # apply the active style
     pwsh terminal\install.ps1 -List                    # see what's available
     pwsh terminal\install.ps1 -NewStyle tokyo-night    # scaffold a new one
     pwsh terminal\install.ps1 -Style tokyo-night       # switch, and record the switch
     pwsh terminal\install.ps1 -Style tokyo-night -SyncEditorFont
+    pwsh terminal\install.ps1 -WhatIfOnly
 #>
 [CmdletBinding()]
 param(
@@ -46,11 +50,14 @@ param(
     [string]$NewStyle,
     [switch]$List,
     [switch]$SyncEditorFont,
-    [switch]$SkipUpgrade
+    [switch]$SkipUpgrade,
+    [switch]$WhatIfOnly
 )
 
 . "$PSScriptRoot\..\_lib.ps1"
 Assert-PowerShell7
+$script:DryRun = [bool]$WhatIfOnly
+$failed = [System.Collections.Generic.List[string]]::new()
 
 $stylesDir = Join-Path $PSScriptRoot 'styles'
 $schemesDir = Join-Path $PSScriptRoot 'schemes'
@@ -89,7 +96,7 @@ if ($List) {
         Where-Object { $_ -match '(NFM|Nerd Font Mono)$' } | Sort-Object
     if ($mono) { $mono | ForEach-Object { Write-Host "  $_" } }
     else { Write-Warn2 'none found - install one from apps\install.ps1' }
-    return
+    exit 0
 }
 
 # ================================================================ -NewStyle
@@ -100,6 +107,12 @@ if ($NewStyle) {
     }
     $dest = Join-Path $stylesDir "$NewStyle.json"
     if (Test-Path $dest) { Write-Fail "styles\$NewStyle.json already exists"; exit 1 }
+
+    if ($script:DryRun) {
+        Write-Step "New style: $NewStyle"
+        Write-Would "create $dest from the active style"
+        exit 0
+    }
 
     $base = Read-Json (Join-Path $stylesDir "$((Read-Json $statePath).active).json")
     $base.'$comment' = "Started from the active style on $(Get-Date -Format 'yyyy-MM-dd'). Edit freely."
@@ -116,7 +129,7 @@ if ($NewStyle) {
     Write-Host "    3. pwsh terminal\install.ps1 -Style $NewStyle" -ForegroundColor DarkGray
     Write-Host ''
     Write-Host '  Nothing on the machine changed.' -ForegroundColor DarkGray
-    return
+    exit 0
 }
 
 # ================================================================ resolve the style
@@ -146,10 +159,16 @@ if (-not $real) {
 }
 
 if (-not $real) {
-    Write-Fail "Font '$wanted' is not installed, and no Mono variant of it was found."
-    Write-Warn2 'Install it elevated:  winget install DEVCOM.JetBrainsMonoNerdFont'
-    Write-Warn2 "Or run -List to see what's available and put that in styles\$Style.json."
-    exit 1
+    if ($script:DryRun) {
+        Write-Warn2 "Font '$wanted' is not installed yet; the apps step would install it first."
+        $real = $wanted
+    }
+    else {
+        Write-Fail "Font '$wanted' is not installed, and no Mono variant of it was found."
+        Write-Warn2 'Install it elevated:  winget install DEVCOM.JetBrainsMonoNerdFont'
+        Write-Warn2 "Or run -List to see what's available and put that in styles\$Style.json."
+        exit 1
+    }
 }
 Write-Ok "using '$real'"
 
@@ -158,7 +177,13 @@ if (-not $SkipUpgrade -and (Test-Cmd winget)) {
     Write-Step 'Keeping the terminal current'
     Write-Host "  Windows Terminal drops settings keys it doesn't recognise, silently." -ForegroundColor DarkGray
     Write-Host '  On an old build this config loads fine and just renders wrong.' -ForegroundColor DarkGray
-    foreach ($id in @('Microsoft.WindowsTerminal', 'Fastfetch-cli.Fastfetch')) { Update-WingetPackage $id }
+    foreach ($id in @('Microsoft.WindowsTerminal', 'Fastfetch-cli.Fastfetch')) {
+        if ($script:DryRun -and -not (Test-WingetInstalled $id)) {
+            Write-Would "keep $id current after apps installs it"
+            continue
+        }
+        if ((Update-WingetPackage $id) -eq 'fail') { $failed.Add("upgrade: $id") }
+    }
 }
 
 # ================================================================ compose Windows Terminal
@@ -183,8 +208,7 @@ $d.font | Add-Member -NotePropertyName size -NotePropertyValue $st.font.size -Fo
 $d.font | Add-Member -NotePropertyName weight -NotePropertyValue $st.font.weight -Force
 $d.font | Add-Member -NotePropertyName cellHeight -NotePropertyValue $st.font.cellHeight -Force
 
-$staged = Join-Path $env:TEMP 'wt-settings.json'
-$wt | ConvertTo-Json -Depth 32 | Set-Content $staged -Encoding utf8
+$wtText = ($wt | ConvertTo-Json -Depth 32) + "`n"
 
 # Only write where Windows Terminal already keeps its config - creating the folder for an
 # install that isn't there leaves a stray settings.json nothing ever reads.
@@ -195,19 +219,35 @@ $wtDirs = @(
     Join-Path $env:LOCALAPPDATA 'Microsoft\Windows Terminal'
 ) | Where-Object { $_ -and (Test-Path $_) }
 
-if (-not $wtDirs) { Write-Warn2 "Windows Terminal isn't installed - run apps\install.ps1 first" }
-else { foreach ($dir in $wtDirs) { Install-ConfigFile $staged (Join-Path $dir 'settings.json') | Out-Null } }
-Remove-Item $staged -Force -ErrorAction SilentlyContinue
+if (-not $wtDirs) {
+    if ($script:DryRun) { Write-Would 'write Windows Terminal settings after the apps step installs it' }
+    else {
+        Write-Warn2 "Windows Terminal isn't installed - run apps\install.ps1 first"
+        $failed.Add('Windows Terminal not installed')
+    }
+}
+else {
+    foreach ($dir in $wtDirs) {
+        $dest = Join-Path $dir 'settings.json'
+        if (-not (Install-ConfigText -Destination $dest -Text $wtText -Label $dest)) {
+            $failed.Add("Windows Terminal: $dest")
+        }
+    }
+}
 
 # ================================================================ compose fastfetch
 Write-Step 'fastfetch'
 
 $cfgDir = Join-Path $HOME '.config\fastfetch'
 $artsDst = Join-Path $cfgDir 'ascii-arts'
-New-Item -ItemType Directory -Force -Path $artsDst | Out-Null
+if (-not $script:DryRun) { New-Item -ItemType Directory -Force -Path $artsDst | Out-Null }
 
 $arts = Get-ChildItem $artsDir -Filter *.txt
-foreach ($a in $arts) { Install-ConfigFile $a.FullName (Join-Path $artsDst $a.Name) | Out-Null }
+foreach ($a in $arts) {
+    if (-not (Install-ConfigFile $a.FullName (Join-Path $artsDst $a.Name))) {
+        $failed.Add("ASCII art: $($a.Name)")
+    }
+}
 Write-Ok "$($arts.Count) ASCII art file(s)"
 
 if (-not (Test-Path (Join-Path $artsDir $st.fastfetch.asciiArt))) {
@@ -242,10 +282,10 @@ $json = [regex]::Replace(
     '\\u([0-9a-fA-F]{4})',
     { param($m) [char][int]('0x' + $m.Groups[1].Value) })
 
-$staged = Join-Path $env:TEMP 'ff-config.jsonc'
-Set-Content $staged $json -Encoding utf8
-Install-ConfigFile $staged (Join-Path $cfgDir 'config.jsonc') | Out-Null
-Remove-Item $staged -Force -ErrorAction SilentlyContinue
+$ffDest = Join-Path $cfgDir 'config.jsonc'
+if (-not (Install-ConfigText -Destination $ffDest -Text ($json + "`n") -Label $ffDest)) {
+    $failed.Add('fastfetch config')
+}
 
 $shown = @($st.fastfetch.modules | Where-Object { $_ -isnot [string] -and $_.type } | ForEach-Object { $_.type })
 Write-Ok "logo -> $($st.fastfetch.asciiArt)"
@@ -253,30 +293,75 @@ Write-Ok "modules -> $($shown -join ', ')"
 
 # ================================================================ PowerShell profile
 Write-Step 'PowerShell profile'
-Install-ConfigFile (Join-Path $PSScriptRoot 'powershell\profile.ps1') $PROFILE.CurrentUserCurrentHost | Out-Null
+if (-not (Install-ConfigFile (Join-Path $PSScriptRoot 'powershell\profile.ps1') $PROFILE.CurrentUserCurrentHost)) {
+    $failed.Add('PowerShell profile')
+}
 
 # ================================================================ editor font
 if ($SyncEditorFont) {
     Write-Step 'VS Code font'
     # The live file only. The repo holds no VS Code config - Settings Sync owns it, see
     # dev/README.md - so there is no second copy here to keep in step.
-    foreach ($f in @((Join-Path $env:APPDATA 'Code\User\settings.json'))) {
-        if (-not (Test-Path $f)) { continue }
+    $f = Join-Path $env:APPDATA 'Code\User\settings.json'
+    $editorValue = "$real, Consolas, monospace"
+    $terminalValue = $real
+
+    if (Test-Path $f) {
         $t = Get-Content $f -Raw
-        $t = [regex]::Replace($t, '("editor\.fontFamily"\s*:\s*")[^"]*(")', "`${1}$real, Consolas, monospace`${2}")
-        $t = [regex]::Replace($t, '("terminal\.integrated\.fontFamily"\s*:\s*")[^"]*(")', "`${1}$real`${2}")
-        Set-Content $f $t -Encoding utf8 -NoNewline
-        Write-Ok $f
+        foreach ($entry in @(
+            @{ Key = 'editor.fontFamily'; Value = $editorValue }
+            @{ Key = 'terminal.integrated.fontFamily'; Value = $terminalValue }
+        )) {
+            $pattern = '("' + [regex]::Escape($entry.Key) + '"\s*:\s*")[^"]*(")'
+            if ($t -match $pattern) {
+                $escaped = $entry.Value.Replace('$', '$$')
+                $t = [regex]::Replace($t, $pattern, "`${1}$escaped`${2}")
+                continue
+            }
+
+            $closing = $t.LastIndexOf('}')
+            if ($closing -lt 0) {
+                Write-Fail "$f has no closing object brace"
+                $failed.Add('VS Code font')
+                break
+            }
+            $before = $t.Substring(0, $closing).TrimEnd()
+            $comma = if ($before.EndsWith('{') -or $before.EndsWith(',')) { '' } else { ',' }
+            $jsonValue = $entry.Value | ConvertTo-Json -Compress
+            $t = $before + $comma + "`r`n  `"$($entry.Key)`": $jsonValue`r`n" + $t.Substring($closing)
+        }
+    }
+    else {
+        $t = (@{
+            'editor.fontFamily' = $editorValue
+            'terminal.integrated.fontFamily' = $terminalValue
+        } | ConvertTo-Json) + "`n"
+    }
+
+    if (-not ($failed -contains 'VS Code font') -and
+        -not (Install-ConfigText -Destination $f -Text $t -Label $f)) {
+        $failed.Add('VS Code font')
     }
 }
 
 # ================================================================ record it
 if ($state.active -ne $Style) {
     $state.active = $Style
-    $state | ConvertTo-Json -Depth 8 | Set-Content $statePath -Encoding utf8
-    Write-Ok "style.json now says active = $Style"
+    $stateText = ($state | ConvertTo-Json -Depth 8) + "`n"
+    if (Install-ConfigText -Destination $statePath -Text $stateText -Label 'style.json active style') {
+        Write-Ok "style.json now says active = $Style"
+    }
+    else { $failed.Add('style.json') }
 }
 
 Write-Host ''
-Write-Ok "Done. Open a new tab to see '$Style'."
+if ($failed.Count) {
+    Write-Fail "$($failed.Count) terminal step(s) failed:"
+    foreach ($f in $failed) { Write-Host "         $f" -ForegroundColor Red }
+    Write-Host ''
+    exit 1
+}
+if ($script:DryRun) { Write-Ok "Dry run complete for '$Style'; nothing changed." }
+else { Write-Ok "Done. Open a new tab to see '$Style'." }
 Write-Host ''
+exit 0

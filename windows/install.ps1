@@ -1,14 +1,14 @@
 <#
 .SYNOPSIS
-    Phase 5. OS tweaks: Explorer, taskbar, Fast Startup, power, telemetry.
+    Phase 5. LTSC-like Windows 11 Pro profile: shell, privacy, Edge, services, and power.
 
 .DESCRIPTION
     Runs LAST, because it restarts Explorer.
 
     Split by privilege on purpose. Everything under HKCU is per-user and needs no
-    elevation; the machine-wide settings under HKLM do. Without admin the script does the
-    HKCU half and tells you exactly what it skipped, rather than failing or silently
-    doing nothing.
+    elevation; the machine-wide settings under HKLM do. Without admin the script applies
+    the HKCU half, reports the unapplied settings, and exits 1 so an incomplete restore
+    cannot look successful.
 
     Reports every change as old -> new so you can put anything back by hand.
 
@@ -44,6 +44,10 @@ if ($edition -like '*Eval*') {
 
 $changed = 0
 $skipped = 0
+$already = 0
+$planned = 0
+$failed = [System.Collections.Generic.List[string]]::new()
+$needsElevation = [System.Collections.Generic.List[string]]::new()
 
 # Set a registry value, reporting old -> new. Idempotent.
 function Set-Reg {
@@ -54,24 +58,80 @@ function Set-Reg {
         [string]$Type = 'DWord',
         [string]$What
     )
-    if ($Path -like 'HKLM:*' -and -not $admin) {
+    $pathExists = Test-Path $Path
+    $old = if ($pathExists) {
+        (Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue).$Name
+    }
+    else { $null }
+    if ($old -eq $Value) { Write-Skip "$What (already $Value)"; $script:already++; return }
+
+    $requiresAdmin = $Path -like 'HKLM:*' -and -not $admin
+    if ($WhatIfOnly) {
+        if (-not $pathExists) { Write-Host "  would create $Path" -ForegroundColor DarkGray }
+        $adminNote = if ($requiresAdmin) { ' [requires elevation]' } else { '' }
+        Write-Host "  would set $What : $(if ($null -eq $old) { '(unset)' } else { $old }) -> $Value$adminNote" -ForegroundColor DarkGray
+        $script:planned++
+        return
+    }
+    if ($requiresAdmin) {
         Write-Skip "$What - needs admin"
         $script:skipped++
+        $script:needsElevation.Add($What)
         return
     }
-    if (-not (Test-Path $Path)) {
-        if ($WhatIfOnly) { Write-Host "  would create $Path" -ForegroundColor DarkGray; return }
-        New-Item -Path $Path -Force | Out-Null
-    }
-    $old = (Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue).$Name
-    if ($old -eq $Value) { Write-Skip "$What (already $Value)"; return }
-    if ($WhatIfOnly) {
-        Write-Host "  would set $What : $(if ($null -eq $old) { '(unset)' } else { $old }) -> $Value" -ForegroundColor DarkGray
-        return
-    }
+    if (-not $pathExists) { New-Item -Path $Path -Force | Out-Null }
     Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type
     Write-Ok "$What : $(if ($null -eq $old) { '(unset)' } else { $old }) -> $Value"
     $script:changed++
+}
+
+# Disable only a short, explicitly chosen service set. Missing services are skipped rather
+# than created: service names change between Windows builds, and a fake registry-only service
+# entry is worse than leaving a new build at its default.
+function Disable-ServiceIfPresent {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$What
+    )
+    $path = "HKLM:\SYSTEM\CurrentControlSet\Services\$Name"
+    if (-not (Test-Path $path)) { Write-Skip "$What - service not present"; $script:already++; return }
+    Set-Reg $path 'Start' 4 -What "$What service disabled"
+}
+
+# Scheduled-task names move between Windows builds. Disable only known diagnostic tasks and
+# treat an absent task as an already-satisfied end state.
+function Disable-ScheduledTaskIfPresent {
+    param(
+        [Parameter(Mandatory)][string]$TaskPath,
+        [Parameter(Mandatory)][string]$TaskName,
+        [Parameter(Mandatory)][string]$What
+    )
+    $task = Get-ScheduledTask -TaskPath $TaskPath -TaskName $TaskName -ErrorAction SilentlyContinue
+    if (-not $task) { Write-Skip "$What - task not present"; $script:already++; return }
+    if ($task.State -eq 'Disabled') { Write-Skip "$What - already disabled"; $script:already++; return }
+
+    if ($WhatIfOnly) {
+        $adminNote = if (-not $admin) { ' [requires elevation]' } else { '' }
+        Write-Host "  would disable $What$adminNote" -ForegroundColor DarkGray
+        $script:planned++
+        return
+    }
+    if (-not $admin) {
+        Write-Skip "$What - needs admin"
+        $script:skipped++
+        $script:needsElevation.Add($What)
+        return
+    }
+
+    try {
+        Disable-ScheduledTask -InputObject $task -ErrorAction Stop | Out-Null
+        Write-Ok "$What disabled"
+        $script:changed++
+    }
+    catch {
+        Write-Warn2 "$What - $($_.Exception.Message)"
+        $script:failed.Add($What)
+    }
 }
 
 # ================================================================ Explorer (per-user)
@@ -85,9 +145,65 @@ Set-Reg $adv 'ShowTaskViewButton'   0 -What 'hide Task View button'
 Set-Reg $adv 'TaskbarDa'            0 -What 'hide Widgets'
 Set-Reg $adv 'TaskbarMn'            0 -What 'hide Chat'
 Set-Reg $adv 'TaskbarAl'            0 -What 'taskbar aligned left'
+Set-Reg $adv 'ShowSyncProviderNotifications' 0 -What 'hide Explorer sync-provider promotions'
+Set-Reg $adv 'Start_IrisRecommendations' 0 -What 'hide Start recommendations'
 
 Set-Reg 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search' 'SearchboxTaskbarMode' 0 `
     -What 'hide taskbar search box'
+
+# ================================================================ Consumer surfaces
+Write-Step 'Consumer surfaces'
+$content = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+Set-Reg $content 'ContentDeliveryAllowed'          0 -What 'consumer content disabled'
+Set-Reg $content 'OemPreInstalledAppsEnabled'      0 -What 'OEM suggested apps disabled'
+Set-Reg $content 'PreInstalledAppsEnabled'         0 -What 'suggested preinstalled apps disabled'
+Set-Reg $content 'PreInstalledAppsEverEnabled'     0 -What 'suggested app history disabled'
+Set-Reg $content 'SilentInstalledAppsEnabled'      0 -What 'silent suggested-app installs disabled'
+Set-Reg $content 'SoftLandingEnabled'              0 -What 'Windows tips and soft landing disabled'
+Set-Reg $content 'SystemPaneSuggestionsEnabled'    0 -What 'Settings suggestions disabled'
+Set-Reg $content 'RotatingLockScreenEnabled'       0 -What 'Windows Spotlight lock screen disabled'
+Set-Reg $content 'RotatingLockScreenOverlayEnabled' 0 -What 'lock-screen promotions disabled'
+
+Set-Reg 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\AdvertisingInfo' 'Enabled' 0 `
+    -What 'advertising ID disabled'
+Set-Reg 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Privacy' `
+    'TailoredExperiencesWithDiagnosticDataEnabled' 0 -What 'tailored experiences disabled'
+Set-Reg 'HKCU:\SOFTWARE\Policies\Microsoft\Windows\CloudContent' `
+    'DisableTailoredExperiencesWithDiagnosticData' 1 -What 'tailored-experience policy disabled'
+
+Set-Reg 'HKCU:\SOFTWARE\Policies\Microsoft\Windows\Explorer' 'DisableSearchBoxSuggestions' 1 `
+    -What 'File Explorer search-history suggestions disabled'
+
+$searchPolicy = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search'
+Set-Reg $searchPolicy 'AllowCloudSearch'         0 -What 'cloud search disabled'
+Set-Reg $searchPolicy 'EnableDynamicContentInWSB' 0 -What 'search highlights disabled'
+
+Set-Reg $adv 'Start_TrackProgs' 0 -What 'app-launch tracking disabled'
+
+$activityPolicy = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+Set-Reg $activityPolicy 'PublishUserActivities' 0 -What 'activity-history publishing disabled'
+Set-Reg $activityPolicy 'UploadUserActivities'  0 -What 'activity-history upload disabled'
+
+$aiPolicy = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI'
+Set-Reg $aiPolicy 'DisableAIDataAnalysis' 1 -What 'Recall snapshots disabled'
+Set-Reg $aiPolicy 'DisableClickToDo'      1 -What 'Click to Do disabled where supported'
+
+Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' 'AllowNewsAndInterests' 0 `
+    -What 'Widgets disabled by policy'
+Set-Reg 'HKCU:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' 'TurnOffWindowsCopilot' 1 `
+    -What 'Windows Copilot disabled'
+
+# ================================================================ Edge
+Write-Step 'Edge compatibility shell'
+Write-Host '  Edge stays installed for Windows/WebView2 compatibility, but does not preload.' -ForegroundColor DarkGray
+$edgePolicy = 'HKLM:\SOFTWARE\Policies\Microsoft\Edge'
+Set-Reg $edgePolicy 'BackgroundModeEnabled'         0 -What 'Edge background mode disabled'
+Set-Reg $edgePolicy 'StartupBoostEnabled'           0 -What 'Edge startup boost disabled'
+Set-Reg $edgePolicy 'HideFirstRunExperience'         1 -What 'Edge first-run promotion hidden'
+Set-Reg $edgePolicy 'DefaultBrowserSettingEnabled'   0 -What 'Edge default-browser prompt disabled'
+Set-Reg $edgePolicy 'DiagnosticData'                  0 -What 'Edge diagnostic data disabled'
+Set-Reg $edgePolicy 'UrlDiagnosticDataEnabled'        0 -What 'Edge URL diagnostic data disabled'
+Set-Reg $edgePolicy 'PersonalizationReportingEnabled' 0 -What 'Edge personalization reporting disabled'
 
 # ================================================================ Fast Startup
 Write-Step 'Fast Startup'
@@ -99,51 +215,97 @@ Set-Reg 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' 'Hiberboo
 
 # ================================================================ Telemetry
 Write-Step 'Telemetry'
-# 0 is "Security", and Pro does NOT honour it - it clamps to 1, "Required". Level 0 needs
-# Enterprise, Education or an LTSC edition. The value is still written as 0 so the intent
-# survives if this machine ever changes edition, but the message says what actually happens,
-# because a label claiming Security on a Pro box is a lie you'd only catch by reading Windows'
-# own docs.
-Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection' 'AllowTelemetry' 0 `
-    -What 'telemetry to minimum (Pro clamps this to Required; Security needs Enterprise)'
+$telemetryLevel = if ($edition -match 'Enterprise|Education|Server|IoT') { 0 } else { 1 }
+$telemetryLabel = if ($telemetryLevel -eq 0) { 'diagnostic data off' } else { 'diagnostic data at Required (minimum supported by Pro)' }
+Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection' 'AllowTelemetry' $telemetryLevel `
+    -What $telemetryLabel
+Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection' 'LimitDiagnosticLogCollection' 1 `
+    -What 'optional diagnostic log collection limited'
+Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection' 'LimitDumpCollection' 1 `
+    -What 'optional diagnostic dump collection limited'
+Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection' 'DoNotShowFeedbackNotifications' 1 `
+    -What 'diagnostic feedback prompts disabled'
 
-# Load-bearing on Pro in a way it never was on an Enterprise edition: this is the switch that
-# stops Windows silently installing "suggested" apps into a brand-new profile - the games and
-# trials that reappear after every feature update. See debloat.ps1.
-Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent' 'DisableWindowsConsumerFeatures' 1 `
-    -What 'no suggested apps (stops Windows reinstalling bloat later)'
+# Keep Windows Update and Store transport intact, but never upload update payloads to peers.
+Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization' 'DODownloadMode' 0 `
+    -What 'Delivery Optimization set to HTTP only (peer-to-peer disabled)'
+
+# ================================================================ Unused integrations
+Write-Step 'Unused integrations'
+Write-Host '  Xbox, notifications, Bluetooth, Search, SysMain, printing, Defender, and Update stay.' -ForegroundColor DarkGray
+Disable-ServiceIfPresent 'WbioSrvc'  'Windows biometrics'
+Disable-ServiceIfPresent 'lfsvc'     'geolocation'
+Disable-ServiceIfPresent 'MapsBroker' 'downloaded maps'
+Disable-ServiceIfPresent 'PhoneSvc'  'phone integration'
+Disable-ServiceIfPresent 'CDPUserSvc' 'cross-device platform'
+Disable-ServiceIfPresent 'DiagTrack' 'connected diagnostics and telemetry'
+Disable-ServiceIfPresent 'dmwappushservice' 'diagnostic WAP push messaging'
+
+Write-Step 'Diagnostic scheduled tasks'
+Disable-ScheduledTaskIfPresent '\Microsoft\Windows\Application Experience\' `
+    'Microsoft Compatibility Appraiser' 'compatibility telemetry appraiser'
+Disable-ScheduledTaskIfPresent '\Microsoft\Windows\Application Experience\' `
+    'Microsoft Compatibility Appraiser Exp' 'experimental compatibility telemetry appraiser'
+Disable-ScheduledTaskIfPresent '\Microsoft\Windows\Application Experience\' `
+    'ProgramDataUpdater' 'program compatibility inventory'
+Disable-ScheduledTaskIfPresent '\Microsoft\Windows\Application Experience\' `
+    'StartupAppTask' 'startup compatibility inventory'
+Disable-ScheduledTaskIfPresent '\Microsoft\Windows\Customer Experience Improvement Program\' `
+    'Consolidator' 'customer-experience telemetry consolidator'
+Disable-ScheduledTaskIfPresent '\Microsoft\Windows\Customer Experience Improvement Program\' `
+    'UsbCeip' 'USB customer-experience telemetry'
+Disable-ScheduledTaskIfPresent '\Microsoft\Windows\DiskDiagnostic\' `
+    'Microsoft-Windows-DiskDiagnosticDataCollector' 'disk diagnostic data collector'
+Disable-ScheduledTaskIfPresent '\Microsoft\Windows\Autochk\' `
+    'Proxy' 'disk auto-check telemetry proxy'
 
 # ================================================================ Power
 Write-Step 'Power'
+$BALANCED = '381b4222-f694-41f0-9685-ff5bb260df2e'
 if ($WhatIfOnly) {
-    Write-Host '  would set the High performance power scheme' -ForegroundColor DarkGray
+    Write-Host '  would set the Balanced power scheme' -ForegroundColor DarkGray
+    Write-Host '  would disable sleep and hibernation on AC power' -ForegroundColor DarkGray
+    $planned += 3
 }
 else {
-    $HIGH_PERF = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'
     $active = (powercfg /getactivescheme) -replace '.*GUID: ([a-f0-9-]+).*', '$1'
-    if ($active -eq $HIGH_PERF) { Write-Skip 'already on High performance' }
+    if ($active -eq $BALANCED) { Write-Skip 'already on Balanced'; $already++ }
     else {
-        powercfg /setactive $HIGH_PERF 2>&1 | Out-Null
-        if ($LASTEXITCODE -eq 0) { Write-Ok "power scheme -> High performance"; $changed++ }
-        else { Write-Warn2 'could not switch scheme - it may not exist on this edition' }
+        powercfg /setactive $BALANCED 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { Write-Ok 'power scheme -> Balanced'; $changed++ }
+        else {
+            Write-Warn2 'could not switch to the built-in Balanced scheme'
+            $failed.Add('Balanced power scheme')
+        }
     }
     # A desktop should never sleep the disks out from under Docker.
     powercfg /change standby-timeout-ac 0 2>&1 | Out-Null
+    $standbyCode = $LASTEXITCODE
     powercfg /change hibernate-timeout-ac 0 2>&1 | Out-Null
-    Write-Ok 'sleep and hibernate disabled on AC'
+    $hibernateCode = $LASTEXITCODE
+    if ($standbyCode -eq 0 -and $hibernateCode -eq 0) {
+        Write-Ok 'sleep and hibernate disabled on AC'
+    }
+    else {
+        Write-Warn2 "could not disable AC sleep/hibernate (standby=$standbyCode, hibernate=$hibernateCode)"
+        $failed.Add('AC sleep/hibernate')
+    }
 }
 
 # ================================================================ Media Feature Pack
 Write-Step 'Media Feature Pack'
 if ($edition -notmatch 'N$|NEval$') {
     Write-Skip "not an N edition - nothing to add"
+    $already++
+}
+elseif ($WhatIfOnly) {
+    Write-Host "  would add Media.MediaFeaturePack$(if (-not $admin) { ' [requires elevation]' })" -ForegroundColor DarkGray
+    $planned++
 }
 elseif (-not $admin) {
     Write-Skip 'N edition detected but needs admin'
     $skipped++
-}
-elseif ($WhatIfOnly) {
-    Write-Host '  would add Media.MediaFeaturePack' -ForegroundColor DarkGray
+    $needsElevation.Add('Media Feature Pack')
 }
 else {
     Write-Warn2 "N edition - no Media Foundation. Video/audio playback, screen sharing in"
@@ -161,7 +323,12 @@ else {
 
 # ================================================================ wrap up
 Write-Step 'Done'
-Write-Host "  $changed changed · $skipped skipped"
+if ($WhatIfOnly) {
+    Write-Host "  $planned planned · $already already satisfied"
+}
+else {
+    Write-Host "  $changed changed · $already already satisfied · $skipped need elevation"
+}
 
 if ($skipped -gt 0 -and -not $admin) {
     Write-Host ''
@@ -169,7 +336,7 @@ if ($skipped -gt 0 -and -not $admin) {
     Write-Host "    Start-Process pwsh -Verb RunAs -ArgumentList '-File $PSCommandPath'" -ForegroundColor White
 }
 
-if ($WhatIfOnly) { return }
+if ($WhatIfOnly) { exit 0 }
 
 if ($SkipExplorerRestart) {
     Write-Warn2 'Explorer not restarted - changes apply at next sign-in'
@@ -184,5 +351,15 @@ elseif ($changed -gt 0) {
 }
 
 Write-Host ''
-Write-Warn2 'Fast Startup and telemetry changes need a reboot to fully take effect.'
+Write-Warn2 'Fast Startup, privacy policies, disabled services, and tasks need a reboot to fully take effect.'
 Write-Host ''
+
+if ($failed.Count) {
+    Write-Fail "$($failed.Count) Windows step(s) failed: $($failed -join ', ')"
+    exit 1
+}
+if ($needsElevation.Count) {
+    Write-Fail "$($needsElevation.Count) machine-wide setting(s) remain unapplied; re-run elevated"
+    exit 1
+}
+exit 0

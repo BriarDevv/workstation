@@ -10,5 +10,5 @@
 #   npm install --ignore-scripts=false
 #   npm rebuild <package>
 #
-# The seven globals in README.md all install fine with this on; verified 2026-07-28.
+# The globals declared in README.md install with this policy; keep exceptions explicit.
 ignore-scripts=true

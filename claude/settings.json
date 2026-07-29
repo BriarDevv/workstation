@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "model": "opus",
   "effortLevel": "medium",
   "autoUpdatesChannel": "latest",
@@ -47,13 +48,5 @@
 
   "skipWorkflowUsageWarning": true,
   "remoteControlAtStartup": false,
-  "agentPushNotifEnabled": true,
-
-  "_notes": {
-    "defaultMode": "Was 'bypassPermissions', which runs EVERYTHING without asking. Set to 'auto', where a safety classifier approves routine calls and stops risky ones. To revert: change this line and add 'skipDangerousModePermissionPrompt': true. NOTE the PowerShell wrapper in terminal/powershell/profile.ps1 passes --dangerously-skip-permissions, which overrides this from the command line.",
-    "allow": "The old config had 217 rules, nearly all single-project one-offs pinned to directory paths that no longer exist. The 24 that work in any repo survived.",
-    "enabledPlugins": "Dropped 'github@claude-plugins-official': 0 uses in 46 days.",
-    "skillOverrides": "The 176 unused skills get disabled here. Full list is in skills.md; install.ps1 generates the block so this file doesn't carry 176 hardcoded lines.",
-    "hooks_and_statusLine": "Installed by oh-my-claudecode (omc-setup). Not hardcoded here because OMC rewrites that section on every update."
-  }
+  "agentPushNotifEnabled": true
 }

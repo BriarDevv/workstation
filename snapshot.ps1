@@ -70,19 +70,21 @@ if (-not (Test-Cmd winget)) {
 }
 else {
     $ids = @(Get-IdsFromReadme $readme @('Essentials', 'Terminal', 'Desktop / utilities', 'Games', 'Runtimes', 'Optional'))
+    $storeIds = @(Get-IdsFromReadme $readme @('Microsoft Store'))
+    $allIds = @($ids + $storeIds)
     $gone = @($ids | Where-Object { -not (Test-WingetInstalled $_) })
+    $goneStore = @($storeIds | Where-Object { -not (Test-WingetInstalled $_) })
 
-    Write-Host "  $($ids.Count) in the tables, $($ids.Count - $gone.Count) installed" -ForegroundColor DarkGray
-    if ($gone) {
+    Write-Host "  $($allIds.Count) in the tables, $($allIds.Count - $gone.Count - $goneStore.Count) installed" -ForegroundColor DarkGray
+    if ($gone -or $goneStore) {
         Write-Host ''
-        Write-Warn2 "$($gone.Count) in the tables that winget can't see:"
-        foreach ($p in $gone) { Write-Host "         $p" -ForegroundColor Red }
+        Write-Warn2 "$($gone.Count + $goneStore.Count) in the tables that winget can't see:"
+        foreach ($p in @($gone + $goneStore)) { Write-Host "         $p" -ForegroundColor Red }
         Write-Host '         Usually means not installed - fix with:  pwsh apps\install.ps1' -ForegroundColor DarkGray
-        # Not stated as fact: winget only recognises what it installed. A program put there
-        # by its own .exe is invisible to `winget list` even while it sits in the Start menu,
-        # so "missing" here can mean "installed by hand". apps\README.md has the section.
-        Write-Host '         But winget only sees what it installed - check the Start menu before' -ForegroundColor DarkGray
-        Write-Host '         believing it. apps\README.md, "winget won''t always see a program".' -ForegroundColor DarkGray
+        # Not stated as fact: package correlation can miss software installed by its own
+        # vendor installer even while it is present in the Start menu.
+        Write-Host '         Winget can miss software it did not install - check the Start menu before' -ForegroundColor DarkGray
+        Write-Host '         treating the report as proof that the application is absent.' -ForegroundColor DarkGray
     }
     else { Write-Ok 'everything in the tables is on the machine' }
 
@@ -92,72 +94,98 @@ else {
     # same thing about `winget export`.
 }
 
-# ---------------------------------------------------------------- MCP
-Write-Step 'MCP servers'
-$live = Join-Path $HOME '.claude\mcp-configs\mcp-servers.json'
-$tpl = Join-Path $PSScriptRoot 'claude\mcp.template.json'
-if (-not (Test-Path $live)) {
-    Write-Skip 'no mcp-servers.json on this machine yet'
+# ---------------------------------------------------------------- Claude plugins and MCP
+Write-Step 'Claude plugins and MCP servers'
+$manifest = Get-Content (Join-Path $PSScriptRoot 'claude\mcp.template.json') -Raw |
+    ConvertFrom-Json -AsHashtable
+$managedMcp = @($manifest.mcpServers.Keys)
+$externalMcp = @($manifest.externalServers)
+
+$repoSettings = Get-Content (Join-Path $PSScriptRoot 'claude\settings.json') -Raw |
+    ConvertFrom-Json -AsHashtable
+$wantedPlugins = @($repoSettings.enabledPlugins.Keys | Where-Object { $repoSettings.enabledPlugins[$_] })
+$installedPlugins = @()
+if (Test-Cmd claude.exe) {
+    $version = (& claude.exe --version 2>$null | Out-String).Trim()
+    Write-Ok "Claude Code CLI $version"
+    try {
+        $installedPlugins = @((& claude.exe plugin list --json 2>$null | Out-String |
+                    ConvertFrom-Json) | Where-Object { $_.enabled })
+    }
+    catch { Write-Warn2 "could not read Claude's plugin state: $($_.Exception.Message)" }
 }
 else {
-    $inTpl = @((Get-Content $tpl -Raw | ConvertFrom-Json -AsHashtable).mcpServers.Keys)
-    $inLive = @((Get-Content $live -Raw | ConvertFrom-Json -AsHashtable).mcpServers.Keys)
+    Write-Warn2 'Claude Code CLI is missing - install it with the command in docs\post-format.md'
+}
 
-    # A plugin's servers are absent from the template ON PURPOSE - listing them in both
-    # places starts the same server twice. Without this the report flags exactly the
-    # duplicates we removed and tells you to put them back.
-    # ENABLED plugins only. The cache keeps plugins that were turned off - github is cached
-    # and disabled, so its server runs from the template alone and calling that a duplicate
-    # would send you to delete the only copy.
-    $enabled = @()
-    $settings = Join-Path $HOME '.claude\settings.json'
-    if (Test-Path $settings) {
-        $sj = Get-Content $settings -Raw | ConvertFrom-Json -AsHashtable
-        if ($sj.enabledPlugins) {
-            $enabled = @($sj.enabledPlugins.Keys | Where-Object { $sj.enabledPlugins[$_] })
+$marketplaceManifest = Get-Content (Join-Path $PSScriptRoot 'claude\marketplaces.json') -Raw |
+    ConvertFrom-Json -AsHashtable
+$wantedMarketplaces = @($marketplaceManifest.marketplaces.Keys)
+$installedMarketplaces = @()
+if (Test-Cmd claude.exe) {
+    try {
+        $installedMarketplaces = @((& claude.exe plugin marketplace list --json 2>$null |
+                    Out-String | ConvertFrom-Json).name)
+    }
+    catch { Write-Warn2 "could not read Claude marketplace state: $($_.Exception.Message)" }
+}
+$missingMarketplaces = @($wantedMarketplaces | Where-Object { $_ -notin $installedMarketplaces })
+if ($missingMarketplaces) {
+    Write-Warn2 "$($missingMarketplaces.Count) declared marketplace(s) are not registered:"
+    foreach ($name in $missingMarketplaces) { Write-Host "         $name" -ForegroundColor Yellow }
+}
+elseif ($wantedMarketplaces.Count) { Write-Ok "all $($wantedMarketplaces.Count) marketplaces are registered" }
+
+$enabledPluginIds = @($installedPlugins.id)
+$disabledPlugins = @($wantedPlugins | Where-Object { $_ -notin $enabledPluginIds })
+if ($disabledPlugins) {
+    Write-Warn2 "$($disabledPlugins.Count) declared plugin(s) are not effectively enabled:"
+    foreach ($id in $disabledPlugins) { Write-Host "         $id" -ForegroundColor Yellow }
+    Write-Host '         Run claude\install.ps1, then restart Claude Code.' -ForegroundColor DarkGray
+}
+elseif ($wantedPlugins.Count) { Write-Ok "all $($wantedPlugins.Count) declared plugins are enabled" }
+
+# Plugin MCP definitions are discovered from the enabled plugin's own install path. This
+# prevents a cached-but-disabled plugin from hiding a loose server that is actually needed.
+$fromPlugins = @($installedPlugins | ForEach-Object {
+        $mcpFile = Join-Path $_.installPath '.mcp.json'
+        if (-not (Test-Path $mcpFile)) { return }
+        try {
+            $j = Get-Content $mcpFile -Raw | ConvertFrom-Json -AsHashtable
+            if ($j.mcpServers) { $j.mcpServers.Keys } else { $j.Keys }
         }
-    }
+        catch { Write-Warn2 "invalid plugin MCP file: $mcpFile" }
+    } | Select-Object -Unique)
 
-    $fromPlugins = @()
-    $cache = Join-Path $HOME '.claude\plugins\cache'
-    if (Test-Path $cache) {
-        # Two shapes in the wild: a plugin's .mcp.json puts the server names at the TOP
-        # LEVEL, while the user-scope file wraps them in "mcpServers". Reading only the
-        # wrapped one found the files, parsed them, and returned nothing - a blind spot that
-        # looks identical to "no plugins installed".
-        $fromPlugins = @(Get-ChildItem $cache -Recurse -Depth 3 -Filter '.mcp.json' -ErrorAction SilentlyContinue |
-                ForEach-Object {
-                    # cache\<marketplace>\<plugin>\<version>\.mcp.json - which is where the
-                    # plugin@marketplace key in settings.json comes from.
-                    $ver = $_.Directory
-                    if ("$($ver.Parent.Name)@$($ver.Parent.Parent.Name)" -notin $enabled) { return }
-                    try {
-                        $j = Get-Content $_.FullName -Raw | ConvertFrom-Json -AsHashtable
-                        if ($j.mcpServers) { $j.mcpServers.Keys } else { $j.Keys }
-                    }
-                    catch { }
-                }) | Select-Object -Unique
+$liveMcp = @()
+$userStatePath = Join-Path $HOME '.claude.json'
+if (Test-Path $userStatePath) {
+    try {
+        $userState = Get-Content $userStatePath -Raw | ConvertFrom-Json -AsHashtable
+        if ($userState.mcpServers) { $liveMcp = @($userState.mcpServers.Keys) }
     }
+    catch { Write-Warn2 "~/.claude.json is invalid: $($_.Exception.Message)" }
+}
 
-    $strayLive = @($inLive | Where-Object { $_ -notin $inTpl -and $_ -notin $fromPlugins })
-    $covered = @($inLive | Where-Object { $_ -in $fromPlugins })
+$missingMcp = @($managedMcp | Where-Object { $_ -notin $liveMcp })
+$unexpectedMcp = @($liveMcp | Where-Object { $_ -notin $managedMcp -and $_ -notin $externalMcp })
+$duplicates = @($liveMcp | Where-Object { $_ -in $fromPlugins })
+Write-Host "  $($managedMcp.Count) repo-managed, $($externalMcp.Count) external, $($liveMcp.Count) user-scope" -ForegroundColor DarkGray
 
-    Write-Host "  $($inTpl.Count) in the template, $($inLive.Count) live, $($covered.Count) of those also served by a plugin" -ForegroundColor DarkGray
-    if ($covered) {
-        Write-Warn2 "$($covered.Count) duplicate(s) - configured loose AND provided by a plugin:"
-        foreach ($s in $covered) { Write-Host "         $s" -ForegroundColor Yellow }
-        Write-Host '         Both start. Remove the loose one - see claude\plugins.md.' -ForegroundColor DarkGray
-    }
-    if ($strayLive) {
-        Write-Host ''
-        Write-Warn2 "$($strayLive.Count) live but NOT in the template:"
-        foreach ($s in $strayLive) { Write-Host "         $s" -ForegroundColor Yellow }
-        # Same neutral wording as the npm section, and for the same reason: "you'll lose
-        # these" is a judgment, and for anything deliberately dropped losing it IS the plan.
-        Write-Host '         The template is the complete list, so each of these is either a missing' -ForegroundColor DarkGray
-        Write-Host '         row or something to remove. Nothing here guesses which.' -ForegroundColor DarkGray
-    }
-    if (-not $strayLive -and -not $covered) { Write-Ok 'the template covers everything live' }
+if ($missingMcp) {
+    Write-Warn2 "$($missingMcp.Count) managed server(s) are missing; run claude\install.ps1 -Secrets:"
+    foreach ($name in $missingMcp) { Write-Host "         $name" -ForegroundColor Red }
+}
+if ($unexpectedMcp) {
+    Write-Warn2 "$($unexpectedMcp.Count) undeclared user-scope server(s), preserved for review:"
+    foreach ($name in $unexpectedMcp) { Write-Host "         $name" -ForegroundColor Yellow }
+}
+if ($duplicates) {
+    Write-Warn2 "$($duplicates.Count) server(s) exist both user-scope and through an enabled plugin:"
+    foreach ($name in $duplicates) { Write-Host "         $name" -ForegroundColor Yellow }
+}
+if (-not $missingMcp -and -not $unexpectedMcp -and -not $duplicates) {
+    Write-Ok 'the MCP manifest and effective user state agree'
 }
 
 # ---------------------------------------------------------------- tree
@@ -169,6 +197,15 @@ if ($absent) {
     foreach ($r in $absent) { Write-Host "         $($r.Path)" -ForegroundColor Red }
 }
 else { Write-Ok "all $($rows.Count) declared folders exist" }
+
+$reposRoot = Get-LayoutPath 'repos'
+$repoCategories = @(Get-ChildItem (Join-Path $PSScriptRoot 'dev\repos') -Filter *.md |
+        Where-Object Name -ne 'README.md' | ForEach-Object { Join-Path $reposRoot $_.BaseName })
+$missingCategories = @($repoCategories | Where-Object { -not (Test-Path $_) })
+if ($missingCategories) {
+    Write-Warn2 "$($missingCategories.Count) derived repository folder(s) are missing:"
+    foreach ($path in $missingCategories) { Write-Host "         $path" -ForegroundColor Red }
+}
 
 # A folder in the tree with no row is the other half of the audit LAYOUT.md promises: the
 # table and `dir` have to agree, and this is the only thing that checks the direction a
@@ -188,3 +225,4 @@ if (Test-Path $root) {
 Write-Host ''
 Write-Host '  Nothing was written. Every line above is a decision for you, not a bug.' -ForegroundColor DarkGray
 Write-Host ''
+exit 0

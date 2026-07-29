@@ -1,5 +1,5 @@
 {
-  "$comment": "The only style. Keeps the font, transparency and logo that were already dialled in; the terminal scheme moved from Sakura Pink to Catppuccin Mocha so it matches the fastfetch palette, which was Catppuccin all along.",
+  "$comment": "Active Catppuccin Mocha look with a heavy mono font, translucent window, and matching fastfetch palette.",
   "description": "Catppuccin Mocha. Heavy JetBrains Mono, translucent, purin-face logo.",
   "font": {
     "family": "JetBrainsMono NFM",

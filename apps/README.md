@@ -1,352 +1,133 @@
-# Apps
+# Applications
 
-Which programs I have and **why**. The "what for" column is the important one — in eight
-months you won't remember what TranslucentTB was doing here.
+These tables are the complete software manifest consumed by `install.ps1`. A backticked
+first cell is executable data: changing a winget or npm row changes the next restore.
 
-`install.ps1` reads the winget IDs out of the tables below (the ones in `backticks` in the
-first column). Add a row and it gets installed on the next run.
-
-## winget is not the Microsoft Store
-
-Easy to conflate, and on this machine the difference decides whether the restore works at
-all. winget has **sources**. The `winget` source is a community-maintained catalogue of
-manifests that point at the vendor's own download — chrome from google.com, the font from
-GitHub, League from Riot. The `msstore` source is the Microsoft Store, and it needs the
-Store to be installed.
-
-**The `winget` source is the default, and a row only uses `msstore` when nothing else
-publishes the program** — checked per row, with the reason written in the row itself.
-
-The target OS is Windows 11 **Pro**, which has the Store, so `msstore` resolves. That wasn't
-always true here: the plan was Enterprise LTSC, where it can't resolve at all. Even now the
-preference stands, because a Store package can want a signed-in Microsoft account and fail in
-an unattended run — the failure mode a restore can least afford.
-
-Today exactly one row is `msstore`: the **NVIDIA App**, which Microsoft publishes nowhere
-else. It used to sit under § Manual afterwards for that reason and no longer needs to.
-
-## How it reports
-
-A failed package doesn't stop the run. Failures are collected and printed together at the
-end, then the script **exits 1**. A restore that halted on the first bad package leaves you
-worse off than one that finished and told you what's missing — and the important lines are
-exactly the ones that scrolled past you two hundred lines ago.
-
-```
-=== Summary
-  [ok]   nothing failed
+```powershell
+pwsh apps\install.ps1
+pwsh apps\install.ps1 -Optional
+pwsh apps\install.ps1 -SkipUpgrade
+pwsh apps\install.ps1 -WhatIfOnly
 ```
 
-The reboot warning only appears when something that actually needs one — Docker or WSL —
-was installed **on that run**. A warning that fires every single time is a warning you stop
-reading.
-
-If `winget` itself is missing, the script points at `windows/bootstrap.ps1` — not at the
-Microsoft Store, which on the target OS isn't there to go to.
-
----
-
-## Versions — latest stable, always
-
-Nothing here is pinned. `install.ps1` upgrades **every package in the tables** on every
-run, not only the ones it just installed. That covers all four sources — winget packages,
-Node itself, the npm globals, and pnpm/uv. Pass `-SkipUpgrade` to hold versions still for
-one run.
-
-"Stable" means the vendor's stable channel, not the newest thing that exists: Node **LTS**
-rather than Current, .NET **LTS** rather than preview, `Microsoft.PowerShell` rather than
-`Microsoft.PowerShell.Preview`.
-
-Two places still carry a literal version, and both are deliberate:
-
-- **The Node fallback in `install.ps1`.** The version is resolved from `nodejs.org` at run
-  time; the literal only applies when the site can't be reached.
-- **A major version baked into a winget ID** — `Python.Python.3.14`. winget treats every
-  major as a separate package, so `winget upgrade` will take 3.14.0 → 3.14.6 but never
-  3.14 → 3.15. That one moves by editing the table.
-
----
+The installer continues after individual failures, reports them together, and exits 1 if
+anything requested is missing or an update check fails. Packages already installed are
+upgraded to their current stable release unless `-SkipUpgrade` is passed.
 
 ## Essentials
 
-Nothing works without these. All of them get installed.
-
-| winget ID                    | What it is       | What I use it for                                            |
-| ---------------------------- | ---------------- | ------------------------------------------------------------ |
-| `Git.Git`                    | Git              | Obvious. Goes to winget's default in Program Files — resolve it with `Get-Command git`, never a literal |
-| `GitHub.cli`                 | `gh`             | PRs, issues and cloning without opening a browser. Account `BriarDevv` |
-| `Microsoft.PowerShell`       | PowerShell 7     | This repo's scripts use `&&` and `??`, which PS5 doesn't have |
-| `Microsoft.WindowsTerminal`  | Windows Terminal | Daily driver                                                  |
-| `Microsoft.VisualStudioCode` | VS Code          | Main editor                                                   |
-| `Google.Chrome`              | Chrome           | The browser. Pro does ship Edge, so this isn't the only way to reach the web — it's just the one that gets used |
-| `Docker.DockerDesktop`       | Docker           | Containers. **Requires a reboot**                             |
-| `Microsoft.WSL`              | WSL2             | Linux for whatever doesn't run on Windows. **Requires a reboot** |
-| `Python.Python.3.14`         | Python 3.14      | The system-wide one. Projects use their own — see § Python    |
-| `Python.Launcher`            | `py`             | `py -3.14`, and what shebangs resolve through                 |
-| `Tailscale.Tailscale`        | Tailscale        | VPN to reach my own machines                                  |
-| `RARLab.WinRAR`              | WinRAR           | Archives. License has to be entered by hand                   |
+| winget ID | Application | Purpose |
+| --- | --- | --- |
+| `Git.Git` | Git | Version control |
+| `GitHub.cli` | GitHub CLI | Authentication, repositories, PRs, and issues |
+| `Microsoft.PowerShell` | PowerShell 7 | Runtime for this repository |
+| `Microsoft.WindowsTerminal` | Windows Terminal | Interactive terminal |
+| `Microsoft.VisualStudioCode` | VS Code | Editor |
+| `Google.Chrome` | Chrome | Browser |
+| `Docker.DockerDesktop` | Docker Desktop | Containers; may require a reboot |
+| `Microsoft.WSL` | WSL 2 | Linux environment; may require a reboot |
+| `Python.Python.3.14` | Python 3.14 | System interpreter for shell scripts |
+| `Python.Launcher` | Python Launcher | `py` version selection and shebang support |
+| `Tailscale.Tailscale` | Tailscale | Private network access |
+| `RARLab.WinRAR` | WinRAR | Archives; licence activation is manual |
 
 ## Terminal
 
-These belong to the terminal but get installed in this phase — the `terminal/` folder
-only holds **configuration**, not binaries.
+| winget ID | Application | Purpose |
+| --- | --- | --- |
+| `Fastfetch-cli.Fastfetch` | fastfetch | Terminal startup information |
+| `DEVCOM.JetBrainsMonoNerdFont` | JetBrainsMono Nerd Font | Monospace icons and glyphs used by the style |
 
-| winget ID                      | What it is       | What I use it for                                                   |
-| ------------------------------ | ---------------- | ------------------------------------------------------------------- |
-| `Fastfetch-cli.Fastfetch`      | fastfetch        | The ASCII art on terminal startup                                    |
-| `DEVCOM.JetBrainsMonoNerdFont` | JetBrainsMono NF | **Required** for the fastfetch glyphs and the terminal. Without it everything renders as hollow boxes. Registers as `JetBrainsMono NFM`, not the long name — see `terminal/README.md` |
+The font installs machine-wide and may prompt for elevation. The terminal installer resolves
+the actual registered mono-family name rather than assuming a vendor naming variant.
 
 ## Desktop / utilities
 
-| winget ID                      | What it is     | What I use it for                                     |
-| ------------------------------ | -------------- | ----------------------------------------------------- |
-| `CharlesMilette.TranslucentTB` | TranslucentTB  | Transparent taskbar. Runs from the tray                |
-| `Discord.Discord`              | Discord        | Daily. Starts with the session                         |
-| `Anthropic.Claude`             | Claude Desktop | The app. The CLI is a separate install, from `claude/` |
-| `Logitech.GHUB`                | G HUB          | The peripherals. Starts with the session               |
-| `Spotify.Spotify`              | Spotify        | Music. Per-user install into `%APPDATA%\Spotify`       |
+| winget ID | Application | Purpose |
+| --- | --- | --- |
+| `CharlesMilette.TranslucentTB` | TranslucentTB | Transparent taskbar |
+| `Discord.Discord` | Discord | Messaging |
+| `Anthropic.Claude` | Claude Desktop | Desktop client; separate from Claude Code CLI |
+| `Logitech.GHUB` | Logitech G HUB | Peripheral configuration |
+| `Spotify.Spotify` | Spotify | Music |
 
-> **Spotify is the one package that can fail _because_ you ran the script elevated.** Its
-> installer is a per-user `exe` that refuses to run as Administrator, while § Fonts asks for
-> an elevated shell. A single run can't satisfy both.
->
-> Nothing breaks if it happens: the failure is collected and named in the summary like any
-> other, and re-running unelevated installs it while skipping everything already there. Do
-> the elevated run first for the font, then a plain one.
+Spotify is a per-user installer and can reject an elevated session. If that happens, finish
+the elevated font install first and re-run this script unelevated; completed packages skip.
 
 ## Games
 
-| winget ID                        | What it is       | Notes                                                        |
-| -------------------------------- | ---------------- | ------------------------------------------------------------ |
-| `Valve.Steam`                    | Steam            | Also a **dependency**: Wallpaper Engine is sold only through it. Installed into `games\` — see `layout/LAYOUT.md` |
-| `RiotGames.LeagueOfLegends.LA2`  | League of Legends | **LA2 = LAS**, the Latin America South server. Its installer asks where to put it |
+| winget ID | Application | Notes |
+| --- | --- | --- |
+| `Valve.Steam` | Steam | Installed into the `games` path declared in `layout/LAYOUT.md` |
+| `RiotGames.LeagueOfLegends.LA2` | League of Legends | LA2/LAS package; its installer asks for the declared game path |
 
-Two traps in that second row:
-
-- winget has **eight** League packages, one per server — `.BR`, `.EUNE`, `.EUW`, `.JP`,
-  `.KR`, `.LA1`, `.LA2`, `.NA`. The wrong one installs a client for a region you don't play
-  on. This account is LA2 / `es_AR`, read out of `LeagueClientSettings.yaml`.
-- **There is no Riot Client package**, and none is needed — the client ships inside the
-  League installer. A separate row would install the same thing twice.
+The Riot client is bundled with League and does not need a separate manifest row.
 
 ## Runtimes
 
-Runtime libraries that Windows doesn't ship and that native software links against.
-Nothing here gets used directly — they're installed up front so that something built years
-ago just runs, instead of stopping on a missing DLL.
+| winget ID | Runtime |
+| --- | --- |
+| `Microsoft.DirectX` | Legacy DirectX redistributable |
+| `Microsoft.VCRedist.2005.x86` | Visual C++ 2005 x86 |
+| `Microsoft.VCRedist.2005.x64` | Visual C++ 2005 x64 |
+| `Microsoft.VCRedist.2008.x86` | Visual C++ 2008 x86 |
+| `Microsoft.VCRedist.2008.x64` | Visual C++ 2008 x64 |
+| `Microsoft.VCRedist.2010.x86` | Visual C++ 2010 x86 |
+| `Microsoft.VCRedist.2010.x64` | Visual C++ 2010 x64 |
+| `Microsoft.VCRedist.2012.x86` | Visual C++ 2012 x86 |
+| `Microsoft.VCRedist.2012.x64` | Visual C++ 2012 x64 |
+| `Microsoft.VCRedist.2013.x86` | Visual C++ 2013 x86 |
+| `Microsoft.VCRedist.2013.x64` | Visual C++ 2013 x64 |
+| `Microsoft.VCRedist.2015+.x86` | Visual C++ 2015–2022 x86 |
+| `Microsoft.VCRedist.2015+.x64` | Visual C++ 2015–2022 x64 |
 
-Compatibility insurance, in other words. Cheap to install, annoying to diagnose: the
-symptom is a program that won't start and an error naming a file you've never heard of.
-
-| winget ID          | What it is       | Notes                                              |
-| ------------------ | ---------------- | -------------------------------------------------- |
-| `Microsoft.DirectX` | DirectX End-User Runtime | Version 9.29.1974.0 — the June 2010 redist. Windows 11 has DirectX 12 built in, but **not** the legacy `d3dx9_*`, `xinput1_3`, `xaudio2_7` and `d3dcompiler_4x` DLLs. Those only come from here |
-
-Visual C++ runtimes, the whole set. Every program compiled with MSVC links against one of
-these, and each release is a **separate** runtime — having 2013 does nothing for something
-built against 2010. Six releases, and both architectures of each, is why the table is
-twelve rows and not one:
-
-| winget ID                      | Release  |
-| ------------------------------ | -------- |
-| `Microsoft.VCRedist.2005.x86`  | 2005     |
-| `Microsoft.VCRedist.2005.x64`  | 2005     |
-| `Microsoft.VCRedist.2008.x86`  | 2008     |
-| `Microsoft.VCRedist.2008.x64`  | 2008     |
-| `Microsoft.VCRedist.2010.x86`  | 2010     |
-| `Microsoft.VCRedist.2010.x64`  | 2010     |
-| `Microsoft.VCRedist.2012.x86`  | 2012     |
-| `Microsoft.VCRedist.2012.x64`  | 2012     |
-| `Microsoft.VCRedist.2013.x86`  | 2013     |
-| `Microsoft.VCRedist.2013.x64`  | 2013     |
-| `Microsoft.VCRedist.2015+.x86` | 2015–2022 |
-| `Microsoft.VCRedist.2015+.x64` | 2015–2022 |
-
-Both architectures, deliberately: a lot of software is still 32-bit, and the x64
-redistributable does nothing for it.
-
-`2015+` covers 2015, 2017, 2019 and 2022 — Microsoft made those binary-compatible, so one
-package serves all four. The older five are not compatible with each other.
-
-> There's a well-known community AIO repack (`abbodi1406.vcredist`) that installs all of
-> these from one `.exe`. Passed over on purpose: it's a third-party repackaging of Microsoft
-> binaries, and twelve extra rows in a table cost nothing next to taking installers for
-> system runtimes from someone other than the vendor.
-
----
+Both architectures are intentional; an x64 runtime does not satisfy a 32-bit application.
 
 ## Optional
 
-**Not installed** unless you run `install.ps1 -Optional`.
+Only installed with `-Optional`.
 
-| winget ID                  | What it is      | Why it's excluded                               |
-| -------------------------- | --------------- | ----------------------------------------------- |
-| `Ollama.Ollama`            | Ollama          | Local models. Multi-GB downloads per model, so it's off the default path |
-
-> `Microsoft.DotNet.*Runtime*` and `WindowsAppRuntime.*` are **not** in any table on
-> purpose — they get pulled in automatically as dependencies.
->
-> That reasoning does **not** extend to § Runtimes, and the difference is easy to miss:
-> automatic dependency resolution only happens for programs installed **through winget**,
-> which declare what they need. Anything installed another way — a store client, an archive
-> you unpacked, an old installer — declares nothing.
-
----
+| winget ID | Application | Reason it is optional |
+| --- | --- | --- |
+| `Ollama.Ollama` | Ollama | Local models require significant disk space |
 
 ## Microsoft Store
 
-Its own table because these install with `--source msstore`, and winget needs telling: left
-to search everything, it can find the same name in two sources and refuse with an ambiguity
-error instead of choosing.
+These rows use `--source msstore`; a signed-in Microsoft account may be required.
 
-A row belongs here **only when nothing else publishes the program.** The `winget` source
-stays the default — see § winget is not the Microsoft Store.
-
-| winget ID        | What it is | Why it's Store-only |
-| ---------------- | ---------- | ------------------- |
-| `XP8CLZL93F5Z4P` | NVIDIA App | Driver and control panel. NVIDIA publishes the winget manifest nowhere; the Store is the only automated source. `nvidia.com` is the fallback if this row ever fails |
-
-> Needs a signed-in Microsoft account to install. If you set the machine up with a local
-> account, this row fails and the app goes back on the manual list for that run — the script
-> reports it rather than pretending.
-
----
+| winget ID | Application | Reason |
+| --- | --- | --- |
+| `XP8CLZL93F5Z4P` | NVIDIA App | Store is the selected automated distribution source |
 
 ## Manual afterwards
 
-Wanted on the machine, but **winget can't deliver them**. Checked 2026-07-28. They're
-listed here rather than left out, so that a restore ends with a short honest to-do instead
-of you discovering the gap weeks later.
+| What | Why it remains manual | Source/action |
+| --- | --- | --- |
+| **Porofessor** | Vendor installation is not part of this manifest | `porofessor.gg` |
+| **Wallpaper Engine** | Purchased and installed through Steam | Steam library |
+| **Pencil** | Desktop app owns its updates and Claude MCP registration | `pencil.dev` |
+| **WinRAR licence** | Requires the user's licence key | Enter after installation |
+| **`gh auth login`** | Interactive OAuth | Run before cloning the private repo |
+| **League install path** | Riot's installer prompts interactively | Choose the LA2 path in `layout/LAYOUT.md` |
 
-| What | Why it can't be scripted | Where to get it |
-| ---- | ------------------------ | --------------- |
-| **Porofessor** | No winget package exists at all — `winget search Porofessor` returns nothing | porofessor.gg |
-| **Wallpaper Engine** | Sold exclusively through Steam. The winget hit named "Wallpaper Engine" is `Taiizor.SucroseWallpaperEngine`, a different open-source project | Steam (already installed by § Games) |
-| **Pencil** | `Pencil.Desktop` exists, but the manifest sits at **1.1.26** while this machine runs **1.1.70**. Installing from winget would be a downgrade, and would pin you there until someone updates the manifest — the opposite of § Versions. It updates itself | pencil.dev |
+## Language tooling
 
-Also by hand, for reasons that have nothing to do with winget:
+Node is installed from the official current LTS ZIP into the `node` path declared by
+`layout/LAYOUT.md`. The script stages extraction before replacing an existing runtime.
+`pnpm` is activated through Corepack and `uv` uses its official installer/self-updater.
 
-| What | Why |
-| ---- | --- |
-| **WinRAR licence** | The key has to be typed in |
-| **`gh auth login`** | An OAuth flow can't be scripted. See `dev/README.md` |
-| **League's install path** | winget runs Riot's installer and it asks where to put the game. Answer with the `RiotGames.LeagueOfLegends.LA2` path in `layout/LAYOUT.md` — accepting the default puts 43 GB outside the tree and nothing later corrects it |
-
----
-
-## Fonts
-
-`DEVCOM.JetBrainsMonoNerdFont` installs machine-wide into `C:\Windows\Fonts`, so it
-**needs an elevated shell**. `install.ps1` checks for admin and warns instead of failing
-silently — a font that didn't install produces hollow boxes everywhere and no error.
-
-It registers as `JetBrainsMono NFM` (Nerd Font Mono), **not** `JetBrainsMono Nerd Font Mono`.
-Getting that name wrong costs you the font without any warning. Details in
-`terminal/README.md`.
-
-A restored machine gets **exactly** the one font in that table and nothing else — which is
-why the name has to be right.
-
----
-
-## PowerShell lands in WindowsApps, not Program Files
-
-`winget show Microsoft.PowerShell` reports `Installer Type: msix`. So on a restored machine
-`C:\Program Files\PowerShell\7` **never exists** — PowerShell 7 lives in
-`%LOCALAPPDATA%\Microsoft\WindowsApps\` and is reached through the `pwsh.exe` app execution
-alias.
-
-**Never hardcode that Program Files path.** Call `pwsh.exe` and let the alias resolve it;
-that works whichever flavour is installed. `terminal/windows-terminal/settings.json` is the
-one place this matters — a default profile pointing at a path winget never creates means the
-first terminal you open after a format fails to start.
-
-### winget won't always see a program you installed by hand
-
-winget only tracks what it installed. A program put on the machine another way — a vendor
-MSI, an unpacked archive — often fails to correlate to its package, so `winget list` reports
-it as missing and `install.ps1` installs a second copy alongside it, in winget's own
-location. Harmless on a fresh machine, where nothing pre-exists. Worth knowing if you ever
-install something by hand that's also in the tables above.
-
----
-
-## Python
-
-`Python.Python.3.14` is the system-wide interpreter and it exists **for the shell** — `py`,
-one-off scripts, anything run outside a project. It is the only Python this repo installs.
-
-**Projects don't use it.** They pin their own interpreter through `uv`, which downloads
-whatever version they declare into `%APPDATA%\uv\python\` on demand. So a project resolves
-the same on a fresh machine whether or not the winget Python is there, and the version in
-the table has no bearing on it.
-
----
-
-## Node — handled separately
-
-Node does **not** come from winget. It lives in the tree rather than Program Files, at the
-path `layout/LAYOUT.md` declares for it, and `install.ps1` pulls the official zip and unpacks
-it there.
-
-It's in `dev\` and not `apps\` because you never open it — your projects invoke it.
-`layout/LAYOUT.md` § *Which folder* is where that question is settled. The path itself is
-deliberately not repeated here: one place, or it goes stale.
-
-| Package | Version                | What for                                       |
-| ------- | ---------------------- | ---------------------------------------------- |
-| `node`  | latest **LTS**         | Runtime. Resolved at run time — see § Versions  |
-| `pnpm`  | whatever corepack ships | Enabled through `corepack enable`              |
-| `uv`    | latest                 | Python package manager. Goes to `~\.local\bin` |
-
-Node follows the **LTS** line, not Current: on 2026-07-28 that was v24.18.0 while Current
-was v26.5.0. If a project ever needs Current, that's a per-project decision, not a machine
-one.
-
-An outdated Node is replaced in place. The new tree is fully extracted before the old
-directory is moved aside, and the old one is only deleted once the new one has landed.
-Nothing is lost in the swap — global packages live in `%APPDATA%\npm`, not here.
+The literal Node version in the script is only an offline fallback. The Python major in the
+winget ID is explicit desired state; moving to a new major requires changing the row.
 
 ## npm globals
 
-| Package                 | What for                                                     |
-| ----------------------- | ------------------------------------------------------------ |
-| `oh-my-claude-sisyphus` | **OMC** — the Claude Code orchestration layer. See `claude/`  |
-| `@anthropic-ai/sdk`     | SDK, for one-off scripts                                     |
-| `chrome-devtools-mcp`   | Chrome DevTools MCP                                          |
-| `hostinger-api-mcp`     | Hostinger MCP (hosting)                                      |
+| Package | Purpose |
+| --- | --- |
+| `oh-my-claude-sisyphus` | OMC orchestration layer for Claude Code |
 
-### Where the binaries go
+Global executables land in `%APPDATA%\npm`, which the installer adds to the user PATH. The
+repo-owned `.npmrc` sets `ignore-scripts=true`; override it only for a specific trusted
+package that genuinely requires an install script.
 
-The Node **zip** ships its own `npmrc` with `prefix=${APPDATA}\npm`, so `npm i -g` puts
-executables in `%APPDATA%\npm` and not next to `node.exe`. The zip sets no environment
-variables, so nothing puts that folder on `PATH`.
-
-`install.ps1` adds it explicitly. Without that, a fresh machine installs `omc` and the two
-MCP servers with no errors at all and then can't run any of them. It goes unnoticed on the
-current machine only because an old Node MSI added the entry years ago.
-
-### `npmrc`
-
-Installs to `~/.npmrc`. One line, `ignore-scripts=true`: dependencies can't run
-`postinstall` code just because you installed them. It applies to every npm install on the
-machine, not only global ones.
-
-When a package legitimately needs its install script, allow it for that command —
-`npm install --ignore-scripts=false`, or `npm rebuild <package>` — rather than deleting the
-line. All four globals above install cleanly with it on (verified 2026-07-28).
-
----
-
-## Keeping it current
-
-`install.ps1` upgrades every package in the tables on each run — see § Versions. That's the
-intended path and it's deliberately scoped: it touches what this repo asked for, and nothing
-else on the machine.
-
-To sweep everything instead, including whatever was installed outside this repo:
-
-```powershell
-winget upgrade                              # see what's outdated
-winget upgrade --all --include-unknown      # update everything
-```
+Use `snapshot.ps1` to compare npm globals in both directions. Winget drift is intentionally
+checked only for declared IDs because Windows itself contributes many unrelated packages.

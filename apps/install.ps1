@@ -23,8 +23,7 @@
 
 .PARAMETER WhatIfOnly
     Report every action without performing any of them - packages, the Node download, the
-    PATH entries and the files written into $HOME. It used to stop after listing the winget
-    packages, which quietly hid the parts most worth reviewing beforehand.
+    PATH entries and the files written into $HOME.
 
 .EXAMPLE
     pwsh apps\install.ps1
@@ -103,7 +102,7 @@ foreach ($id in $targets) {
 
 if ($store.Count) {
     Write-Step "Microsoft Store — $($store.Count) package(s)"
-    Write-Host '  These need a signed-in Microsoft account. A local-account machine fails here.' -ForegroundColor DarkGray
+    Write-Host '  Store may request a Microsoft sign-in; if it does, the package is reported as failed.' -ForegroundColor DarkGray
     foreach ($id in $store) {
         switch (Install-WingetPackage -Id $id -Source 'msstore') {
             'ok' { }
@@ -123,12 +122,13 @@ if ($store.Count) {
 if (-not $SkipUpgrade) {
     Write-Step "Upgrading to latest stable"
 
-    # Skip whatever was installed seconds ago - it's current by definition. Each check is a
-    # network round-trip, measured at ~1.4s, so on a fresh machine this is the difference
-    # between finishing and spending another 47 seconds confirming what we already know.
+    # Skip whatever was installed seconds ago - it is current by definition and does not
+    # need another network query.
     $stale = @($targets | Where-Object { $_ -notin $fresh })
     if ($fresh.Count) { Write-Skip "$($fresh.Count) just installed - already at the latest" }
-    foreach ($id in $stale) { Update-WingetPackage $id }
+    foreach ($id in $stale) {
+        if ((Update-WingetPackage $id) -eq 'fail') { $failed.Add("upgrade: $id") }
+    }
 }
 
 # ---------------------------------------------------------------- Node
@@ -176,67 +176,104 @@ elseif ($script:DryRun) {
 }
 else {
     Write-Host "  ...$(if ($nodeCurrent) { "Node $nodeCurrent -> $nodeVersion" } else { "downloading Node $nodeVersion" })" -ForegroundColor DarkYellow
+    $nodeStage = Join-Path ([IO.Path]::GetTempPath()) "workstation-node-$PID-$([guid]::NewGuid().ToString('N'))"
+    $nodeOld = "$nodeDir.workstation-old-$PID-$([guid]::NewGuid().ToString('N'))"
     try {
-        $zip = Join-Path $env:TEMP 'node.zip'
-        $tmp = Join-Path $env:TEMP 'node-extract'
+        New-Item -ItemType Directory -Path $nodeStage | Out-Null
+        $zip = Join-Path $nodeStage 'node.zip'
+        $tmp = Join-Path $nodeStage 'extract'
         Invoke-WebRequest "https://nodejs.org/dist/$nodeVersion/node-$nodeVersion-win-x64.zip" -OutFile $zip -UseBasicParsing
-        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
         Expand-Archive $zip -DestinationPath $tmp -Force
         New-Item -ItemType Directory -Force -Path (Split-Path $nodeDir -Parent) | Out-Null
 
         # Swap only once the new tree is on disk, and keep the old one until it lands. Global
         # packages live in %APPDATA%\npm, so replacing this directory loses nothing.
-        Remove-Item "$nodeDir.old" -Recurse -Force -ErrorAction SilentlyContinue
-        if ($nodeCurrent) { Move-Item $nodeDir "$nodeDir.old" -Force }
+        if ($nodeCurrent) { Move-Item -LiteralPath $nodeDir -Destination $nodeOld }
         Move-Item (Get-ChildItem $tmp -Directory | Select-Object -First 1).FullName $nodeDir -Force
-        Remove-Item "$nodeDir.old", $zip, $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        $landedVersion = (& (Join-Path $nodeDir 'node.exe') --version).Trim()
+        if ($landedVersion -ne $nodeVersion) { throw "staged runtime reported $landedVersion" }
+        if (Test-Path $nodeOld) { Remove-Item -LiteralPath $nodeOld -Recurse -Force }
         Write-Ok "Node $nodeVersion at $nodeDir"
     }
     catch {
         # _lib sets $ErrorActionPreference to Stop, so without catching here a dropped
         # download takes the whole restore down with it. Record it and keep going.
         Write-Fail "Node $nodeVersion failed: $($_.Exception.Message)"
-        if ((Test-Path "$nodeDir.old") -and -not (Test-Path $nodeExe)) {
-            Move-Item "$nodeDir.old" $nodeDir -Force
+        if (Test-Path $nodeOld) {
+            if (Test-Path $nodeDir) { Remove-Item -LiteralPath $nodeDir -Recurse -Force }
+            Move-Item -LiteralPath $nodeOld -Destination $nodeDir
             Write-Warn2 "put the previous Node $nodeCurrent back"
+        }
+        elseif (-not $nodeCurrent -and (Test-Path $nodeDir)) {
+            Remove-Item -LiteralPath $nodeDir -Recurse -Force
+            Write-Warn2 'removed the incomplete new Node tree'
         }
         $failed.Add('Node')
     }
+    finally {
+        if (Test-Path $nodeStage) { Remove-Item -LiteralPath $nodeStage -Recurse -Force -ErrorAction SilentlyContinue }
+    }
 }
 
-# A dry run never wrote Node, so on a fresh machine it isn't there - but the real run would
-# have put it there by now. Without this the rest of the report reads "skipped, no Node" for
-# steps that would actually have happened.
-$haveNode = (Test-Path $nodeExe) -or $script:DryRun
-if ($haveNode) { Add-UserPath $nodeDir }
+# Distinguish what exists now from what the dry run predicts. The prediction is useful for
+# the report, but it must never authorize a call to npm/corepack that does not exist yet.
+$haveNode = Test-Path $nodeExe
+$nodeWillExist = $haveNode -or $script:DryRun
+if ($nodeWillExist) { Add-UserPath $nodeDir }
 
 # The registry's "latest" dist-tag, which is the stable release - prereleases live under
 # their own tags and never answer here. $null when the registry can't be reached.
 function Get-NpmLatest {
     param([Parameter(Mandatory)][string]$Package)
-    $v = npm view $Package version 2>$null | Select-Object -Last 1
-    if ($LASTEXITCODE -eq 0 -and $v) { return $v.Trim() }
+    try {
+        # Registry HTTP works during a clean dry run where Node/npm are only planned, and
+        # avoids turning that preview into an accidental dependency on the current machine.
+        $escaped = [Uri]::EscapeDataString($Package)
+        $answer = Invoke-RestMethod "https://registry.npmjs.org/$escaped/latest" -TimeoutSec 20
+        if ($answer.version -is [string]) { return $answer.version.Trim() }
+    }
+    catch { }
     return $null
 }
 
 # pnpm rides on corepack, which ships with Node - so if Node didn't land, don't pretend.
-if (-not $haveNode) { Write-Warn2 'pnpm skipped - no Node' }
+if (-not $nodeWillExist) { Write-Warn2 'pnpm skipped - no Node' }
 elseif ($script:DryRun) {
     $pnpmHave = if (Test-Cmd pnpm) { (pnpm --version 2>$null).Trim() } else { $null }
     $pnpmWant = Get-NpmLatest 'pnpm'
-    if ($pnpmHave -and $pnpmHave -eq $pnpmWant) { Write-Skip "pnpm $pnpmHave" }
+    if (-not $pnpmWant) {
+        Write-Warn2 'pnpm update check failed - npm registry unreachable'
+        $failed.Add('pnpm update check')
+    }
+    elseif ($pnpmHave -and $pnpmHave -eq $pnpmWant) { Write-Skip "pnpm $pnpmHave" }
     else { Write-Would "enable corepack and activate pnpm@latest$(if ($pnpmWant) { " ($pnpmWant)" })" }
 }
 else {
     & "$nodeDir\corepack.cmd" enable 2>&1 | Out-Null
-    $pnpmHave = if (Test-Cmd pnpm) { (pnpm --version 2>$null).Trim() } else { $null }
-    $pnpmWant = if ($pnpmHave -and $SkipUpgrade) { $pnpmHave } else { Get-NpmLatest 'pnpm' }
-
-    if ($pnpmHave -and ($pnpmHave -eq $pnpmWant -or -not $pnpmWant)) { Write-Skip "pnpm $pnpmHave" }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn2 "corepack enable failed (code $LASTEXITCODE)"
+        $failed.Add('corepack enable')
+    }
     else {
-        Write-Host "  ...pnpm$(if ($pnpmHave) { " $pnpmHave -> $pnpmWant" })" -ForegroundColor DarkYellow
-        & "$nodeDir\corepack.cmd" prepare pnpm@latest --activate 2>&1 | Out-Null
-        Write-Ok "pnpm $((pnpm --version 2>$null).Trim())"
+        $pnpmHave = if (Test-Cmd pnpm) { (pnpm --version 2>$null).Trim() } else { $null }
+        $pnpmWant = if ($pnpmHave -and $SkipUpgrade) { $pnpmHave } else { Get-NpmLatest 'pnpm' }
+
+        if (-not $pnpmWant) {
+            Write-Warn2 'pnpm update check failed - npm registry unreachable'
+            $failed.Add('pnpm update check')
+        }
+        elseif ($pnpmHave -and $pnpmHave -eq $pnpmWant) { Write-Skip "pnpm $pnpmHave" }
+        else {
+            Write-Host "  ...pnpm$(if ($pnpmHave) { " $pnpmHave -> $pnpmWant" })" -ForegroundColor DarkYellow
+            & "$nodeDir\corepack.cmd" prepare pnpm@latest --activate 2>&1 | Out-Null
+            $pnpmCode = $LASTEXITCODE
+            $pnpmNow = if ($pnpmCode -eq 0 -and (Test-Cmd pnpm)) { (pnpm --version 2>$null).Trim() } else { $null }
+            if ($pnpmCode -eq 0 -and $pnpmNow) { Write-Ok "pnpm $pnpmNow" }
+            else {
+                Write-Warn2 "pnpm activation failed (code $pnpmCode)"
+                $failed.Add('pnpm activation')
+            }
+        }
     }
 }
 
@@ -247,15 +284,27 @@ $uvHave = Get-UvVersion
 if (-not $uvHave -and $script:DryRun) { Write-Would 'install uv from astral.sh into ~\.local\bin' }
 elseif (-not $uvHave) {
     powershell -ExecutionPolicy Bypass -c 'irm https://astral.sh/uv/install.ps1 | iex' 2>&1 | Out-Null
-    Write-Ok "uv $(Get-UvVersion)"
+    $uvInstallCode = $LASTEXITCODE
+    $uvNow = Get-UvVersion
+    if ($uvInstallCode -eq 0 -and $uvNow) { Write-Ok "uv $uvNow" }
+    else {
+        Write-Warn2 'uv installation failed'
+        $failed.Add('uv installation')
+    }
 }
 elseif ($SkipUpgrade) { Write-Skip "uv $uvHave" }
 elseif ($script:DryRun) { Write-Would "run uv self update (currently $uvHave)" }
 else {
     # uv ships its own updater and no-ops when it's already current.
     uv self update 2>&1 | Out-Null
+    $uvCode = $LASTEXITCODE
     $uvNow = Get-UvVersion
-    if ($uvNow -eq $uvHave) { Write-Skip "uv $uvHave" } else { Write-Ok "uv $uvHave -> $uvNow" }
+    if ($uvCode -ne 0) {
+        Write-Warn2 "uv self update failed (code $uvCode)"
+        $failed.Add('uv update')
+    }
+    elseif ($uvNow -eq $uvHave) { Write-Skip "uv $uvHave" }
+    else { Write-Ok "uv $uvHave -> $uvNow" }
 }
 Add-UserPath (Join-Path $HOME '.local\bin')
 
@@ -264,21 +313,28 @@ Write-Step "npm globals"
 
 # npm's builtin npmrc, shipped inside the Node zip, sets prefix=${APPDATA}\npm - global
 # binaries land there, not next to node.exe. The zip touches no environment variables, so
-# nothing puts that directory on PATH. Without this line a fresh machine installs omc and
-# the MCP servers without a single error and then cannot run any of them. It only works on
-# the current machine because an older Node MSI added the entry years ago.
+# nothing puts that directory on PATH. Without this line a fresh machine can install a
+# global CLI successfully and still be unable to run it.
 Add-UserPath (Join-Path $env:APPDATA 'npm')
 
 # Before the installs, so ignore-scripts is already in force for them.
-Install-ConfigFile (Join-Path $PSScriptRoot 'npmrc') (Join-Path $HOME '.npmrc') | Out-Null
+if (-not (Install-ConfigFile (Join-Path $PSScriptRoot 'npmrc') (Join-Path $HOME '.npmrc'))) {
+    $failed.Add('.npmrc')
+}
 
 $wanted = Get-IdsFromReadme $readme @('npm globals')
 
-if (-not $haveNode) { Write-Warn2 "$($wanted.Count) globals skipped - no Node, so no npm" }
+if (-not $nodeWillExist) { Write-Warn2 "$($wanted.Count) globals skipped - no Node, so no npm" }
 else {
     $installed = @{}
-    $deps = (npm ls -g --depth=0 --json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).dependencies
-    if ($deps) { $deps.PSObject.Properties | ForEach-Object { $installed[$_.Name] = $_.Value.version } }
+    if ($haveNode -and (Test-Cmd npm)) {
+        $deps = (npm ls -g --depth=0 --json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue).dependencies
+        if ($deps) { $deps.PSObject.Properties | ForEach-Object { $installed[$_.Name] = $_.Value.version } }
+    }
+    elseif (-not $script:DryRun) {
+        Write-Warn2 'npm is missing even though Node exists'
+        $failed.Add('npm missing')
+    }
 
     foreach ($pkg in $wanted) {
         $have = $installed[$pkg]
@@ -286,11 +342,16 @@ else {
         if ($have) {
             if ($SkipUpgrade) { Write-Skip "$pkg $have"; continue }
             $want = Get-NpmLatest $pkg
-            if (-not $want) { Write-Warn2 "$pkg $have - registry unreachable, left alone"; continue }
+            if (-not $want) {
+                Write-Warn2 "$pkg $have - update check failed, left alone"
+                $failed.Add("npm update check: $pkg")
+                continue
+            }
             if ($have -eq $want) { Write-Skip "$pkg $have"; continue }
         }
 
         if ($script:DryRun) { Write-Would "npm i -g $pkg@latest$(if ($have) { " (upgrading $have)" })"; continue }
+        if (-not (Test-Cmd npm)) { continue }
 
         Write-Host "  ...npm i -g $pkg@latest$(if ($have) { " ($have -> $want)" })" -ForegroundColor DarkYellow
         npm install -g "$pkg@latest" --silent 2>&1 | Out-Null
@@ -344,5 +405,7 @@ if ($failed.Count) {
 }
 
 Write-Ok 'nothing failed'
-Write-Host '  Open a new terminal so the PATH changes take effect.' -ForegroundColor DarkGray
+if ($script:DryRun) { Write-Host '  Dry run complete; no PATH or files changed.' -ForegroundColor DarkGray }
+else { Write-Host '  Open a new terminal so the PATH changes take effect.' -ForegroundColor DarkGray }
 Write-Host ''
+exit 0

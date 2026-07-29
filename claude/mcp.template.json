@@ -1,6 +1,7 @@
 {
-  "_comment": "TEMPLATE. The ${VAR} placeholders are resolved by: pwsh claude/install.ps1 -Secrets (reads secrets/.env). The result lands in ~/.claude/mcp-configs/mcp-servers.json and is NEVER committed.",
-  "_no_duplicates": "context7, playwright and chrome-devtools are deliberately absent: all three arrive as plugins (settings.json, enabledPlugins) and listing them here too starts the same server twice. Measured over 30 days: the loose playwright server was called 0 times against 3,037 for the plugin's, and the loose context7 0 against the plugin's. See plugins.md.",
+  "externalServers": [
+    "pencil"
+  ],
   "mcpServers": {
     "sequential-thinking": {
       "command": "npx",
@@ -23,10 +24,10 @@
       "args": ["-y", "@supabase/mcp-server-supabase@latest"]
     },
     "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"
       }
     },
     "exa-web-search": {
@@ -62,22 +63,15 @@
       }
     },
     "fal-ai": {
-      "command": "npx",
-      "args": ["-y", "@fal-ai/mcp-server"],
-      "env": {
-        "FAL_KEY": "${FAL_KEY}"
+      "type": "http",
+      "url": "https://mcp.fal.ai/mcp",
+      "headers": {
+        "Authorization": "Bearer ${FAL_KEY}"
       }
     },
     "browserbase": {
-      "command": "npx",
-      "args": ["-y", "@browserbasehq/mcp-server-browserbase"],
-      "env": {
-        "BROWSERBASE_API_KEY": "${BROWSERBASE_API_KEY}"
-      }
-    },
-    "pencil": {
-      "command": "npx",
-      "args": ["-y", "@pencil/mcp-server"]
+      "type": "http",
+      "url": "https://mcp.browserbase.com/mcp?browserbaseApiKey=${BROWSERBASE_API_KEY}"
     }
   }
 }

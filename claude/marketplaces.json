@@ -1,0 +1,6 @@
+{
+  "marketplaces": {
+    "claude-plugins-official": "anthropics/claude-plugins-official",
+    "chrome-devtools-plugins": "ChromeDevTools/chrome-devtools-mcp"
+  }
+}

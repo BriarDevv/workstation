@@ -17,9 +17,7 @@ credentials.json
 *token*.json
 *secret*.json
 
-# --- Claude Code files that ALWAYS carry credentials ---
-# ~/.claude.json                          -> OAuth + history of 42 projects
-# ~/.claude/mcp-configs/mcp-servers.json  -> 8 API keys in plaintext
+# --- Claude live state can contain OAuth data, project metadata, and MCP credentials ---
 claude/mcp.json
 claude/mcp-servers.json
 claude/settings.local.json

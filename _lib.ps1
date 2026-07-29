@@ -3,7 +3,15 @@
 $ErrorActionPreference = 'Stop'
 
 $script:RepoRoot = Split-Path $PSCommandPath -Parent
-$script:BackupDir = Join-Path $HOME ".workstation-backup\$(Get-Date -Format 'yyyy-MM-dd_HHmm')"
+
+# One restore run gets one backup directory, including when the root orchestrator invokes
+# several folder scripts in the same PowerShell process. A standalone folder run creates its
+# own ID. Milliseconds plus the process ID prevent two launches in the same minute from
+# sharing a destination.
+if (-not $env:WORKSTATION_BACKUP_RUN_ID) {
+    $env:WORKSTATION_BACKUP_RUN_ID = "$(Get-Date -Format 'yyyy-MM-dd_HHmmssfff')-$PID"
+}
+$script:BackupDir = Join-Path $HOME ".workstation-backup\$env:WORKSTATION_BACKUP_RUN_ID"
 
 # Dry run. A calling script sets `$script:DryRun = $true` right after dot-sourcing this
 # file, and every helper below reports what it would do instead of doing it. Dot-sourcing
@@ -35,6 +43,44 @@ function Assert-PowerShell7 {
     }
 }
 
+# Return a collision-free backup path that preserves the destination's location. Using only
+# the leaf name loses data as soon as two different programs both own a settings.json.
+function Get-BackupPath {
+    param([Parameter(Mandatory)][string]$Destination)
+
+    $full = [IO.Path]::GetFullPath($Destination)
+    $homeFull = [IO.Path]::GetFullPath($HOME).TrimEnd('\')
+    if ($full.Equals($homeFull, [StringComparison]::OrdinalIgnoreCase) -or
+        $full.StartsWith($homeFull + '\', [StringComparison]::OrdinalIgnoreCase)) {
+        $relative = [IO.Path]::GetRelativePath($homeFull, $full)
+        return Join-Path $script:BackupDir (Join-Path 'home' $relative)
+    }
+
+    $root = [IO.Path]::GetPathRoot($full)
+    $rootLabel = ($root.TrimEnd('\') -replace '[:\\/]+', '-')
+    if (-not $rootLabel) { $rootLabel = 'filesystem' }
+    $relative = [IO.Path]::GetRelativePath($root, $full)
+    return Join-Path $script:BackupDir (Join-Path "root-$rootLabel" $relative)
+}
+
+# Keep the first pre-run copy. If two steps touch the same destination, overwriting its
+# backup with the intermediate state would make the original impossible to recover.
+function Backup-ExistingFile {
+    param([Parameter(Mandatory)][string]$Destination)
+
+    if (-not (Test-Path -LiteralPath $Destination -PathType Leaf)) { return $null }
+    $bak = Get-BackupPath $Destination
+    if (Test-Path -LiteralPath $bak) {
+        Write-Skip "original already backed up -> $bak"
+        return $bak
+    }
+
+    New-Item -ItemType Directory -Force -Path (Split-Path $bak -Parent) | Out-Null
+    Copy-Item -LiteralPath $Destination -Destination $bak
+    Write-Warn2 "backed up original -> $bak"
+    return $bak
+}
+
 # Copy a file into place, backing up whatever was there. Idempotent.
 function Install-ConfigFile {
     param(
@@ -50,10 +96,7 @@ function Install-ConfigFile {
         }
         if ($script:DryRun) { Write-Would "overwrite $Destination (backing the current one up first)"; return $true }
 
-        $bak = Join-Path $script:BackupDir (Split-Path $Destination -Leaf)
-        New-Item -ItemType Directory -Force -Path (Split-Path $bak -Parent) | Out-Null
-        Copy-Item $Destination $bak -Force
-        Write-Warn2 "backed up original -> $bak"
+        Backup-ExistingFile $Destination | Out-Null
     }
     if ($script:DryRun) { Write-Would "create $Destination"; return $true }
 
@@ -61,6 +104,50 @@ function Install-ConfigFile {
     Copy-Item $Source $Destination -Force
     Write-Ok $Destination
     return $true
+}
+
+# Install generated text with the same comparison, dry-run and backup guarantees as a file
+# copied from the repo. Keeping this shared avoids each composer inventing a weaker writer.
+function Install-ConfigText {
+    param(
+        [Parameter(Mandatory)][string]$Destination,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
+        [string]$Label = (Split-Path $Destination -Leaf)
+    )
+
+    if ((Test-Path -LiteralPath $Destination -PathType Leaf) -and
+        ((Get-Content -LiteralPath $Destination -Raw) -ceq $Text)) {
+        Write-Skip "$Label already identical"
+        return $true
+    }
+
+    if ($script:DryRun) {
+        if (Test-Path -LiteralPath $Destination) {
+            Write-Would "overwrite $Destination (backing the current one up first)"
+        }
+        else { Write-Would "create $Destination" }
+        return $true
+    }
+
+    try {
+        Backup-ExistingFile $Destination | Out-Null
+        $parent = Split-Path $Destination -Parent
+        New-Item -ItemType Directory -Force -Path $parent | Out-Null
+
+        # Stage beside the destination so the final rename stays on one volume and is atomic.
+        $tmp = Join-Path $parent ".workstation-$PID-$([guid]::NewGuid().ToString('N')).tmp"
+        Set-Content -LiteralPath $tmp -Value $Text -NoNewline -Encoding utf8
+        Move-Item -LiteralPath $tmp -Destination $Destination -Force
+        Write-Ok $Label
+        return $true
+    }
+    catch {
+        if ($tmp -and (Test-Path -LiteralPath $tmp)) {
+            Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+        }
+        Write-Fail "$Label - $($_.Exception.Message)"
+        return $false
+    }
 }
 
 # Is the package installed? winget renders a table on a hit and prints "No installed
@@ -123,25 +210,18 @@ function Install-WingetPackage {
     return 'fail'
 }
 
-# Is there a newer version available? $null means "nothing to do" - either the package is
-# current or it isn't installed at all.
-#
-# Do NOT go back to splitting a plain `winget list` on runs of whitespace. When a value
-# fills its column winget separates it from the next one with a SINGLE space, so the split
-# merges Id into Version. Measured on this machine, that made the old version of this
-# function return Available='winget' (the source name) for Git.Git, and report fastfetch as
-# up to date while it sat 8 releases behind - which silently turned the whole "keep the
-# terminal stack current" step into a no-op.
-#
-# --upgrade-available only renders a table when an upgrade actually exists, so the presence
-# of the table is the answer and no parsing is needed to get it right.
+# Report whether an upgrade is available without confusing "current" with "winget failed".
+# --upgrade-available only renders a table when an upgrade exists; the header offsets are
+# used only for the human-readable versions.
 function Get-WingetUpdate {
     param([Parameter(Mandatory)][string]$Id)
     $lines = @(winget list --id $Id --exact --upgrade-available --disable-interactivity 2>$null)
+    $code = $LASTEXITCODE
+    if ($code -ne 0) { return @{ Status = 'check-failed'; ExitCode = $code } }
 
     $sep = 0
     while ($sep -lt $lines.Count -and $lines[$sep] -notmatch '^-{3,}') { $sep++ }
-    if ($sep -ge $lines.Count - 1) { return $null }
+    if ($sep -ge $lines.Count - 1) { return @{ Status = 'current' } }
 
     # Versions are for the log line only, so a parse failure must not hide the upgrade.
     # Column widths are computed per query, which makes the header a reliable offset map.
@@ -151,9 +231,10 @@ function Get-WingetUpdate {
     $iNew = $header.IndexOf('Available')
     $iSrc = $header.IndexOf('Source')
     if ($iCur -lt 0 -or $iNew -le $iCur -or $iSrc -le $iNew -or $row.Length -le $iNew) {
-        return @{ Current = '?'; Available = '?' }
+        return @{ Status = 'available'; Current = '?'; Available = '?' }
     }
     return @{
+        Status    = 'available'
         Current   = $row.Substring($iCur, $iNew - $iCur).Trim()
         Available = $row.Substring($iNew, [Math]::Min($iSrc - $iNew, $row.Length - $iNew)).Trim()
     }
@@ -162,14 +243,18 @@ function Get-WingetUpdate {
 function Update-WingetPackage {
     param([Parameter(Mandatory)][string]$Id)
     $u = Get-WingetUpdate $Id
-    # $null covers both "already current" and "not installed", so don't claim the first.
-    if (-not $u) { Write-Skip "$Id nothing to upgrade"; return }
-    if ($script:DryRun) { Write-Would "upgrade $Id ($($u.Current) -> $($u.Available))"; return }
+    if ($u.Status -eq 'check-failed') {
+        Write-Warn2 "$Id update check failed (winget exit $($u.ExitCode))"
+        return 'fail'
+    }
+    if ($u.Status -eq 'current') { Write-Skip "$Id nothing to upgrade"; return 'skip' }
+    if ($script:DryRun) { Write-Would "upgrade $Id ($($u.Current) -> $($u.Available))"; return 'ok' }
     Write-Host "  ...upgrading $Id ($($u.Current) -> $($u.Available))" -ForegroundColor DarkYellow
     winget upgrade --id $Id --exact --silent --accept-package-agreements `
         --accept-source-agreements --disable-interactivity 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) { Write-Ok "$Id -> $($u.Available)" }
-    else { Write-Warn2 "$Id upgrade exited with code $LASTEXITCODE" }
+    if ($LASTEXITCODE -eq 0) { Write-Ok "$Id -> $($u.Available)"; return 'ok' }
+    Write-Warn2 "$Id upgrade exited with code $LASTEXITCODE"
+    return 'fail'
 }
 
 function Add-UserPath {

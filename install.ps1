@@ -15,10 +15,11 @@
     already gives its own steps. Exit code 0 means every folder finished clean.
 
 .PARAMETER Only
-    Run just these folders, in the order given. Positional:  pwsh .\install.ps1 claude
+    Run just these folders. They always keep the canonical restore order regardless of the
+    order supplied. Positional:  pwsh .\install.ps1 claude
 
 .PARAMETER WhatIfOnly
-    Report every action without performing any of them. See the note about terminal\ below.
+    Report every action without performing any of them.
 
 .PARAMETER Optional
     Forwarded to apps\ - also install its "Optional" table.
@@ -27,7 +28,7 @@
     Forwarded to apps\ and terminal\ - don't upgrade what's already installed.
 
 .PARAMETER Secrets
-    Forwarded to claude\ - also write mcp-servers.json from secrets\.env.
+    Forwarded to claude\ - also sync declared user-scope MCP servers from secrets\.env.
 
 .EXAMPLE
     pwsh .\install.ps1
@@ -50,16 +51,15 @@ Assert-PowerShell7
 # The order. README.md and CLAUDE.md also show it, for a human reading the repo - this table
 # is the one that executes, and both of them say so.
 #
-# Dry: whether that folder's script accepts -WhatIfOnly. terminal\ doesn't, and this table
-# says so out loud instead of the run quietly skipping it. A dry run that silently leaves a
-# folder out isn't a preview, it's a wrong answer.
+# Every normal restore step accepts -WhatIfOnly. Destructive debloat remains a separate,
+# explicitly-invoked script.
 $STEPS = @(
-    @{ Name = 'layout'; Dry = $true; What = 'the folder tree' }
-    @{ Name = 'apps'; Dry = $true; What = 'the binaries' }
-    @{ Name = 'terminal'; Dry = $false; What = 'the look' }
-    @{ Name = 'dev'; Dry = $true; What = 'git, repos' }
-    @{ Name = 'claude'; Dry = $true; What = 'Claude Code' }
-    @{ Name = 'windows'; Dry = $true; What = 'Explorer tweaks - restarts Explorer' }
+    @{ Name = 'layout'; What = 'the folder tree' }
+    @{ Name = 'apps'; What = 'the binaries' }
+    @{ Name = 'terminal'; What = 'the look' }
+    @{ Name = 'dev'; What = 'git, repos' }
+    @{ Name = 'claude'; What = 'Claude Code' }
+    @{ Name = 'windows'; What = 'Explorer tweaks - restarts Explorer' }
 )
 
 # Windows' own signals, not a guess based on what we just installed. Anything can leave a
@@ -83,7 +83,9 @@ $plan = if ($Only) {
         Write-Host "  Valid: $($STEPS.Name -join ', ')" -ForegroundColor DarkGray
         exit 1
     }
-    @($Only | ForEach-Object { $n = $_; $STEPS | Where-Object { $_.Name -eq $n } })
+    # Filter the source-of-truth table rather than projecting the user's argument order.
+    # `install.ps1 dev layout` still has to run layout before dev.
+    @($STEPS | Where-Object { $_.Name -in $Only })
 }
 else { $STEPS }
 
@@ -124,18 +126,11 @@ foreach ($step in $plan) {
         continue
     }
 
-    if ($WhatIfOnly -and -not $step.Dry) {
-        Write-Step "$($step.Name) - $($step.What)"
-        Write-Warn2 "no -WhatIfOnly on this one, so a dry run can't preview it. Skipped."
-        Write-Host "         Run it on its own to see what it does:  pwsh $($step.Name)\install.ps1" -ForegroundColor DarkGray
-        continue
-    }
-
     # Only what each script actually declares. Passing a switch a script doesn't have is a
     # hard parameter-binding error, which is why this is a per-step decision rather than one
     # splat for everyone.
     $argv = @{}
-    if ($WhatIfOnly -and $step.Dry) { $argv.WhatIfOnly = $true }
+    if ($WhatIfOnly) { $argv.WhatIfOnly = $true }
     switch ($step.Name) {
         'apps' { if ($Optional) { $argv.Optional = $true }; if ($SkipUpgrade) { $argv.SkipUpgrade = $true } }
         'terminal' { if ($SkipUpgrade) { $argv.SkipUpgrade = $true } }
@@ -147,14 +142,22 @@ foreach ($step in $plan) {
     Write-Host "  $($step.Name.ToUpper()) - $($step.What)" -ForegroundColor Cyan
     Write-Host ('=' * 72) -ForegroundColor DarkGray
 
-    # Reset first. A script that finishes cleanly never calls `exit`, and PowerShell leaves
-    # $LASTEXITCODE holding whatever the last native command set - so without this line a
-    # successful folder inherits the previous folder's failure and gets reported as broken.
-    # Measured: seed it with 7, run a clean layout\install.ps1, read 7 back. Failures here
-    # are always an explicit `exit 1`, so zeroing it can't hide a real one.
+    # Reset first so a folder cannot inherit a native exit code from the preceding folder.
+    # Every folder now ends with an explicit exit code, so zeroing the input cannot hide a
+    # real failure.
     $global:LASTEXITCODE = 0
-    & $script @argv
-    if ($LASTEXITCODE -ne 0) { $failed.Add($step.Name) }
+    try {
+        & $script @argv
+        if ($LASTEXITCODE -ne 0) { $failed.Add($step.Name) }
+    }
+    catch {
+        # A child normally reports its own failures and exits non-zero. This catches the
+        # unexpected terminating errors so one broken folder cannot hide the result of all
+        # the independent folders after it.
+        Write-Fail "$($step.Name) stopped unexpectedly: $($_.Exception.Message)"
+        $failed.Add("$($step.Name) (unexpected error)")
+        $global:LASTEXITCODE = 1
+    }
     $ran.Add($step.Name)
 
     # The one hard stop. Everything after apps\ configures programs, and a program that

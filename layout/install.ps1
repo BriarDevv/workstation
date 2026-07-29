@@ -72,14 +72,12 @@ if (-not (Install-ConfigFile (Join-Path $PSScriptRoot 'LAYOUT.md') (Join-Path (G
 }
 
 # ---------------------------------------------------------------- permissions
-# C:\Briar was created by hand at the root of C: and inherited the root's ACL, which hands
-# Authenticated Users write access to everything below it. Program Files does not work that
-# way and neither should this.
+# A custom root can inherit an ACL that hands Authenticated Users write access to everything
+# below it. The target is an application-directory ACL: SYSTEM, Administrators, and owner.
 #
 # icacls rather than Set-Acl, and this is not a style preference. Set-Acl CANNOT remove an
-# inherited ACE: RemoveAccessRule returns $true, Set-Acl reports no error, and the entry is
-# still there afterwards. Measured on this machine. A permissions change that fails silently
-# is worse than one that doesn't run.
+# inherited ACE: RemoveAccessRule can return $true while the entry remains. A permissions
+# change that fails silently is worse than one that doesn't run.
 #
 # The three grants are not optional either. /inheritance:r drops every inherited entry, and
 # C: only gives BUILTIN\Users ReadAndExecute - so without re-granting, an unelevated session
@@ -88,10 +86,22 @@ if (-not (Install-ConfigFile (Join-Path $PSScriptRoot 'LAYOUT.md') (Join-Path (G
 Write-Step 'Permissions'
 $root = Get-LayoutPath 'root'
 
-$acl = Get-Acl $root
-$loose = @($acl.Access | Where-Object { $_.IdentityReference.Value -eq 'NT AUTHORITY\Authenticated Users' })
+if (-not (Test-Path $root)) {
+    # On a clean-machine dry run the Tree phase only previews creation, so there is no ACL
+    # to inspect yet. The real run creates the root before reaching this point.
+    if ($script:DryRun) {
+        Write-Would "harden $root after creating it"
+    }
+    else {
+        Write-Fail "$root does not exist, so its permissions cannot be hardened"
+        $failed.Add('root ACL')
+    }
+}
+else {
+    $acl = Get-Acl $root
+    $loose = @($acl.Access | Where-Object { $_.IdentityReference.Value -eq 'NT AUTHORITY\Authenticated Users' })
 
-if (-not $acl.AreAccessRulesProtected -or $loose.Count) {
+    if (-not $acl.AreAccessRulesProtected -or $loose.Count) {
     $me = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     if ($script:DryRun) {
         Write-Would "stop $root inheriting from C:\, drop Authenticated Users, grant SYSTEM, Administrators and $me full control"
@@ -122,9 +132,10 @@ if (-not $acl.AreAccessRulesProtected -or $loose.Count) {
             $failed.Add('root ACL')
         }
     }
-}
-else {
-    Write-Skip "$root already hardened"
+    }
+    else {
+        Write-Skip "$root already hardened"
+    }
 }
 
 # ---------------------------------------------------------------- summary
@@ -143,3 +154,4 @@ if ($failed.Count) {
 
 Write-Ok 'nothing failed'
 Write-Host ''
+exit 0
