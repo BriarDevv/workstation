@@ -12,8 +12,36 @@ The folder that moves the most. Everything that makes Claude operate well, repo 
 | `rules/common/*.md` | 10 rules: style, testing, security, git…         | **Every session, always**   |
 | `settings.json`     | Model, permissions, plugins                      | At startup                  |
 | `mcp.template.json` | MCP servers, with `${VAR}` instead of real keys  | At startup                  |
-| `skills.md`         | Which skills to keep and which to drop           | Reference                   |
+| `skills.md`         | The rule that keeps the skills listing small     | Reference                   |
 | `plugins.md`        | Which plugins to keep and which to drop          | Reference                   |
+
+---
+
+## `install.ps1`
+
+```powershell
+pwsh claude\install.ps1
+pwsh claude\install.ps1 -WhatIfOnly     # report every action, perform none
+pwsh claude\install.ps1 -Secrets        # also write mcp-servers.json from secrets\.env
+```
+
+`-Secrets` is off by default so a routine run never touches the one file that holds API keys.
+
+### settings.json is merged, not copied
+
+**OMC owns `hooks` and `statusLine` in the live file, and this repo carries neither.** A
+straight copy would delete both and take the HUD and every hook with it — so the install
+merges: keys present here win, keys only present live are left alone. It prints which ones it
+kept.
+
+That cuts both ways deliberately. `enabledPlugins` **is** in this repo, so it replaces the
+live value wholesale — which is how a plugin dropped from `plugins.md` actually leaves the
+machine instead of lingering.
+
+### What it does about skills
+
+Reads `~/.claude/skills` at run time and hides everything in it from the model, except names
+a plugin also provides. `skills.md` is the reasoning; nothing here is a list of skill names.
 
 ---
 
@@ -35,10 +63,12 @@ Measured 2026-07-27:
 A healthy budget for the skills listing is ~2,000 tokens. It was **5.7x over**, which
 makes the listing truncate and Claude pick the wrong skill.
 
-**Hence:** only the 10 skills you actually use (`skills.md`), only `rules/common/` (not
-the 12 per-language directories), and a curated `permissions.allow`.
+**Hence:** the skills listing goes quiet (`skills.md`), only `rules/common/` rather than the
+12 per-language directories, and a curated `permissions.allow` — 24 rules where there were
+**217**, nearly all of them one-offs pinned to project paths that no longer exist.
 
-Target after applying everything: **~3,700 tokens** (-77%).
+Target after applying everything: **~3,700 tokens** (-77%). Verify with `/context` in a
+session; every number above it is an estimate.
 
 ---
 

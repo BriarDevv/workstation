@@ -30,11 +30,8 @@ servers cost no tokens. They do cost startup time, maintenance, and key exposure
 
 | Server                | Key                            | Measured use             |
 | --------------------- | ------------------------------ | ------------------------ |
-| `chrome-devtools`     | —                              | 47 (via the plugin)      |
 | `pencil`              | —                              | 11                       |
-| `context7`            | —                              | 7                        |
-| `playwright`          | —                              | via plugin               |
-| `filesystem`          | —                              | scoped to `Desktop`    |
+| `filesystem`          | —                              | scoped to `repos\` via `layout/LAYOUT.md` |
 | `sequential-thinking` | —                              | —                        |
 | `memory`              | —                              | —                        |
 | `supabase`            | —                              | —                        |
@@ -46,8 +43,28 @@ servers cost no tokens. They do cost startup time, maintenance, and key exposure
 | `fal-ai`              | `FAL_KEY`                      | —                        |
 | `browserbase`         | `BROWSERBASE_API_KEY`          | —                        |
 
-> ⚠️ There was a user-scope `chrome-devtools` **on top of** the plugin, doing the same
-> thing. The plugin's got used 3x more (47 vs 14). Only one survives.
+### The three that are deliberately absent
+
+`context7`, `playwright` and `chrome-devtools` **arrive as plugins** and are not in
+`mcp.template.json`. Listing them in both places starts the same server twice.
+
+Counted over the 30 days to 2026-07-28 — real tool invocations, 48 transcripts, 369k lines:
+
+| Server            | Loose server | Plugin    |
+| ----------------- | -----------: | --------: |
+| `playwright`      |        **0** | **3,037** |
+| `context7`        |        **0** |         1 |
+| `chrome-devtools` |           12 |        47 |
+
+The playwright row is the argument. It isn't that the plugin is more popular — the loose
+server was **never called once**, while still starting an `npx` process every session.
+
+The plugin also wins on a second count: it ships **skills** next to its tools, so the model
+gets told when to use them. A loose server hands over 29 tools and no guidance.
+
+> Numbers here are only reproducible inside their window. Transcripts are pruned after
+> ~30 days (`cleanupPeriodDays`), so re-measuring later gives smaller counts for the same
+> history — not a wrong table. Always write the window down next to the number.
 
 ### The ones I dropped
 

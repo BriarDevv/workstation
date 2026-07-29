@@ -1,18 +1,7 @@
 {
   "_comment": "TEMPLATE. The ${VAR} placeholders are resolved by: pwsh claude/install.ps1 -Secrets (reads secrets/.env). The result lands in ~/.claude/mcp-configs/mcp-servers.json and is NEVER committed.",
+  "_no_duplicates": "context7, playwright and chrome-devtools are deliberately absent: all three arrive as plugins (settings.json, enabledPlugins) and listing them here too starts the same server twice. Measured over 30 days: the loose playwright server was called 0 times against 3,037 for the plugin's, and the loose context7 0 against the plugin's. See plugins.md.",
   "mcpServers": {
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"]
-    },
-    "playwright": {
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
-    },
-    "chrome-devtools": {
-      "command": "npx",
-      "args": ["-y", "chrome-devtools-mcp@latest"]
-    },
     "sequential-thinking": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
@@ -22,7 +11,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "C:\\Users\\mateo\\Desktop"
+        "${LAYOUT_REPOS}"
       ]
     },
     "memory": {
