@@ -68,9 +68,9 @@ successful migration, it is backed up and removed.
 server. MCPs supplied by enabled Claude plugins are also kept out of the user-scope list to
 avoid shadowing plugin-owned definitions.
 
-GitHub, fal.ai, and Browserbase use their current hosted HTTP MCP endpoints. Their
-credentials remain local in `secrets/.env` and in Claude's user-scope configuration; the
-repository contains placeholders only.
+GitHub uses its current hosted HTTP MCP endpoint. Its credential remains local in
+`secrets/.env` and in Claude's user-scope configuration; the repository contains a
+placeholder only.
 
 ## What stays manual
 

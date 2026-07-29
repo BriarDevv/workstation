@@ -160,14 +160,16 @@ Test-Case 'Claude plugins and MCPs are clean-machine reproducible' {
     }
 
     $mcpText = Get-Content (Join-Path $repo 'claude\mcp.template.json') -Raw
-    foreach ($obsolete in @('@modelcontextprotocol/server-github', '@fal-ai/mcp-server',
-            '@browserbasehq/mcp-server-browserbase')) {
-        Assert-True (-not $mcpText.Contains($obsolete)) "obsolete MCP remains: $obsolete"
-    }
-    foreach ($endpoint in @('https://api.githubcopilot.com/mcp/', 'https://mcp.fal.ai/mcp',
-            'https://mcp.browserbase.com/mcp')) {
-        Assert-True $mcpText.Contains($endpoint) "hosted MCP endpoint missing: $endpoint"
-    }
+    $mcp = $mcpText | ConvertFrom-Json -AsHashtable
+    $expectedMcp = @('sequential-thinking', 'filesystem', 'memory', 'github')
+    $missingMcp = @($expectedMcp | Where-Object { -not $mcp.mcpServers.ContainsKey($_) })
+    $unexpectedMcp = @($mcp.mcpServers.Keys | Where-Object { $_ -notin $expectedMcp })
+    Assert-True ($missingMcp.Count -eq 0) "desired MCP missing: $($missingMcp -join ', ')"
+    Assert-True ($unexpectedMcp.Count -eq 0) "undeclared MCP remains: $($unexpectedMcp -join ', ')"
+    Assert-True (-not $mcpText.Contains('@modelcontextprotocol/server-github')) `
+        'obsolete local GitHub MCP remains'
+    Assert-True $mcpText.Contains('https://api.githubcopilot.com/mcp/') `
+        'hosted GitHub MCP endpoint missing'
 
     $installer = Get-Content (Join-Path $repo 'claude\install.ps1') -Raw
     Assert-True $installer.Contains('plugin marketplace add') 'marketplaces are not installed'

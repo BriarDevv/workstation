@@ -19,59 +19,12 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-memory"]
     },
-    "supabase": {
-      "command": "npx",
-      "args": ["-y", "@supabase/mcp-server-supabase@latest"]
-    },
     "github": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/",
       "headers": {
         "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"
       }
-    },
-    "exa-web-search": {
-      "command": "npx",
-      "args": ["-y", "exa-mcp-server"],
-      "env": {
-        "EXA_API_KEY": "${EXA_API_KEY}"
-      }
-    },
-    "firecrawl": {
-      "command": "npx",
-      "args": ["-y", "firecrawl-mcp"],
-      "env": {
-        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
-      }
-    },
-    "jira": {
-      "command": "uvx",
-      "args": ["mcp-atlassian"],
-      "env": {
-        "JIRA_URL": "${JIRA_URL}",
-        "JIRA_EMAIL": "${JIRA_EMAIL}",
-        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}"
-      }
-    },
-    "confluence": {
-      "command": "npx",
-      "args": ["-y", "@aashari/mcp-server-atlassian-confluence"],
-      "env": {
-        "CONFLUENCE_BASE_URL": "${CONFLUENCE_BASE_URL}",
-        "CONFLUENCE_EMAIL": "${CONFLUENCE_EMAIL}",
-        "CONFLUENCE_API_TOKEN": "${CONFLUENCE_API_TOKEN}"
-      }
-    },
-    "fal-ai": {
-      "type": "http",
-      "url": "https://mcp.fal.ai/mcp",
-      "headers": {
-        "Authorization": "Bearer ${FAL_KEY}"
-      }
-    },
-    "browserbase": {
-      "type": "http",
-      "url": "https://mcp.browserbase.com/mcp?browserbaseApiKey=${BROWSERBASE_API_KEY}"
     }
   }
 }
