@@ -47,11 +47,11 @@ $script:DryRun = [bool]$WhatIfOnly
 
 if (-not (Test-Cmd winget)) {
     Write-Fail 'winget is missing.'
-    Write-Host '  It ships inside App Installer, which comes from the Microsoft Store - and the' -ForegroundColor DarkGray
-    Write-Host '  target OS here is LTSC, which has no Store. So on a fresh install this is the' -ForegroundColor DarkGray
-    Write-Host '  expected state, not a broken machine, and pointing you at the Store would be' -ForegroundColor DarkGray
-    Write-Host '  sending you somewhere that does not exist. windows\bootstrap.ps1 is written for' -ForegroundColor DarkGray
-    Write-Host '  exactly this: it pulls App Installer straight from GitHub.' -ForegroundColor DarkGray
+    Write-Host '  It ships inside App Installer, which Windows 11 Pro does include - so this is' -ForegroundColor DarkGray
+    Write-Host '  unusual rather than expected. Most likely App Installer has not finished' -ForegroundColor DarkGray
+    Write-Host '  registering for your user yet, which happens on a machine that had no network' -ForegroundColor DarkGray
+    Write-Host '  during setup. Try the Store first; if it is still missing, bootstrap pulls it' -ForegroundColor DarkGray
+    Write-Host '  straight from GitHub:' -ForegroundColor DarkGray
     Write-Host ''
     Write-Host '      powershell -ExecutionPolicy Bypass -File windows\bootstrap.ps1' -ForegroundColor DarkGray
     Write-Host ''
@@ -63,6 +63,11 @@ $readme = Join-Path $PSScriptRoot 'README.md'
 $core = Get-IdsFromReadme $readme @('Essentials', 'Terminal', 'Desktop / utilities', 'Games', 'Runtimes')
 $extra = Get-IdsFromReadme $readme @('Optional')
 $targets = if ($Optional) { $core + $extra } else { $core }
+
+# Kept out of $targets on purpose. These need --source msstore, and they are deliberately
+# absent from the upgrade pass below: Store apps update themselves, and `winget upgrade` on a
+# Store ID without a source can hit the ambiguity error the source flag exists to avoid.
+$store = @(Get-IdsFromReadme $readme @('Microsoft Store'))
 
 Write-Step "Apps — $($targets.Count) packages"
 Write-Host "  $($core.Count) core$(if ($Optional) { " + $($extra.Count) optional" } else { " ($($extra.Count) optional skipped — pass -Optional)" })"
@@ -93,6 +98,17 @@ foreach ($id in $targets) {
     switch ($outcome) {
         'ok' { $fresh.Add($id) }
         'fail' { $failed.Add($id) }
+    }
+}
+
+if ($store.Count) {
+    Write-Step "Microsoft Store — $($store.Count) package(s)"
+    Write-Host '  These need a signed-in Microsoft account. A local-account machine fails here.' -ForegroundColor DarkGray
+    foreach ($id in $store) {
+        switch (Install-WingetPackage -Id $id -Source 'msstore') {
+            'ok' { }
+            'fail' { $failed.Add("$id (msstore)") }
+        }
     }
 }
 

@@ -99,10 +99,19 @@ Set-Reg 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' 'Hiberboo
 
 # ================================================================ Telemetry
 Write-Step 'Telemetry'
+# 0 is "Security", and Pro does NOT honour it - it clamps to 1, "Required". Level 0 needs
+# Enterprise, Education or an LTSC edition. The value is still written as 0 so the intent
+# survives if this machine ever changes edition, but the message says what actually happens,
+# because a label claiming Security on a Pro box is a lie you'd only catch by reading Windows'
+# own docs.
 Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection' 'AllowTelemetry' 0 `
-    -What 'telemetry to Security (lowest LTSC honours)'
+    -What 'telemetry to minimum (Pro clamps this to Required; Security needs Enterprise)'
+
+# Load-bearing on Pro in a way it never was on an Enterprise edition: this is the switch that
+# stops Windows silently installing "suggested" apps into a brand-new profile - the games and
+# trials that reappear after every feature update. See debloat.ps1.
 Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent' 'DisableWindowsConsumerFeatures' 1 `
-    -What 'no suggested apps'
+    -What 'no suggested apps (stops Windows reinstalling bloat later)'
 
 # ================================================================ Power
 Write-Step 'Power'

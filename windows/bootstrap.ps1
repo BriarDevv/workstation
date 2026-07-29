@@ -4,15 +4,21 @@
     Developer Mode.
 
 .DESCRIPTION
-    Run this FIRST on a fresh Windows 11 Enterprise LTSC install.
+    A fallback, not a required step. The target OS is Windows 11 Pro, which ships winget
+    inside App Installer - so normally apps\install.ps1 just runs and this script is never
+    needed.
 
-    LTSC ships without the Microsoft Store, and winget comes from the Store. So on a clean
-    LTSC there is no winget, which means apps\install.ps1 can't run, which means nothing in
-    this repo can run. This script breaks that deadlock by fetching App Installer straight
-    from GitHub.
+    It exists for when winget is missing anyway: App Installer is provisioned but hasn't
+    registered for your user, which happens on a machine that had no network during setup.
+    Without winget, apps\install.ps1 can't run, which means nothing in this repo can. This
+    breaks that deadlock by fetching App Installer straight from GitHub.
+
+    It was written when the plan was Enterprise LTSC, where the Store is absent and this was
+    unavoidable. It still earns its place: recovering a missing winget from the Store
+    requires the Store to work, and the failure mode where it doesn't is exactly this one.
 
     IMPORTANT: this is the only script in the repo written for **Windows PowerShell 5.1**.
-    A fresh LTSC has nothing else — PowerShell 7 is one of the things this installs. So no
+    A fresh Windows has nothing else — PowerShell 7 is one of the things this installs. So no
     &&, no ternaries, no ??, and TLS 1.2 has to be forced by hand.
 
     Run it elevated. Developer Mode and the machine-wide installs need it.
@@ -67,7 +73,7 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
     Skip "already present ($(winget --version))"
 }
 else {
-    Warn "not installed - this is expected on LTSC, it ships without the Store"
+    Warn "not installed - unusual on Pro, which ships it. Fetching from GitHub"
 
     # Ask GitHub for the current release rather than pinning a version that will rot.
     $api = 'https://api.github.com/repos/microsoft/winget-cli/releases/latest'

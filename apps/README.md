@@ -14,12 +14,16 @@ manifests that point at the vendor's own download — chrome from google.com, th
 GitHub, League from Riot. The `msstore` source is the Microsoft Store, and it needs the
 Store to be installed.
 
-**Every package in the tables below comes from the `winget` source, and none from
-`msstore`** — checked per row, as a condition of adding it. That matters because the target OS is LTSC,
-which has no Store: anything sourced from `msstore` simply cannot resolve there.
+**The `winget` source is the default, and a row only uses `msstore` when nothing else
+publishes the program** — checked per row, with the reason written in the row itself.
 
-Exactly one wanted program is Store-only — the NVIDIA App — which is why it sits under
-§ Manual afterwards instead of in a table.
+The target OS is Windows 11 **Pro**, which has the Store, so `msstore` resolves. That wasn't
+always true here: the plan was Enterprise LTSC, where it can't resolve at all. Even now the
+preference stands, because a Store package can want a signed-in Microsoft account and fail in
+an unattended run — the failure mode a restore can least afford.
+
+Today exactly one row is `msstore`: the **NVIDIA App**, which Microsoft publishes nowhere
+else. It used to sit under § Manual afterwards for that reason and no longer needs to.
 
 ## How it reports
 
@@ -74,7 +78,7 @@ Nothing works without these. All of them get installed.
 | `Microsoft.PowerShell`       | PowerShell 7     | This repo's scripts use `&&` and `??`, which PS5 doesn't have |
 | `Microsoft.WindowsTerminal`  | Windows Terminal | Daily driver                                                  |
 | `Microsoft.VisualStudioCode` | VS Code          | Main editor                                                   |
-| `Google.Chrome`              | Chrome           | **The only browser here.** LTSC ships without Edge preinstall, so without this row a restored machine cannot open a web page at all |
+| `Google.Chrome`              | Chrome           | The browser. Pro does ship Edge, so this isn't the only way to reach the web — it's just the one that gets used |
 | `Docker.DockerDesktop`       | Docker           | Containers. **Requires a reboot**                             |
 | `Microsoft.WSL`              | WSL2             | Linux for whatever doesn't run on Windows. **Requires a reboot** |
 | `Python.Python.3.14`         | Python 3.14      | The system-wide one. Projects use their own — see § Python    |
@@ -189,6 +193,25 @@ package serves all four. The older five are not compatible with each other.
 
 ---
 
+## Microsoft Store
+
+Its own table because these install with `--source msstore`, and winget needs telling: left
+to search everything, it can find the same name in two sources and refuse with an ambiguity
+error instead of choosing.
+
+A row belongs here **only when nothing else publishes the program.** The `winget` source
+stays the default — see § winget is not the Microsoft Store.
+
+| winget ID        | What it is | Why it's Store-only |
+| ---------------- | ---------- | ------------------- |
+| `XP8CLZL93F5Z4P` | NVIDIA App | Driver and control panel. NVIDIA publishes the winget manifest nowhere; the Store is the only automated source. `nvidia.com` is the fallback if this row ever fails |
+
+> Needs a signed-in Microsoft account to install. If you set the machine up with a local
+> account, this row fails and the app goes back on the manual list for that run — the script
+> reports it rather than pretending.
+
+---
+
 ## Manual afterwards
 
 Wanted on the machine, but **winget can't deliver them**. Checked 2026-07-28. They're
@@ -198,7 +221,6 @@ of you discovering the gap weeks later.
 | What | Why it can't be scripted | Where to get it |
 | ---- | ------------------------ | --------------- |
 | **Porofessor** | No winget package exists at all — `winget search Porofessor` returns nothing | porofessor.gg |
-| **NVIDIA App** | Only published to **msstore** (`XP8CLZL93F5Z4P`), and the target OS is LTSC, which has no Microsoft Store. That source can't resolve there | nvidia.com |
 | **Wallpaper Engine** | Sold exclusively through Steam. The winget hit named "Wallpaper Engine" is `Taiizor.SucroseWallpaperEngine`, a different open-source project | Steam (already installed by § Games) |
 | **Pencil** | `Pencil.Desktop` exists, but the manifest sits at **1.1.26** while this machine runs **1.1.70**. Installing from winget would be a downgrade, and would pin you there until someone updates the manifest — the opposite of § Versions. It updates itself | pencil.dev |
 

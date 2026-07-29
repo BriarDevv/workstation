@@ -93,12 +93,12 @@ else { $STEPS }
 $plan = @($plan)
 
 # ---------------------------------------------------------------- winget first
-# Nothing here runs without it, and on a fresh LTSC it isn't there. Checked once, up front,
-# because failing six times for one reason reads like six problems.
+# Nothing here runs without it. Checked once, up front, because failing six times for one
+# reason reads like six problems.
 if (-not (Test-Cmd winget) -and ($plan.Name -contains 'apps')) {
     Write-Fail 'winget is missing, and apps\ cannot run without it.'
-    Write-Host '  LTSC ships without the Microsoft Store, which is where winget comes from. That is' -ForegroundColor DarkGray
-    Write-Host '  the expected state on a fresh install, not a broken machine:' -ForegroundColor DarkGray
+    Write-Host '  Windows 11 Pro does ship it, inside App Installer - so this usually means App' -ForegroundColor DarkGray
+    Write-Host '  Installer has not registered for your user yet. Check the Store, then:' -ForegroundColor DarkGray
     Write-Host ''
     Write-Host '      powershell -ExecutionPolicy Bypass -File windows\bootstrap.ps1' -ForegroundColor DarkGray
     Write-Host ''

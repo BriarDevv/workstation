@@ -49,7 +49,7 @@ Each folder answers exactly one question.
 | **`terminal/`** | How does the terminal look                           | When you change the style                        |
 | **`dev/`**      | How is git set up, and which repos get cloned         | When you add or drop a repo                     |
 | **`claude/`**   | How does Claude operate                              | **Often.** This one moves the most               |
-| **`windows/`**  | How is the OS set up — LTSC, winget bootstrap, Explorer | Almost never                                  |
+| **`windows/`**  | How is the OS set up — debloat, privacy, Explorer     | Almost never                                    |
 | **`secrets/`**  | Only `.env.example`. Real keys never get committed    | When you add a new service                       |
 
 `apps/` installs binaries; every other folder configures them. Windows Terminal is
@@ -58,7 +58,7 @@ installed by `apps/` and configured by `terminal/` — same pattern everywhere.
 ### Install order
 
 ```
-0. windows/  bootstrap   winget, if LTSC didn't bring it
+0. windows/  bootstrap   winget, only if Windows didn't bring it
 1. layout/               the folder tree
 2. apps/                 the binaries
 3. terminal/             the look
@@ -154,7 +154,7 @@ whether `C:\Briar` matches `layout/LAYOUT.md`.
 | `terminal/` | ✅   | ✅          | ✅ tested     | Style system: one file per look             |
 | `dev/`      | ✅   | —           | ✅ tested     | Reads extension IDs and repos from markdown |
 | `claude/`   | ✅   | —           | ✅ tested     | Merges `settings.json`; won't clobber OMC's hooks |
-| `windows/`  | ✅   | —           | ✅ tested     | `bootstrap.ps1` + `install.ps1` + `usb.md`  |
+| `windows/`  | ✅   | —           | ✅ tested     | `bootstrap.ps1` + `debloat.ps1` + `install.ps1` + `usb.md` |
 | root        | ✅   | ✅          | ✅ tested     | `install.ps1` orchestrator + `snapshot.ps1` |
 
 `windows/` also has **`usb.md`** — building the install USB, verified against the actual
@@ -165,14 +165,23 @@ Lives at **`github.com/BriarDevv/workstation`**, private.
 Still to come: `debloat.ps1`, deliberately left until Windows is installed and there's a
 real machine to judge against.
 
-### Target OS: Windows 11 Enterprise LTSC
+### Target OS: Windows 11 Pro
 
-Decided 2026-07-27. Two things this changes:
+Decided **2026-07-29**, reversing the earlier plan to run Enterprise LTSC. Pro is what the
+Retail licence activates, and reinstalling it on this board reactivates itself from the
+hardware-linked digital licence — no key to type, no time bomb.
 
-- **`winget` may not exist on a fresh install** — it ships with the Microsoft Store, which
-  LTSC drops. Nothing in this repo runs without it. See `windows/README.md` § Bootstrap.
-- **The current Windows 11 Pro Retail licence does not activate LTSC.** Different product.
-  It stays the way back: reinstalling Pro on this board reactivates itself.
+What changes versus the LTSC plan:
+
+- **`winget` ships with Windows.** `windows/bootstrap.ps1` becomes a fallback for the case
+  where App Installer hasn't registered yet, not step 0 of every restore.
+- **The Store works, so `msstore` resolves.** Used only where it's the sole source for
+  something wanted — today that's the NVIDIA App, which stops being a manual step.
+- **The inbox apps are all there.** LTSC ships without them; Pro doesn't. That's what
+  `windows/debloat.ps1` is for, and it's why "well configured Pro" is a real project rather
+  than a preference.
+- **Annual feature updates**, which also means Windows can put suggested apps back — see
+  `DisableWindowsConsumerFeatures` in `windows/install.ps1`.
 
 ### Keeping the repo in sync — the split
 

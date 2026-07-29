@@ -29,9 +29,15 @@ Two things the orchestrator will not do for you:
 - **It stops after `apps/` if a reboot is pending**, and prints the command to resume. Docker
   and WSL don't exist until the restart, and everything after that configures programs.
 
-**Target OS is Windows 11 Enterprise LTSC.** It ships without the Microsoft Store, and
-`winget` comes from the Store — so on a fresh install nothing here runs until App Installer
-is put in by hand. Check `Get-Command winget` before assuming anything works.
+**Target OS is Windows 11 Pro**, decided 2026-07-29 over Enterprise LTSC — it's what the
+Retail licence activates. `winget` ships with it, so the folders normally just run; check
+`Get-Command winget` anyway rather than assuming. `windows/bootstrap.ps1` is the fallback,
+not the expected path.
+
+Pro is the edition that **needs configuring**, which is the whole reason `windows/` matters:
+it arrives with the inbox apps LTSC strips, so `windows/debloat.ps1` is load-bearing rather
+than cosmetic. The `msstore` source works here — use it only where it's the sole source for
+something wanted, and say so in the row.
 
 `apps/` installs Docker and WSL, which **require a reboot**. Warn and stop there.
 

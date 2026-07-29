@@ -84,7 +84,11 @@ function Test-WingetInstalled {
 function Install-WingetPackage {
     param(
         [Parameter(Mandatory)][string]$Id,
-        [string]$Location
+        [string]$Location,
+        # 'msstore' for the handful of things Microsoft publishes nowhere else. Left empty,
+        # winget searches every source and can hit the same name twice, then refuses with an
+        # ambiguity error rather than picking - so a Store row must say so explicitly.
+        [string]$Source
     )
     if (Test-WingetInstalled $Id) { Write-Skip "$Id already installed"; return 'skip' }
     # 'ok' rather than 'skip': the caller uses that to mean "this run put it there", which
@@ -98,6 +102,7 @@ function Install-WingetPackage {
     Write-Host "  ...installing $Id$(if ($Location) { " -> $Location" })" -ForegroundColor DarkYellow
     $common = @('--exact', '--silent', '--accept-package-agreements',
         '--accept-source-agreements', '--disable-interactivity')
+    if ($Source) { $common += @('--source', $Source) }
 
     $argv = @('install', '--id', $Id) + $common
     if ($Location) { $argv += @('--location', $Location) }
