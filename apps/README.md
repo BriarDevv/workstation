@@ -114,8 +114,8 @@ only holds **configuration**, not binaries.
 
 | winget ID                        | What it is       | Notes                                                        |
 | -------------------------------- | ---------------- | ------------------------------------------------------------ |
-| `Valve.Steam`                    | Steam            | Also a **dependency**: Wallpaper Engine is sold only through it |
-| `RiotGames.LeagueOfLegends.LA2`  | League of Legends | **LA2 = LAS**, the Latin America South server                |
+| `Valve.Steam`                    | Steam            | Also a **dependency**: Wallpaper Engine is sold only through it. Installed into `games\` — see `layout/LAYOUT.md` |
+| `RiotGames.LeagueOfLegends.LA2`  | League of Legends | **LA2 = LAS**, the Latin America South server. Its installer asks where to put it |
 
 Two traps in that second row:
 
@@ -208,6 +208,7 @@ Also by hand, for reasons that have nothing to do with winget:
 | ---- | --- |
 | **WinRAR licence** | The key has to be typed in |
 | **`gh auth login`** | An OAuth flow can't be scripted. See `dev/README.md` |
+| **League's install path** | winget runs Riot's installer and it asks where to put the game. Answer with the `RiotGames.LeagueOfLegends.LA2` path in `layout/LAYOUT.md` — accepting the default puts 43 GB outside the tree and nothing later corrects it |
 
 ---
 

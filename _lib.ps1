@@ -76,20 +76,44 @@ function Test-WingetInstalled {
 # Returns 'skip', 'ok' or 'fail' rather than a boolean, so a caller can tell "was already
 # there" apart from "installed it just now" without asking winget a second time. Knowing
 # which is which is what lets the reboot warning fire only when it's actually earned.
+#
+# -Location comes from layout\LAYOUT.md and is best-effort on purpose. Not every installer
+# accepts it - winget can only pass it on to installer types that declare a switch for it -
+# and a package landing in its default folder is a far better outcome than a restore that
+# stops. So a rejected location is retried without one and reported, never fatal.
 function Install-WingetPackage {
-    param([Parameter(Mandatory)][string]$Id)
+    param(
+        [Parameter(Mandatory)][string]$Id,
+        [string]$Location
+    )
     if (Test-WingetInstalled $Id) { Write-Skip "$Id already installed"; return 'skip' }
     # 'ok' rather than 'skip': the caller uses that to mean "this run put it there", which
     # is what a dry run is claiming would happen. Reporting 'skip' made the upgrade pass
     # then ask winget about a package that isn't installed, and get told it was up to date.
-    if ($script:DryRun) { Write-Would "install $Id"; return 'ok' }
+    if ($script:DryRun) {
+        Write-Would "install $Id$(if ($Location) { " into $Location" })"
+        return 'ok'
+    }
 
-    Write-Host "  ...installing $Id" -ForegroundColor DarkYellow
-    winget install --id $Id --exact --silent --accept-package-agreements `
-        --accept-source-agreements --disable-interactivity 2>&1 |
-        Select-Object -Last 2 | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkGray }
+    Write-Host "  ...installing $Id$(if ($Location) { " -> $Location" })" -ForegroundColor DarkYellow
+    $common = @('--exact', '--silent', '--accept-package-agreements',
+        '--accept-source-agreements', '--disable-interactivity')
 
-    if ($LASTEXITCODE -eq 0) { Write-Ok $Id; return 'ok' }
+    $argv = @('install', '--id', $Id) + $common
+    if ($Location) { $argv += @('--location', $Location) }
+    & winget @argv 2>&1 | Select-Object -Last 2 | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkGray }
+
+    if ($LASTEXITCODE -ne 0 -and $Location) {
+        Write-Warn2 "$Id rejected --location (exit $LASTEXITCODE) - retrying at its default path"
+        & winget @(@('install', '--id', $Id) + $common) 2>&1 |
+            Select-Object -Last 2 | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkGray }
+        if ($LASTEXITCODE -eq 0) {
+            Write-Warn2 "$Id installed, but NOT at $Location - update layout\LAYOUT.md or move it by hand"
+            return 'ok'
+        }
+    }
+
+    if ($LASTEXITCODE -eq 0) { Write-Ok "$Id$(if ($Location) { " at $Location" })"; return 'ok' }
     Write-Warn2 "$Id exited with code $LASTEXITCODE"
     return 'fail'
 }

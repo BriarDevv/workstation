@@ -83,7 +83,14 @@ $failed = [System.Collections.Generic.List[string]]::new()
 $fresh = [System.Collections.Generic.List[string]]::new()
 
 foreach ($id in $targets) {
-    switch (Install-WingetPackage $id) {
+    # A package only gets a location if LAYOUT.md declares one, which is almost none of them.
+    # The vendor default is the right answer unless there's a reason, and LAYOUT.md is where
+    # the reasons are written down - so -IfDeclared, and $null is the expected answer.
+    $dest = Get-LayoutPath -Key $id -IfDeclared
+    $outcome = if ($dest) { Install-WingetPackage -Id $id -Location $dest }
+    else { Install-WingetPackage -Id $id }
+
+    switch ($outcome) {
         'ok' { $fresh.Add($id) }
         'fail' { $failed.Add($id) }
     }
