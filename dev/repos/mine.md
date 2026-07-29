@@ -1,15 +1,17 @@
 # My repos
 
-Everything under the `BriarDevv` account. Cloned to the Desktop and nothing else happens to
-them — no symlinks, no per-project setup.
+Everything under the `BriarDevv` account. Cloned and nothing else happens to them — no
+symlinks, no per-project setup.
+
+They land in `repos\mine\` because **this file is called `mine.md`**. See `README.md`.
 
 ## The list
 
-| Repo                     | Remote                               | Destination  |
-| ------------------------ | ------------------------------------ | ------------ |
-| Bystellabotella          | `BriarDevv/Bystellabotella`          | `~\Desktop\` |
-| Portafolio               | `BriarDevv/Portafolio`               | `~\Desktop\` |
-| Ynara                    | `BriarDevv/Ynara`                    | `~\Desktop\` |
-| Empoderamiento-Docente   | `BriarDevv/Empoderamiento-Docente`   | `~\Desktop\` |
-| Inferiores-Riverplatense | `BriarDevv/Inferiores-riverplatense` | `~\Desktop\` |
-| KioscoDiagonal           | `BriarDevv/Kiosco-Diagonal`          | `~\Desktop\` |
+| Repo                     | Remote                               |
+| ------------------------ | ------------------------------------ |
+| Bystellabotella          | `BriarDevv/Bystellabotella`          |
+| Portafolio               | `BriarDevv/Portafolio`               |
+| Ynara                    | `BriarDevv/Ynara`                    |
+| Empoderamiento-Docente   | `BriarDevv/Empoderamiento-Docente`   |
+| Inferiores-Riverplatense | `BriarDevv/Inferiores-riverplatense` |
+| KioscoDiagonal           | `BriarDevv/Kiosco-Diagonal`          |

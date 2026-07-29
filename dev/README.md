@@ -16,6 +16,9 @@ pwsh dev\install.ps1 -SkipRepos      # config only, clone nothing
 Two steps: `~/.gitconfig`, then the clones. git goes first on purpose — `credential.helper`
 is what lets the clones authenticate without a token sitting in a file.
 
+The clones need `layout\install.ps1` to have run first — that's what creates the folder they
+go into, and it's why layout is step 1 of the install order.
+
 It **configures**; it does not install programs. git and `gh` both come from `apps/`, and
 when one is missing this says so and carries on rather than trying to fetch it.
 
@@ -87,6 +90,11 @@ from — which is why it's the half worth having, and why nothing here tries to 
 One `.md` per list, and `install.ps1` reads all of them — so splitting them by owner, by
 client or by anything else costs nothing, and adding a list means adding a file.
 `repos/README.md` has the format.
+
+**Where they land comes from the list file's name**, not from a column: `mine.md` clones into
+`repos\mine\` under the root `layout/LAYOUT.md` declares. `layout/install.ps1` creates that
+folder from the same filename, so adding a list is still one file — and the folder and the
+clones can't end up disagreeing about where it is.
 
 Kept out of this file deliberately: this one describes the **machine**, those describe the
 **work**, and the two go stale at completely different speeds.

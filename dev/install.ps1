@@ -38,22 +38,23 @@ $script:DryRun = [bool]$WhatIfOnly
 $failed = [System.Collections.Generic.List[string]]::new()
 
 # Every .md in repos\ except its README is a clone list, so adding a list is adding a file -
-# there is nothing to register it in. Splitting them by owner, by client, by whatever, costs
-# nothing here.
+# there is nothing to register it in.
+#
+# The file's own name is the folder: mine.md clones into <repos>\mine\. That used to be a
+# third column holding the destination, repeated identically on every row. layout\LAYOUT.md
+# owns the root it hangs off, and layout\install.ps1 creates the folder from the same
+# filename - so the two cannot disagree about where a list lives.
 #
 # These tables are shaped differently from the ones in apps/README.md: the useful columns
-# are 2 and 3, and column 1 is plain text rather than a backticked ID. That's why
+# are 1 and 2, and column 1 is plain text rather than a backticked ID. That's why
 # Get-IdsFromReadme can't read them and this exists instead.
-#
-# A destination ending in a separator is a parent directory, and the local checkout takes
-# its name from column 1 - so a repo can sit on disk under a different name than the one its
-# remote carries.
 function Get-ReposFromDir {
     param([Parameter(Mandatory)][string]$Dir)
 
     $repos = [System.Collections.Generic.List[hashtable]]::new()
     if (-not (Test-Path $Dir)) { return $repos }
 
+    $reposRoot = Get-LayoutPath 'repos'
     $files = Get-ChildItem $Dir -Filter *.md |
         Where-Object { $_.Name -ne 'README.md' } | Sort-Object Name
 
@@ -66,17 +67,26 @@ function Get-ReposFromDir {
             if ($line -match '^##\s+(.+?)\s*$') { $inList = ($Matches[1].Trim() -eq 'The list'); continue }
             if (-not $inList -or $line -notmatch '^\|') { continue }
 
+            # A two-column row splits into 4 including the empty ends; 3 is the minimum that
+            # still has both cells, which is all this indexes.
             $cells = $line -split '\|'
-            if ($cells.Count -lt 4) { continue }
+            if ($cells.Count -lt 3) { continue }
 
             $name = ($cells[1] -replace '\*\*|`', '').Trim()
             if (-not $name -or $name -match '^-+$' -or $name -eq 'Repo') { continue }
 
+            # Guards the separator row, which the $name check alone no longer catches now
+            # that the table is two columns. An empty remote would build the clone URL
+            # https://github.com/.git and fail somewhere far less obvious.
             $remote = ($cells[2] -replace '`', '').Trim()
-            $dest = ($cells[3] -replace '`', '').Trim() -replace '^~', $HOME
-            if ($dest -match '[\\/]$') { $dest = Join-Path $dest $name }
+            if (-not $remote -or $remote -match '^-+$') { continue }
 
-            $repos.Add(@{ Name = $name; Remote = $remote; Path = $dest; List = $file.BaseName })
+            $repos.Add(@{
+                    Name   = $name
+                    Remote = $remote
+                    Path   = Join-Path $reposRoot $file.BaseName $name
+                    List   = $file.BaseName
+                })
         }
     }
     return $repos

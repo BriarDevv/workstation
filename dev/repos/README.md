@@ -3,9 +3,10 @@
 One `.md` per list. `install.ps1` reads **every file in this folder except this one**, so
 adding a list means adding a file — there's nothing to register it in.
 
-| File      | What's in it          |
-| --------- | --------------------- |
-| `mine.md` | The `BriarDevv` repos |
+| File          | What's in it                          |
+| ------------- | ------------------------------------- |
+| `mine.md`     | The `BriarDevv` repos                 |
+| `external.md` | Anyone else's. Empty, and that's fine |
 
 Split them however you like — by owner, by client, by whether you actually work on them.
 The script doesn't care what the files are called or how many there are.
@@ -23,11 +24,24 @@ the **work**, and the two move at completely different speeds.
 
 A file counts as a clone list when it has a `## The list` section holding a table:
 
-| Column | What it is                                                                  |
-| ------ | --------------------------------------------------------------------------- |
-| 1      | The local folder name                                                        |
-| 2      | `owner/repo` on GitHub                                                       |
-| 3      | Where it goes. Ending in `\` means "parent directory — take the name from column 1" |
+| Column | What it is             |
+| ------ | ---------------------- |
+| 1      | The local folder name  |
+| 2      | `owner/repo` on GitHub |
+
+**Where they land comes from the file's own name.** `mine.md` clones into `repos\mine\`,
+`external.md` into `repos\external\`, and the root of that comes from `layout/LAYOUT.md`.
+
+So adding a category is one file and nothing else:
+
+```powershell
+# repos\clients\ appears on the next run of layout\install.ps1
+New-Item dev\repos\clients.md
+```
+
+There used to be a third column holding the destination. It was six identical cells, each of
+which could be mistyped, and all of which had to be kept in step — a column that says the
+same thing on every row isn't data, it's a chance to be wrong.
 
 Anything outside a `## The list` section is prose and gets ignored, so a file can explain
 itself without confusing the parser.
