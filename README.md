@@ -44,6 +44,7 @@ Each folder answers exactly one question.
 
 |                 | Answers                                              | How often you touch it                          |
 | --------------- | ---------------------------------------------------- | ----------------------------------------------- |
+| **`layout/`**   | Where things live on disk, and the permissions on it | Almost never                                     |
 | **`apps/`**     | Which programs go on, and why I have each one        | When you install something new you want to keep  |
 | **`terminal/`** | How does the terminal look                           | When you change the style                        |
 | **`dev/`**      | How is git set up, and which repos get cloned         | When you add or drop a repo                     |
@@ -58,16 +59,18 @@ installed by `apps/` and configured by `terminal/` — same pattern everywhere.
 
 ```
 0. windows/  bootstrap   winget, if LTSC didn't bring it
-1. apps/                 the binaries
-2. terminal/             the look
-3. dev/                  Git, repos
-4. claude/               Claude Code
-5. windows/  the rest    Explorer tweaks — restarts Explorer
+1. layout/               the folder tree
+2. apps/                 the binaries
+3. terminal/             the look
+4. dev/                  Git, repos
+5. claude/               Claude Code
+6. windows/  the rest    Explorer tweaks — restarts Explorer
 ```
 
-Apps early because everything after it configures programs that have to exist already.
-`windows/` is split: the winget bootstrap has to run before anything, the Explorer tweaks
-run last because they restart Explorer.
+Layout first because `apps/` unpacks Node inside the tree and `dev/` clones into it, so both
+need it to exist. Apps next because everything after it configures programs that have to be
+there already. `windows/` is split: the winget bootstrap has to run before anything, the
+Explorer tweaks run last because they restart Explorer.
 
 Each folder has its own `README.md` (what's there and why) and its own `install.ps1`
 (how it gets applied). They run standalone:
@@ -134,6 +137,7 @@ git add -A ; git commit -m "chore: snapshot $(Get-Date -f yyyy-MM-dd)"
 
 | Folder      | Docs | `CLAUDE.md` | `install.ps1` | Notes                                       |
 | ----------- | ---- | ----------- | ------------- | ------------------------------------------- |
+| `layout/`   | ✅   | —           | ✅ tested     | Creates the tree from `LAYOUT.md`; hardens the root |
 | `apps/`     | ✅   | —           | ✅ tested     | Reads winget IDs straight out of the README |
 | `terminal/` | ✅   | ✅          | ✅ tested     | Style system: one file per look             |
 | `dev/`      | ✅   | —           | ✅ tested     | Reads extension IDs and repos from markdown |

@@ -67,26 +67,28 @@ raw. Don't convert them to `.md` and don't reformat them.
 
 ## Paths on this machine
 
-Personal repos live in `C:\Users\mateo\Desktop\`.
+**`layout/LAYOUT.md` is the only place a path under the layout root is written down.** Don't
+hardcode one anywhere else — ask for it:
 
-`C:\Briar\Code\` holds Node, Git and VS Code **on the machine as it stands today** — but be
-careful, because **the restore only reproduces one of them**:
+```powershell
+. "$PSScriptRoot\..\_lib.ps1"
+$dir = Get-LayoutPath 'node'
+```
 
-| | Today | After running this repo |
-| --- | --- | --- |
-| **Node** | `C:\Briar\Code\Node` | same — `apps/install.ps1` unpacks the zip there on purpose |
-| **Git** | `C:\Briar\Code\Git` | `C:\Program Files\Git` — winget's default |
-| **VS Code** | `C:\Briar\Code\VSC\Microsoft VS Code` | `%LOCALAPPDATA%\Programs\Microsoft VS Code` — winget's default |
-| **Docker** | `C:\Program Files\Docker` | same. The `Code\Docker` folder is just the saved installer |
+Most programs are **not** in that table and shouldn't be. The vendor default is the right
+answer unless there's a reason, and `LAYOUT.md` holds both the exceptions and the reasons.
+Git, VS Code, Docker, Chrome, PowerShell and the runtimes all go where winget puts them, so
+resolve those at run time (`Get-Command git`) rather than assuming a path — hardcoding one
+breaks on exactly the machine this repo exists to build.
 
-So don't hardcode `C:\Briar\Code\Git` or the VS Code path into anything. Resolve them
-(`Get-Command git`), or they'll break on exactly the machine this repo exists to build.
-User-level config is unaffected either way: VS Code always reads `%APPDATA%\Code\User`, git
-always reads `~/.gitconfig`.
+User-level config is separate from all of this and moves with the user, not the install: VS
+Code always reads `%APPDATA%\Code\User`, git always reads `~/.gitconfig`.
 
-Most of `C:\Briar\Code\` and `C:\Briar\Programas\` isn't installed software at all — it's
-**saved installers**, about 2 GB of them. A folder there with one `.exe` inside is a
-download, not a program.
+> **Until the format, the old hand-made tree is still on disk** next to the new one —
+> `C:\Briar\Code\`, `Programas\`, `Pen\`, `Facultad\` and three empty folders, about 226 GB.
+> It is not what this repo builds and nothing here maintains it. Much of it isn't installed
+> software at all but **saved installers**: a folder there with one `.exe` inside is a
+> download, not a program. Root `README.md` § *Before you wipe* is the decision record.
 
 **There is no local PHP/MySQL stack on this machine.** Don't write anything that assumes
 one.

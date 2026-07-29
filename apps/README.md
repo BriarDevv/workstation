@@ -69,7 +69,7 @@ Nothing works without these. All of them get installed.
 
 | winget ID                    | What it is       | What I use it for                                            |
 | ---------------------------- | ---------------- | ------------------------------------------------------------ |
-| `Git.Git`                    | Git              | Obvious. Currently in `C:\Briar\Code\Git`, but winget restores it to Program Files — see root `CLAUDE.md` |
+| `Git.Git`                    | Git              | Obvious. Goes to winget's default in Program Files — resolve it with `Get-Command git`, never a literal |
 | `GitHub.cli`                 | `gh`             | PRs, issues and cloning without opening a browser. Account `BriarDevv` |
 | `Microsoft.PowerShell`       | PowerShell 7     | This repo's scripts use `&&` and `??`, which PS5 doesn't have |
 | `Microsoft.WindowsTerminal`  | Windows Terminal | Daily driver                                                  |
