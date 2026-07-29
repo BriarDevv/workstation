@@ -205,6 +205,49 @@ function Get-RowsFromReadme {
     return $rows
 }
 
+# layout\LAYOUT.md is the only place a path under the layout root is written down, and these
+# two are how a script asks. Holding a literal instead is what this exists to prevent: the
+# second copy is never wrong on the day you write it, only on the day the tree moves.
+#
+# It reads the copy in the repo, not the one at the root of the tree. The one on disk is for
+# whoever opens that folder in three years; the repo is what the scripts are built from, and
+# the two can only disagree if something reads the wrong one.
+function Get-LayoutRows {
+    $md = Join-Path $script:RepoRoot 'layout\LAYOUT.md'
+    if (-not (Test-Path $md)) { throw "layout\LAYOUT.md is missing - it is the source of every path under the layout root" }
+
+    $rows = [System.Collections.Generic.List[hashtable]]::new()
+    $inPaths = $false
+    foreach ($line in Get-Content $md) {
+        if ($line -match '^##\s+(.+?)\s*$') { $inPaths = ($Matches[1].Trim() -eq 'Paths'); continue }
+        if (-not $inPaths) { continue }
+        # Both cells backticked, which skips the header and the ---- separator for free.
+        if ($line -notmatch '^\|\s*`([^`]+)`\s*\|\s*`([^`]+)`\s*\|\s*([^|]*)\|') { continue }
+        $rows.Add(@{
+                Key     = $Matches[1].Trim()
+                Path    = $Matches[2].Trim()
+                Created = $Matches[3].Trim() -eq 'yes'
+            })
+    }
+    if (-not $rows.Count) { throw "layout\LAYOUT.md has no readable rows under '## Paths'" }
+    return $rows
+}
+
+# Throws when there is no row, on purpose: a typo'd key returning $null would send an
+# installer to whatever the working directory happened to be. -IfDeclared is for the one
+# honest question - "does this package declare an override at all?" - where absence is the
+# expected answer rather than a mistake.
+function Get-LayoutPath {
+    param(
+        [Parameter(Mandatory)][string]$Key,
+        [switch]$IfDeclared
+    )
+    $row = Get-LayoutRows | Where-Object { $_.Key -eq $Key } | Select-Object -First 1
+    if ($row) { return $row.Path }
+    if ($IfDeclared) { return $null }
+    throw "no row for '$Key' in layout\LAYOUT.md"
+}
+
 # The real font family name Windows registered, whatever naming scheme the package used.
 # Nerd Fonts ships both "JetBrainsMono NFM" and "JetBrainsMono Nerd Font Mono" depending
 # on the release, and picking the wrong one fails silently.
