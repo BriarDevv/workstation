@@ -71,6 +71,62 @@ if (-not (Install-ConfigFile (Join-Path $PSScriptRoot 'LAYOUT.md') (Join-Path (G
     $failed.Add('LAYOUT.md at the root')
 }
 
+# ---------------------------------------------------------------- permissions
+# C:\Briar was created by hand at the root of C: and inherited the root's ACL, which hands
+# Authenticated Users write access to everything below it. Program Files does not work that
+# way and neither should this.
+#
+# icacls rather than Set-Acl, and this is not a style preference. Set-Acl CANNOT remove an
+# inherited ACE: RemoveAccessRule returns $true, Set-Acl reports no error, and the entry is
+# still there afterwards. Measured on this machine. A permissions change that fails silently
+# is worse than one that doesn't run.
+#
+# The three grants are not optional either. /inheritance:r drops every inherited entry, and
+# C: only gives BUILTIN\Users ReadAndExecute - so without re-granting, an unelevated session
+# (which is every session) would find the tree read-only and the clones in dev/ would fail.
+# SIDs rather than names because the well-known ones are localised and these are not.
+Write-Step 'Permissions'
+$root = Get-LayoutPath 'root'
+
+$acl = Get-Acl $root
+$loose = @($acl.Access | Where-Object { $_.IdentityReference.Value -eq 'NT AUTHORITY\Authenticated Users' })
+
+if (-not $acl.AreAccessRulesProtected -or $loose.Count) {
+    $me = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    if ($script:DryRun) {
+        Write-Would "stop $root inheriting from C:\, drop Authenticated Users, grant SYSTEM, Administrators and $me full control"
+    }
+    else {
+        # Splatted, not written inline. A native command takes its arguments as an array, and
+        # writing them out with backticks and commas turns the commas into array literals -
+        # icacls then sees one argument where it expected four and reports success anyway.
+        $icaclsArgs = @(
+            '/inheritance:r'
+            '/grant', '*S-1-5-18:(OI)(CI)F'        # SYSTEM
+            '/grant', '*S-1-5-32-544:(OI)(CI)F'    # BUILTIN\Administrators
+            '/grant', "${me}:(OI)(CI)F"            # the interactive user
+            '/q'
+        )
+        & icacls $root @icaclsArgs | Out-Null
+
+        # icacls exit code alone isn't enough - re-read and check the thing we actually want.
+        $after = Get-Acl $root
+        $still = @($after.Access | Where-Object { $_.IdentityReference.Value -eq 'NT AUTHORITY\Authenticated Users' })
+        $mine = @($after.Access | Where-Object { $_.IdentityReference.Value -eq $me -and $_.FileSystemRights -band [Security.AccessControl.FileSystemRights]::Write })
+
+        if ($LASTEXITCODE -eq 0 -and -not $still.Count -and $mine.Count) {
+            Write-Ok "$root - Authenticated Users removed, $me keeps full control"
+        }
+        else {
+            Write-Fail "$root - icacls exited $LASTEXITCODE, Authenticated Users present: $([bool]$still.Count), you can still write: $([bool]$mine.Count)"
+            $failed.Add('root ACL')
+        }
+    }
+}
+else {
+    Write-Skip "$root already hardened"
+}
+
 # ---------------------------------------------------------------- summary
 Write-Step 'Summary'
 Write-Host "  $($wanted.Count) folders declared" -ForegroundColor DarkGray
