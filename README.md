@@ -126,10 +126,22 @@ The repo goes stale on its own. After installing or configuring anything:
 
 ```powershell
 pwsh .\snapshot.ps1
-git add -A ; git commit -m "chore: snapshot $(Get-Date -f yyyy-MM-dd)"
 ```
 
-`snapshot.ps1` re-reads the machine and refreshes the lists the repo already owns.
+**It reports; it never writes.** Every difference it finds has two honest answers — put it in
+a table, or take it off the machine — and only you know which.
+
+That isn't caution, it's the only thing it *can* do. The tables here are a **wish list**: what
+the machine should have after a restore. The machine is a **photo**: what happens to be on it
+today, including everything installed for one afternoon and never removed. A script that
+copied the photo over the wish list would quietly reinstate every program you decided against
+— and `npm globals` has no version column, so there is nothing mechanical left to refresh
+anyway. The only available edit is adding or removing a row, which is a judgment call by
+definition.
+
+It checks four things: npm globals both directions, winget packages the tables name,
+MCP servers (including ones a plugin already provides, which is a duplicate not a gap), and
+whether `C:\Briar` matches `layout/LAYOUT.md`.
 
 ---
 
@@ -143,7 +155,7 @@ git add -A ; git commit -m "chore: snapshot $(Get-Date -f yyyy-MM-dd)"
 | `dev/`      | ✅   | —           | ✅ tested     | Reads extension IDs and repos from markdown |
 | `claude/`   | ✅   | —           | ✅ tested     | Merges `settings.json`; won't clobber OMC's hooks |
 | `windows/`  | ✅   | —           | ✅ tested     | `bootstrap.ps1` + `install.ps1` + `usb.md`  |
-| root        | ✅   | ✅          | ✅ tested     | Orchestrator. Still needs `snapshot.ps1`    |
+| root        | ✅   | ✅          | ✅ tested     | `install.ps1` orchestrator + `snapshot.ps1` |
 
 `windows/` also has **`usb.md`** — building the install USB, verified against the actual
 stick that was built.
@@ -166,17 +178,16 @@ Decided 2026-07-27. Two things this changes:
 
 Two different problems, two different tools:
 
-- **Mechanical inventory** → `snapshot.ps1`. The npm globals — a list the repo already owns,
-  refreshed in place. No judgment involved, so a script is strictly better: deterministic,
-  instant, and it can't invent anything.
+- **Finding the drift** → `snapshot.ps1`. Comparing two lists is mechanical and a script is
+  strictly better at it: deterministic, instant, and it can't invent anything. **Resolving**
+  the drift isn't mechanical, so it doesn't try — see § Keeping it current.
 
-  It's a short job on purpose. VS Code extensions aren't here because Settings Sync owns
-  them, and the installed-package set isn't either.
+  It deliberately does **not** dump the installed-package list into the tables. A raw
+  `winget export` is a photo of the machine rather than a wish list, so it carries back every
+  program the tables leave out — which is precisely how software you removed reappears in the
+  repo that was supposed to have dropped it.
 
-  It deliberately does **not** dump the installed-package list. A raw `winget export` is a
-  photo of the machine rather than a wish list, so it carries back every program the tables
-  leave out — which is precisely how software you removed reappears in the repo that was
-  supposed to have dropped it.
+  VS Code extensions aren't checked at all: Settings Sync owns them.
 - **Layered config** → the folder's `CLAUDE.md` + an agent. Deciding whether a changed
   value belongs to the style, the scheme or the base is a judgment call. A script would
   have to guess, and guessing wrong flattens the composition. `terminal/CLAUDE.md` writes
