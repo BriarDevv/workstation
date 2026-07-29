@@ -5,18 +5,29 @@ This repo restores a Windows 11 machine from scratch. When you work here you're 
 
 ## Order
 
-```
-0. windows/  bootstrap   winget, if LTSC didn't bring it
-1. apps/                 the binaries
-2. terminal/             the look
-3. dev/                  Git, repos
-4. claude/               Claude Code
-5. windows/  the rest    Explorer tweaks — restarts Explorer
+**Don't run the folders by hand — `install.ps1` at the root does it in order:**
+
+```powershell
+pwsh .\install.ps1              # everything
+pwsh .\install.ps1 claude       # one folder
+pwsh .\install.ps1 -WhatIfOnly  # preview
 ```
 
+The order lives in that script's `$STEPS` table, which is what actually executes. Root
+`README.md` shows it for a human reading the repo; if the two ever disagree, the script is
+right.
+
+`layout/` runs first because `apps/` unpacks Node inside the tree and `dev/` clones into it.
 `apps/` installs binaries; every other folder configures them. Each folder has its own
-`README.md` (what's there and why) and its own `install.ps1`. Read the README before
-running the script.
+`README.md` (what's there and why) and its own `install.ps1` that still runs standalone.
+Read the README before running the script.
+
+Two things the orchestrator will not do for you:
+
+- **`terminal/` has no `-WhatIfOnly`.** A dry run skips it and says so, rather than pretending
+  it was covered. Run it on its own to see what it does.
+- **It stops after `apps/` if a reboot is pending**, and prints the command to resume. Docker
+  and WSL don't exist until the restart, and everything after that configures programs.
 
 **Target OS is Windows 11 Enterprise LTSC.** It ships without the Microsoft Store, and
 `winget` comes from the Store — so on a fresh install nothing here runs until App Installer

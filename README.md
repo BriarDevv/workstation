@@ -143,7 +143,7 @@ git add -A ; git commit -m "chore: snapshot $(Get-Date -f yyyy-MM-dd)"
 | `dev/`      | ✅   | —           | ✅ tested     | Reads extension IDs and repos from markdown |
 | `claude/`   | ✅   | —           | ✅ tested     | Merges `settings.json`; won't clobber OMC's hooks |
 | `windows/`  | ✅   | —           | ✅ tested     | `bootstrap.ps1` + `install.ps1` + `usb.md`  |
-| root        | ✅   | ✅          | ❌ missing    | Needs `install.ps1` + `snapshot.ps1`        |
+| root        | ✅   | ✅          | ✅ tested     | Orchestrator. Still needs `snapshot.ps1`    |
 
 `windows/` also has **`usb.md`** — building the install USB, verified against the actual
 stick that was built.
