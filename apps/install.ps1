@@ -110,7 +110,9 @@ if (-not $SkipUpgrade) {
 
 # ---------------------------------------------------------------- Node
 Write-Step "Node"
-$nodeDir = 'C:\Briar\Code\Node'
+# layout\LAYOUT.md owns this. A literal here would be the second place the path is written
+# down, and the tree it points into is created by a script that reads the first one.
+$nodeDir = Get-LayoutPath 'node'
 
 # Resolved at run time, not pinned: a hardcoded version in a restore script is stale the
 # day after you write it. LTS rather than Current - "latest stable" for Node means the LTS

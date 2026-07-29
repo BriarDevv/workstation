@@ -262,8 +262,13 @@ the table has no bearing on it.
 
 ## Node — handled separately
 
-Node does **not** come from winget. On this machine it lives in `C:\Briar\Code\Node`
-(outside Program Files), and `install.ps1` pulls the official zip and unpacks it there.
+Node does **not** come from winget. It lives in the tree rather than Program Files, at the
+path `layout/LAYOUT.md` declares for it, and `install.ps1` pulls the official zip and unpacks
+it there.
+
+It's in `dev\` and not `apps\` because you never open it — your projects invoke it.
+`layout/LAYOUT.md` § *Which folder* is where that question is settled. The path itself is
+deliberately not repeated here: one place, or it goes stale.
 
 | Package | Version                | What for                                       |
 | ------- | ---------------------- | ---------------------------------------------- |
