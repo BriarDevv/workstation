@@ -43,9 +43,15 @@ complete original file remains in the run backup.
 `oh-my-claude-sisyphus` is installed as an npm global, but its setup remains explicit:
 
 ```powershell
-omc-setup
+omc setup --force-hooks
 pwsh claude\install.ps1
 ```
+
+`--force-hooks` is required, not optional. A plain `omc setup` (4.15.7) classifies its own
+current-format hook entries as legacy, removes them, then reports every event as already
+configured without reinstalling it, leaving all hook events empty. That also means a later
+plain `omc setup` or `omc update` can empty working hooks again; re-run the command above
+if OMC hooks stop firing.
 
 OMC owns the block between `OMC:START` and `OMC:END` in the live `~/.claude/CLAUDE.md`.
 The installer preserves that live generated block and places the concise repo-owned text
@@ -83,5 +89,5 @@ does not discard it. That JSONL file is local data, not a secret and not version
 | --- | --- |
 | Claude login | Run `claude` and complete OAuth in the browser |
 | MCP credentials | Create `secrets/.env` from the example, then use `-Secrets` |
-| OMC setup | Run `omc-setup`, then re-run this installer |
+| OMC setup | Run `omc setup --force-hooks`, then re-run this installer |
 | Pencil MCP | Install and start Pencil Desktop; it owns the connection |

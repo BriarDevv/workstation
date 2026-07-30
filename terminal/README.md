@@ -90,8 +90,10 @@ wrapper:
 function claude { & claude.exe --effort xhigh --dangerously-skip-permissions @args }
 ```
 
-That flag bypasses Claude's permission prompts even though `claude/settings.json` uses a
-safer default for launches outside this profile. It is intentionally retained as requested.
+`claude/settings.json` now also declares `bypassPermissions` and `xhigh` globally, so every
+launch path behaves the same. The wrapper flags are intentionally retained as requested:
+they keep those choices explicit and cover a machine where the merged settings have not
+been applied yet.
 
 The `.txt` files in `ascii-arts/` are assets read verbatim by fastfetch. Do not reformat or
 convert them to Markdown.

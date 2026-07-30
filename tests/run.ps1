@@ -222,6 +222,35 @@ Test-Case 'Claude plugins and MCPs are clean-machine reproducible' {
     Assert-True $installer.Contains('$failed.Add(''Claude Code CLI'')') 'missing Claude CLI is not fatal'
 }
 
+Test-Case 'settings serializer preserves empty and single-element arrays' {
+    # PowerShell unrolls arrays returned from functions: an empty array becomes $null and a
+    # one-element array becomes its element. Claude rejects hooks serialized that way, and
+    # every OMC hook event holds exactly one matcher group.
+    $tokens = $null
+    $errors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $repo 'claude\install.ps1'), [ref]$tokens, [ref]$errors)
+    $func = $ast.Find({ param($node)
+            $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -eq 'ConvertTo-Sorted' }, $true)
+    Assert-True ($null -ne $func) 'ConvertTo-Sorted was not found in claude/install.ps1'
+    . ([scriptblock]::Create($func.Extent.Text))
+
+    $settings = @{
+        hooks = @{
+            Stop             = @(@{ hooks = @(@{ type = 'command'; command = 'node stop.mjs' }) })
+            UserPromptSubmit = @()
+        }
+    }
+    $json = (ConvertTo-Sorted $settings) | ConvertTo-Json -Depth 100 -Compress
+    Assert-True ($json.Contains('"UserPromptSubmit":[]')) `
+        "empty hook event was not preserved as an array: $json"
+    Assert-True ($json.Contains('"Stop":[{')) `
+        "single matcher group lost its array wrapper: $json"
+    Assert-True ($json.Contains('"hooks":[{')) `
+        "single hook entry lost its array wrapper: $json"
+}
+
 Test-Case 'global rules directory has no generic resident rules' {
     $rules = @(Get-ChildItem (Join-Path $repo 'claude\rules\common') -Filter *.md -ErrorAction SilentlyContinue)
     Assert-True ($rules.Count -eq 0) "unexpected global rules: $($rules.Name -join ', ')"

@@ -1,7 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "model": "opus",
-  "effortLevel": "medium",
+  "effortLevel": "xhigh",
   "autoUpdatesChannel": "latest",
 
   "env": {
@@ -9,7 +8,7 @@
   },
 
   "permissions": {
-    "defaultMode": "auto",
+    "defaultMode": "bypassPermissions",
     "allow": [
       "Bash(node --version)",
       "Bash(npm --version)",

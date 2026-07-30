@@ -57,7 +57,12 @@ function ConvertTo-Sorted {
         return $out
     }
     if ($Value -is [object[]] -or $Value -is [System.Collections.IList]) {
-        return @($Value | ForEach-Object { ConvertTo-Sorted $_ })
+        $items = [System.Collections.Generic.List[object]]::new()
+        foreach ($item in $Value) { $items.Add((ConvertTo-Sorted $item)) }
+        # The unary comma stops PowerShell from unrolling the array on return: without it an
+        # empty array comes back as $null and a one-element array as its bare element, which
+        # corrupts hook matcher lists into shapes Claude rejects.
+        return , $items.ToArray()
     }
     return $Value
 }
