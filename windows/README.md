@@ -33,6 +33,13 @@ or remove Windows Hello PIN and biometric methods under Settings → Accounts �
 options. The installer disables the biometric service, but it never creates accounts,
 enables automatic logon, stores credentials, or changes passwords.
 
+If the restore already ran while signed into a Microsoft account, do not create a second
+profile: Settings → Accounts → Your info → "Sign in with a local account instead" converts
+the existing account in place — same SID, same `C:\Users` folder, every restored setting
+kept. Leave the new password blank and remove the Windows Hello PIN afterwards. The
+installer's only sign-in change is skipping the lock-screen curtain by policy, so a
+passwordless profile boots straight to the desktop.
+
 ## Bootstrap
 
 Windows 11 normally provides winget through App Installer. If `Get-Command winget` returns
@@ -74,8 +81,9 @@ pwsh windows\install.ps1 -WhatIfOnly
 Start-Process pwsh -Verb RunAs -ArgumentList '-File windows\install.ps1'
 ```
 
-The script applies current-user Explorer/taskbar preferences, sets Windows diagnostic data
-to the minimum supported by Pro, disables the selected diagnostic services and scheduled
+The script applies current-user Explorer/taskbar preferences, the classic Windows 10
+right-click menu, and the day/month/year regional date format, sets Windows diagnostic
+data to the minimum supported by Pro, disables the selected diagnostic services and scheduled
 tasks, removes consumer surfaces, leaves Edge installed but idle, and uses the built-in
 Balanced power scheme. AC standby and hibernation remain disabled for long development,
 Docker, and game sessions. Explorer restarts only after a real run.
@@ -156,6 +164,7 @@ making the final choices.
 | `Microsoft.Todos` | Microsoft To Do |
 | `Microsoft.PowerAutomateDesktop` | Power Automate |
 | `Microsoft.OutlookForWindows` | New Outlook |
+| `Microsoft.OneDriveSync` | OneDrive Store-packaged sync client |
 | `Microsoft.WindowsSoundRecorder` | Sound Recorder |
 | `MicrosoftCorporationII.QuickAssist` | Quick Assist |
 | `Clipchamp.Clipchamp` | Clipchamp |

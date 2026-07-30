@@ -135,6 +135,7 @@ $aiPolicy = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI'
 $deliveryPolicy = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization'
 $explorerAdvanced = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
 $contentDelivery = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+$international = 'HKCU:\Control Panel\International'
 
 $managedRegistry = @(
     @{ Area = 'Explorer'; Path = $explorerAdvanced; Name = 'HideFileExt'; Expected = 0 }
@@ -148,6 +149,10 @@ $managedRegistry = @(
     @{ Area = 'Explorer'; Path = $explorerAdvanced; Name = 'Start_IrisRecommendations'; Expected = 0 }
     @{ Area = 'Explorer'; Path = $explorerAdvanced; Name = 'Start_TrackProgs'; Expected = 0 }
     @{ Area = 'Explorer'; Path = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search'; Name = 'SearchboxTaskbarMode'; Expected = 0 }
+    @{ Area = 'Explorer'; Path = 'HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32'; Name = '(Default)'; Expected = '' }
+    @{ Area = 'Regional'; Path = $international; Name = 'sShortDate'; Expected = 'dd/MM/yyyy' }
+    @{ Area = 'Regional'; Path = $international; Name = 'sLongDate'; Expected = 'dddd, d MMMM yyyy' }
+    @{ Area = 'Regional'; Path = $international; Name = 'iDate'; Expected = '1' }
     @{ Area = 'Consumer'; Path = $contentDelivery; Name = 'ContentDeliveryAllowed'; Expected = 0 }
     @{ Area = 'Consumer'; Path = $contentDelivery; Name = 'OemPreInstalledAppsEnabled'; Expected = 0 }
     @{ Area = 'Consumer'; Path = $contentDelivery; Name = 'PreInstalledAppsEnabled'; Expected = 0 }
@@ -167,7 +172,6 @@ $managedRegistry = @(
     @{ Area = 'Privacy'; Path = $systemPolicy; Name = 'UploadUserActivities'; Expected = 0 }
     @{ Area = 'AI'; Path = $aiPolicy; Name = 'DisableAIDataAnalysis'; Expected = 1 }
     @{ Area = 'AI'; Path = $aiPolicy; Name = 'DisableClickToDo'; Expected = 1 }
-    @{ Area = 'Consumer'; Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh'; Name = 'AllowNewsAndInterests'; Expected = 0 }
     @{ Area = 'AI'; Path = 'HKCU:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot'; Name = 'TurnOffWindowsCopilot'; Expected = 1 }
     @{ Area = 'Edge'; Path = $edgePolicy; Name = 'BackgroundModeEnabled'; Expected = 0 }
     @{ Area = 'Edge'; Path = $edgePolicy; Name = 'StartupBoostEnabled'; Expected = 0 }
@@ -177,6 +181,7 @@ $managedRegistry = @(
     @{ Area = 'Edge'; Path = $edgePolicy; Name = 'UrlDiagnosticDataEnabled'; Expected = 0 }
     @{ Area = 'Edge'; Path = $edgePolicy; Name = 'PersonalizationReportingEnabled'; Expected = 0 }
     @{ Area = 'Power'; Path = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power'; Name = 'HiberbootEnabled'; Expected = 0 }
+    @{ Area = 'SignIn'; Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Personalization'; Name = 'NoLockScreen'; Expected = 1 }
     @{ Area = 'Telemetry'; Path = $dataCollection; Name = 'AllowTelemetry'; Expected = 1 }
     @{ Area = 'Telemetry'; Path = $dataCollection; Name = 'LimitDiagnosticLogCollection'; Expected = 1 }
     @{ Area = 'Telemetry'; Path = $dataCollection; Name = 'LimitDumpCollection'; Expected = 1 }

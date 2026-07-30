@@ -54,7 +54,9 @@ function Set-Reg {
     param(
         [Parameter(Mandatory)][string]$Path,
         [Parameter(Mandatory)][string]$Name,
-        [Parameter(Mandatory)]$Value,
+        # AllowEmptyString: a REG_SZ whose desired data is '' is a real setting (the classic
+        # context menu key), and Mandatory alone rejects it at binding time.
+        [Parameter(Mandatory)][AllowEmptyString()]$Value,
         [string]$Type = 'DWord',
         [string]$What
     )
@@ -65,7 +67,11 @@ function Set-Reg {
     else { $null }
     if ($old -eq $Value) { Write-Skip "$What (already $Value)"; $script:already++; return }
 
-    $requiresAdmin = $Path -like 'HKLM:*' -and -not $admin
+    # HKLM is machine state. HKCU\Software\Policies is the per-user POLICY hive, and Windows
+    # ACLs it to SYSTEM/Administrators precisely so an unelevated user cannot set policies on
+    # themselves - so both belong to the elevated pass.
+    $requiresAdmin = -not $admin -and
+        ($Path -like 'HKLM:*' -or $Path -like 'HKCU:\SOFTWARE\Policies\*')
     if ($WhatIfOnly) {
         if (-not $pathExists) { Write-Host "  would create $Path" -ForegroundColor DarkGray }
         $adminNote = if ($requiresAdmin) { ' [requires elevation]' } else { '' }
@@ -79,8 +85,17 @@ function Set-Reg {
         $script:needsElevation.Add($What)
         return
     }
-    if (-not $pathExists) { New-Item -Path $Path -Force | Out-Null }
-    Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type
+    # A denied write must degrade to one named failure, not a terminating error that costs
+    # every setting after it - the same collect-and-continue contract the folders follow.
+    try {
+        if (-not $pathExists) { New-Item -Path $Path -Force | Out-Null }
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type
+    }
+    catch {
+        Write-Warn2 "$What - $($_.Exception.Message)"
+        $script:failed.Add($What)
+        return
+    }
     Write-Ok "$What : $(if ($null -eq $old) { '(unset)' } else { $old }) -> $Value"
     $script:changed++
 }
@@ -151,6 +166,21 @@ Set-Reg $adv 'Start_IrisRecommendations' 0 -What 'hide Start recommendations'
 Set-Reg 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search' 'SearchboxTaskbarMode' 0 `
     -What 'hide taskbar search box'
 
+# The Windows 10 full context menu. An empty per-user InprocServer32 under this CLSID makes
+# the Windows 11 condensed-menu handler fail to load, so Explorer falls back to the classic
+# menu after its next restart. Delete the key to return to the Windows 11 default.
+Set-Reg 'HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32' `
+    '(Default)' '' -Type String -What 'classic Windows 10 context menu'
+
+# ================================================================ Regional format (per-user)
+Write-Step 'Regional format'
+# Dates render day/month/year regardless of the display language's default. iDate is the
+# legacy order flag some Win32 apps still read; Windows keeps it in step with sShortDate.
+$intl = 'HKCU:\Control Panel\International'
+Set-Reg $intl 'sShortDate' 'dd/MM/yyyy' -Type String -What 'short date as day/month/year'
+Set-Reg $intl 'sLongDate' 'dddd, d MMMM yyyy' -Type String -What 'long date as day month year'
+Set-Reg $intl 'iDate' '1' -Type String -What 'legacy date order day-first'
+
 # ================================================================ Consumer surfaces
 Write-Step 'Consumer surfaces'
 $content = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
@@ -188,8 +218,10 @@ $aiPolicy = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI'
 Set-Reg $aiPolicy 'DisableAIDataAnalysis' 1 -What 'Recall snapshots disabled'
 Set-Reg $aiPolicy 'DisableClickToDo'      1 -What 'Click to Do disabled where supported'
 
-Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' 'AllowNewsAndInterests' 0 `
-    -What 'Widgets disabled by policy'
+# No Widgets policy row on purpose. Current builds ACL HKLM\...\Policies\Microsoft\Dsh to
+# SYSTEM only, so even an elevated run cannot write AllowNewsAndInterests - an unenforceable
+# row only guarantees a permanent failure. The Widgets outcome is owned by debloat.ps1
+# (StartExperiencesApp, WidgetsPlatformRuntime, WebExperience Pack) plus TaskbarDa above.
 Set-Reg 'HKCU:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' 'TurnOffWindowsCopilot' 1 `
     -What 'Windows Copilot disabled'
 
@@ -212,6 +244,14 @@ Write-Host "  applying on 'shut down', and confuse WSL2 and Docker. Off on a dev
 
 Set-Reg 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' 'HiberbootEnabled' 0 `
     -What 'Fast Startup disabled'
+
+# ================================================================ Sign-in
+Write-Step 'Sign-in'
+Write-Host '  Passwordless is the account model, chosen by hand - README § Local account and' -ForegroundColor DarkGray
+Write-Host '  sign-in. Nothing here touches accounts, credentials, or autologon; this only' -ForegroundColor DarkGray
+Write-Host '  skips the lock-screen curtain so a passwordless profile lands on the desktop.' -ForegroundColor DarkGray
+Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Personalization' 'NoLockScreen' 1 `
+    -What 'lock-screen curtain skipped'
 
 # ================================================================ Telemetry
 Write-Step 'Telemetry'
