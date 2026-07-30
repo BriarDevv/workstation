@@ -1,21 +1,16 @@
 # Skills
 
-The policy is intentionally mechanical:
+User skills come from one place: `repos\mine\Context-Engineering\skills\`, junction-linked
+into `~/.claude/skills/` by `claude/install.ps1`. This repo carries no skill content and no
+skill list — the link step is declarative over whatever that repo contains.
 
 | Location | Policy |
 | --- | --- |
-| `~/.claude/skills/` | `user-invocable-only` |
-| Installed Claude plugin | Unchanged |
+| `~/.claude/skills/` | Junctions into Context-Engineering; load normally (auto-trigger by description) |
+| Installed Claude plugin skills | Unchanged |
 
-`claude/install.ps1` discovers the user skill directory at run time and generates
-`skillOverrides`; this repository does not carry a list of skill names. New user-directory
-skills therefore stay available through explicit invocation without filling every session's
-automatic skill listing.
+No `skillOverrides` are generated anymore. The previous `user-invocable-only` policy
+existed to keep ~37 OMC skills out of the automatic listing; the current skills are few and
+written for automatic triggering, so hiding them would defeat their design.
 
-Claude Code documents that plugin skills are not affected by `skillOverrides`, including
-when a plugin and the user directory contain the same skill name. No cache inspection or
-name exception is needed.
-
-Use `/context` in Claude Code when you want to inspect the actual context cost. Counts and
-usage snapshots are deliberately not stored here because they become historical almost
-immediately.
+Use `/context` in Claude Code to inspect the actual context cost when the skill set grows.

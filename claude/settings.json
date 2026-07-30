@@ -2,6 +2,10 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "effortLevel": "xhigh",
   "autoUpdatesChannel": "latest",
+  "statusLine": {
+    "type": "command",
+    "command": "node \"C:/Briar/repos/mine/hud/hud.mjs\""
+  },
 
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"

@@ -4,7 +4,8 @@
 
 .DESCRIPTION
     Reconciles the Claude Code CLI prerequisite, marketplaces, plugins, CLAUDE.md, rules,
-    settings.json, and - only with -Secrets - the user-scope MCP servers declared here.
+    the Context-Engineering skill junctions, settings.json, and - only with -Secrets - the
+    user-scope MCP servers declared here.
 
     settings.json is merged rather than copied. Repo keys win and valid unmanaged live keys
     remain. Legacy hook shapes that make Claude reject the whole file are not preserved.
@@ -67,22 +68,9 @@ function ConvertTo-Sorted {
     return $Value
 }
 
-# Every skill in ~/.claude/skills gets hidden from the model; plugin skills don't.
-#
-# Read off the disk rather than maintaining a stale inventory. Anything new in the user
-# skill directory is quiet by default, while plugin skills remain available.
-function Get-SkillOverrides {
-    $overrides = [ordered]@{}
-    $skillsDir = Join-Path $claudeHome 'skills'
-    if (-not (Test-Path $skillsDir)) { return $overrides }
-
-    foreach ($s in Get-ChildItem $skillsDir -Directory | Sort-Object Name) {
-        # Plugin skills are not affected by skillOverrides. The same name can safely exist in
-        # both places; this setting applies only to the user-directory copy.
-        $overrides[$s.Name] = 'user-invocable-only'
-    }
-    return $overrides
-}
+# User skills are junction links into the Context-Engineering repo, so editing that repo
+# updates the live skills with no copy step. Linking every directory under its skills/
+# keeps this declarative: a skill added there appears on the next run.
 
 # Claude rejects an entire user settings file when one hook has the legacy object shape.
 # Preserve third-party hooks only when every event and matcher uses the current array form.
@@ -199,17 +187,7 @@ else {
 Write-Step 'CLAUDE.md'
 $claudeMdPath = Join-Path $claudeHome 'CLAUDE.md'
 $ownedText = (Get-Content (Join-Path $PSScriptRoot 'CLAUDE.md') -Raw).TrimEnd()
-$omcBlock = $null
-if (Test-Path $claudeMdPath) {
-    $liveClaudeText = Get-Content $claudeMdPath -Raw
-    $match = [regex]::Match($liveClaudeText, '(?s)<!-- OMC:START -->.*?<!-- OMC:END -->')
-    if ($match.Success) { $omcBlock = $match.Value }
-}
 $claudeText = $ownedText + "`n"
-if ($omcBlock) {
-    $claudeText += "`n" + $omcBlock.Trim() + "`n"
-    Write-Host '  preserving the current OMC-generated block from the live file' -ForegroundColor DarkGray
-}
 $claudeNeedsWrite = -not (Test-Path $claudeMdPath -PathType Leaf) -or
     ((Get-Content $claudeMdPath -Raw) -cne $claudeText)
 if (-not (Install-ConfigText -Destination $claudeMdPath -Text $claudeText -Label 'CLAUDE.md')) {
@@ -245,6 +223,36 @@ foreach ($liveRule in @(Get-ChildItem $rulesDst -Filter *.md -ErrorAction Silent
     }
 }
 
+# ---------------------------------------------------------------- skills
+Write-Step 'Skills (Context-Engineering junctions)'
+$ceSkillsSrc = Join-Path (Get-LayoutPath 'repos') 'mine\Context-Engineering\skills'
+$skillsDst = Join-Path $claudeHome 'skills'
+if (-not (Test-Path $ceSkillsSrc)) {
+    Write-Warn2 "Context-Engineering repo not found at $ceSkillsSrc; clone it (dev/repos), then re-run"
+    $failed.Add('skills: Context-Engineering repo missing')
+}
+else {
+    if (-not (Test-Path $skillsDst) -and -not $script:DryRun) {
+        New-Item -ItemType Directory $skillsDst -Force | Out-Null
+    }
+    foreach ($src in Get-ChildItem $ceSkillsSrc -Directory | Sort-Object Name) {
+        $link = Join-Path $skillsDst $src.Name
+        $existing = Get-Item $link -ErrorAction SilentlyContinue
+        if ($existing -and $existing.LinkType -eq 'Junction' -and $existing.LinkTarget -eq $src.FullName) {
+            Write-Ok "$($src.Name) junction already in place"
+            continue
+        }
+        if ($script:DryRun) { Write-Would "link skill $($src.Name) -> $($src.FullName)"; continue }
+        if ($existing) {
+            Backup-ExistingFile $link | Out-Null
+            Remove-Item -LiteralPath $link -Recurse -Force
+        }
+        New-Item -ItemType Junction -Path $link -Target $src.FullName | Out-Null
+        Write-Ok "$($src.Name) junction created"
+        $configChanged = $true
+    }
+}
+
 # ---------------------------------------------------------------- settings.json
 Write-Step 'settings.json'
 $settingsPath = Join-Path $claudeHome 'settings.json'
@@ -272,9 +280,9 @@ foreach ($k in $liveSettings.Keys) {
 }
 foreach ($k in $repoSettings.Keys) { $merged[$k] = $repoSettings[$k] }
 
-$overrides = Get-SkillOverrides
-if ($overrides.Count) { $merged['skillOverrides'] = $overrides }
-else { $merged.Remove('skillOverrides') }
+# User-directory skills load normally: the four Context-Engineering skills are designed
+# for automatic triggering, so no skillOverrides are generated anymore.
+$merged.Remove('skillOverrides')
 
 $kept = @($liveSettings.Keys | Where-Object {
         -not $repoSettings.ContainsKey($_) -and $_ -notin @('hooks', 'skillOverrides')
@@ -284,7 +292,6 @@ if ($discarded.Count) {
     Write-Warn2 "not preserving invalid live setting(s): $($discarded -join ', ')"
     Write-Host '         The complete old file is backed up before the repaired one is written.' -ForegroundColor DarkGray
 }
-Write-Host "  $($overrides.Count) user-directory skill(s) hidden from the model; plugin skills are unaffected" -ForegroundColor DarkGray
 
 $json = ((ConvertTo-Sorted $merged) | ConvertTo-Json -Depth 100) + "`n"
 $settingsNeedsWrite = -not (Test-Path $settingsPath -PathType Leaf) -or

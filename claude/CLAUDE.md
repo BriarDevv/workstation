@@ -1,26 +1,30 @@
-# Global Claude Code instructions
+# Global instructions
 
-These instructions apply across projects. Keep project-specific commands, architecture and
-quality gates in that project's own `CLAUDE.md`.
+<!-- Canonical source: Context-Engineering/global/CLAUDE.md.
+     Applied to ~/.claude/CLAUDE.md by the workstation installer.
+     OMC was removed 2026-07-30 (see global/OMC-DECISION.md, Accepted). -->
 
-## Working style
+## Language
 
-- Work directly unless the user requests delegation or an invoked workflow requires it.
-- Inspect the repository before planning a substantial change.
-- Prefer evidence from the code, command output and primary documentation over assumptions.
-- Make the smallest coherent change that satisfies the request.
-- Preserve unrelated user changes in a dirty worktree.
+- Chat with me in rioplatense Spanish.
+- All technical artifacts in English: code, comments, commits, branches,
+  context files, docs.
 
 ## Safety
 
-- Never expose or commit credentials, tokens, private keys or populated `.env` files.
+- Never expose or commit credentials, tokens, private keys, or populated
+  `.env` files.
 - Resolve exact targets before destructive filesystem or git operations.
-- Do not claim success without running the relevant verification.
+- Never claim success without running the relevant verification.
 
-## Completion
+## Working style
 
-Report what changed, what verification passed, and any remaining manual or blocked work.
+- Make the smallest coherent change that satisfies the request.
+- Prefer evidence (code, command output, primary docs) over assumptions.
+- Preserve unrelated changes in a dirty worktree.
 
-The OMC-generated block is deliberately not stored here. `claude/install.ps1` preserves the
-current live block between `OMC:START` and `OMC:END`, so updating OMC cannot leave this repo
-holding an obsolete generated copy.
+## Placement
+
+- Project specifics live in each repo's CLAUDE.md — never duplicate them here.
+- Procedural workflows live in skills, never in this file.
+- Session-learned facts belong to auto-memory, not here.

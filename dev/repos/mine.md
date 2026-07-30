@@ -15,3 +15,5 @@ They land in `repos\mine\` because **this file is called `mine.md`**. See `READM
 | Empoderamiento-Docente   | `BriarDevv/Empoderamiento-Docente`   |
 | Inferiores-Riverplatense | `BriarDevv/Inferiores-riverplatense` |
 | KioscoDiagonal           | `BriarDevv/Kiosco-Diagonal`          |
+| Context-Engineering      | `BriarDevv/Context-Engineering`      |
+| hud                      | `BriarDevv/hud`                      |

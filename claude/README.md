@@ -14,9 +14,9 @@ pwsh claude\install.ps1 -Secrets
 
 The normal run requires the native Claude Code CLI, registers the declared marketplaces,
 installs or enables every desired plugin, installs the global instructions, reconciles the
-repo-owned global rules directory, and merges `settings.json` into
-`~/.claude/settings.json`. `-Secrets` additionally syncs the MCP servers declared in
-`mcp.template.json` through Claude's user-scope MCP CLI.
+repo-owned global rules directory, junction-links the Context-Engineering skills, and
+merges `settings.json` into `~/.claude/settings.json`. `-Secrets` additionally syncs the
+MCP servers declared in `mcp.template.json` through Claude's user-scope MCP CLI.
 
 Before replacing a live file, the shared installer stores its original path under one
 run-specific directory in `~/.workstation-backup/`. The settings result is checked with
@@ -38,24 +38,26 @@ Repo settings override the same keys in the live file. Other valid live keys are
 Legacy hook structures that cause Claude to reject the entire file are discarded, while the
 complete original file remains in the run backup.
 
-## OMC
+## Skills and statusline
 
-`oh-my-claude-sisyphus` is installed as an npm global, but its setup remains explicit:
+User skills are junction links into `repos\mine\Context-Engineering\skills\` — the
+installer creates one link per skill directory found there, so a skill added to that repo
+appears on the next run with no copy step. The statusline is the `hud` repo
+(`repos\mine\hud`), declared in `settings.json` as desired state; both repos are cloned by
+`dev/repos` before this step can succeed on a clean machine.
 
-```powershell
-omc setup --force-hooks
-pwsh claude\install.ps1
-```
+`claude/CLAUDE.md` here is a synced copy; its canonical source is
+`Context-Engineering/global/CLAUDE.md`. Edit there first, copy here, then re-run the
+installer.
 
-`--force-hooks` is required, not optional. A plain `omc setup` (4.15.7) classifies its own
-current-format hook entries as legacy, removes them, then reports every event as already
-configured without reinstalling it, leaving all hook events empty. That also means a later
-plain `omc setup` or `omc update` can empty working hooks again; re-run the command above
-if OMC hooks stop firing.
+<details>
+<summary>Old pattern: OMC (removed 2026-07-30)</summary>
 
-OMC owns the block between `OMC:START` and `OMC:END` in the live `~/.claude/CLAUDE.md`.
-The installer preserves that live generated block and places the concise repo-owned text
-before it. The generated block is intentionally not frozen in this repository.
+oh-my-claudecode previously owned hooks, 19 agents, ~37 skills, a generated block between
+`OMC:START`/`OMC:END` markers in the live CLAUDE.md, and the statusline. It was removed
+after an audit (see `Context-Engineering/global/OMC-DECISION.md`); its `omc setup
+--force-hooks` quirk only matters if it is ever reinstalled.
+</details>
 
 ## Secrets and MCP
 
@@ -89,5 +91,4 @@ does not discard it. That JSONL file is local data, not a secret and not version
 | --- | --- |
 | Claude login | Run `claude` and complete OAuth in the browser |
 | MCP credentials | Create `secrets/.env` from the example, then use `-Secrets` |
-| OMC setup | Run `omc setup --force-hooks`, then re-run this installer |
 | Pencil MCP | Install and start Pencil Desktop; it owns the connection |
