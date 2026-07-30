@@ -68,9 +68,9 @@ function ConvertTo-Sorted {
     return $Value
 }
 
-# User skills are junction links into the Context-Engineering repo, so editing that repo
-# updates the live skills with no copy step. Linking every directory under its skills/
-# keeps this declarative: a skill added there appears on the next run.
+# User skills are junction links into the repos listed in $skillSources, so editing those
+# repos updates the live skills with no copy step. Linking every directory under each
+# source keeps this declarative: a skill added there appears on the next run.
 
 # Claude rejects an entire user settings file when one hook has the legacy object shape.
 # Preserve third-party hooks only when every event and matcher uses the current array form.
@@ -224,33 +224,43 @@ foreach ($liveRule in @(Get-ChildItem $rulesDst -Filter *.md -ErrorAction Silent
 }
 
 # ---------------------------------------------------------------- skills
-Write-Step 'Skills (Context-Engineering junctions)'
-$ceSkillsSrc = Join-Path (Get-LayoutPath 'repos') 'mine\Context-Engineering\skills'
+Write-Step 'Skills (repo junctions)'
+$skillSources = @(
+    (Join-Path (Get-LayoutPath 'repos') 'mine\Context-Engineering\skills'),
+    (Join-Path (Get-LayoutPath 'repos') 'mine\skills\skills')
+)
 $skillsDst = Join-Path $claudeHome 'skills'
-if (-not (Test-Path $ceSkillsSrc)) {
-    Write-Warn2 "Context-Engineering repo not found at $ceSkillsSrc; clone it (dev/repos), then re-run"
-    $failed.Add('skills: Context-Engineering repo missing')
+if (-not (Test-Path $skillsDst) -and -not $script:DryRun) {
+    New-Item -ItemType Directory $skillsDst -Force | Out-Null
 }
-else {
-    if (-not (Test-Path $skillsDst) -and -not $script:DryRun) {
-        New-Item -ItemType Directory $skillsDst -Force | Out-Null
+# One junction per skill NAME. When two sources ship the same name, the later
+# source in $skillSources wins, so a skill migrating between repos never
+# flip-flops its junction within one run.
+$skillDirs = [ordered]@{}
+foreach ($skillsSrc in $skillSources) {
+    if (-not (Test-Path $skillsSrc)) {
+        Write-Warn2 "skills source not found at $skillsSrc; clone it (dev/repos), then re-run"
+        $failed.Add("skills: source missing: $skillsSrc")
+        continue
     }
-    foreach ($src in Get-ChildItem $ceSkillsSrc -Directory | Sort-Object Name) {
-        $link = Join-Path $skillsDst $src.Name
-        $existing = Get-Item $link -ErrorAction SilentlyContinue
-        if ($existing -and $existing.LinkType -eq 'Junction' -and $existing.LinkTarget -eq $src.FullName) {
-            Write-Ok "$($src.Name) junction already in place"
-            continue
-        }
-        if ($script:DryRun) { Write-Would "link skill $($src.Name) -> $($src.FullName)"; continue }
-        if ($existing) {
-            Backup-ExistingFile $link | Out-Null
-            Remove-Item -LiteralPath $link -Recurse -Force
-        }
-        New-Item -ItemType Junction -Path $link -Target $src.FullName | Out-Null
-        Write-Ok "$($src.Name) junction created"
-        $configChanged = $true
+    foreach ($src in Get-ChildItem $skillsSrc -Directory) { $skillDirs[$src.Name] = $src }
+}
+foreach ($name in @($skillDirs.Keys) | Sort-Object) {
+    $src = $skillDirs[$name]
+    $link = Join-Path $skillsDst $name
+    $existing = Get-Item $link -ErrorAction SilentlyContinue
+    if ($existing -and $existing.LinkType -eq 'Junction' -and $existing.LinkTarget -eq $src.FullName) {
+        Write-Ok "$name junction already in place"
+        continue
     }
+    if ($script:DryRun) { Write-Would "link skill $name -> $($src.FullName)"; continue }
+    if ($existing) {
+        Backup-ExistingFile $link | Out-Null
+        Remove-Item -LiteralPath $link -Recurse -Force
+    }
+    New-Item -ItemType Junction -Path $link -Target $src.FullName | Out-Null
+    Write-Ok "$name junction created"
+    $configChanged = $true
 }
 
 # ---------------------------------------------------------------- settings.json

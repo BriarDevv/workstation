@@ -17,3 +17,4 @@ They land in `repos\mine\` because **this file is called `mine.md`**. See `READM
 | KioscoDiagonal           | `BriarDevv/Kiosco-Diagonal`          |
 | Context-Engineering      | `BriarDevv/Context-Engineering`      |
 | hud                      | `BriarDevv/hud`                      |
+| skills                   | `BriarDevv/skills`                   |

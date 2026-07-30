@@ -20,7 +20,7 @@ desired state, not a historical inventory of the current machine.
   on purpose — retain unless asked otherwise.
 - `claude/CLAUDE.md` is a SYNCED COPY; the canonical source is
   `Context-Engineering/global/CLAUDE.md`. Skills are junction-linked from
-  that repo by `claude/install.ps1`.
+  the `Context-Engineering` and `skills` repos by `claude/install.ps1`.
 - `windows/debloat.ps1` is intentionally outside the automatic restore path.
 - The terminal ASCII `.txt` files are raw fastfetch assets — never reformat.
 - Docs and comments in English, except the user-facing
