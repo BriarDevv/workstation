@@ -2,7 +2,7 @@
 
 <!-- Canonical source: Context-Engineering/global/CLAUDE.md.
      Applied to ~/.claude/CLAUDE.md by the workstation installer.
-     OMC was removed 2026-07-30 (see global/OMC-DECISION.md, Accepted). -->
+     OMC was removed 2026-07-30 (see docs/adrs/ADR-003-omc-removal.md, Accepted). -->
 
 ## Language
 
