@@ -28,9 +28,10 @@ pwsh .\install.ps1 -WhatIfOnly
 pwsh .\install.ps1
 ```
 
-The repository is private, so GitHub authentication must happen before cloning. Claude login
-is completed by launching `claude`. If a fresh Windows installation does not expose
-`winget`, follow the App Installer fallback in `windows/README.md`.
+GitHub authentication is required regardless of this repository's visibility: `dev/`
+restores other repositories under the same `gh`-backed credential helper. Claude login is
+completed by launching `claude`. If a fresh Windows installation does not expose `winget`,
+follow the App Installer fallback in `windows/README.md`.
 
 ## Restore order
 
