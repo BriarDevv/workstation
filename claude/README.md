@@ -14,7 +14,7 @@ pwsh claude\install.ps1 -Secrets
 
 The normal run requires the native Claude Code CLI, registers the declared marketplaces,
 installs or enables every desired plugin, installs the global instructions, reconciles the
-repo-owned global rules directory, junction-links the Context-Engineering skills, and
+repo-owned global rules directory, junction-links the declared skill source repos, and
 merges `settings.json` into `~/.claude/settings.json`. `-Secrets` additionally syncs the
 MCP servers declared in `mcp.template.json` through Claude's user-scope MCP CLI.
 
@@ -40,11 +40,12 @@ complete original file remains in the run backup.
 
 ## Skills and statusline
 
-User skills are junction links into `repos\mine\Context-Engineering\skills\` — the
-installer creates one link per skill directory found there, so a skill added to that repo
-appears on the next run with no copy step. The statusline is the `hud` repo
-(`repos\mine\hud`), declared in `settings.json` as desired state; both repos are cloned by
-`dev/repos` before this step can succeed on a clean machine.
+User skills are junction links into the skill source repos —
+`repos\mine\Context-Engineering\skills\` and `repos\mine\skills\skills\` — the installer
+creates one link per skill directory found there, so a skill added to either repo appears
+on the next run with no copy step. The statusline is the `hud` repo (`repos\mine\hud`),
+declared in `settings.json` as desired state; all three repos are cloned by `dev/repos`
+before this step can succeed on a clean machine.
 
 `claude/CLAUDE.md` here is a synced copy; its canonical source is
 `Context-Engineering/global/CLAUDE.md`. Edit there first, copy here, then re-run the
@@ -55,8 +56,8 @@ installer.
 
 oh-my-claudecode previously owned hooks, 19 agents, ~37 skills, a generated block between
 `OMC:START`/`OMC:END` markers in the live CLAUDE.md, and the statusline. It was removed
-after an audit (see `Context-Engineering/global/OMC-DECISION.md`); its `omc setup
---force-hooks` quirk only matters if it is ever reinstalled.
+after an audit (see `Context-Engineering/docs/adrs/ADR-003-omc-removal.md`); its
+`omc setup --force-hooks` quirk only matters if it is ever reinstalled.
 </details>
 
 ## Secrets and MCP

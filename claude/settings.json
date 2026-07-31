@@ -50,6 +50,7 @@
   },
 
   "skipWorkflowUsageWarning": true,
+  "skipDangerousModePermissionPrompt": true,
   "remoteControlAtStartup": false,
   "agentPushNotifEnabled": true
 }

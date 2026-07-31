@@ -1,12 +1,15 @@
 # Skills
 
-User skills come from one place: `repos\mine\Context-Engineering\skills\`, junction-linked
-into `~/.claude/skills/` by `claude/install.ps1`. This repo carries no skill content and no
-skill list — the link step is declarative over whatever that repo contains.
+User skills come from the repos listed in `$skillSources` in `claude/install.ps1` —
+`repos\mine\Context-Engineering\skills\` (the standard's tooling) and
+`repos\mine\skills\skills\` (the personal library) — junction-linked into
+`~/.claude/skills/`. This repo carries no skill content and no skill list — the link step
+is declarative over whatever those repos contain, one junction per skill name with the
+later source winning on collisions.
 
 | Location | Policy |
 | --- | --- |
-| `~/.claude/skills/` | Junctions into Context-Engineering; load normally (auto-trigger by description) |
+| `~/.claude/skills/` | Junctions into the source repos; load normally (auto-trigger by description) |
 | Installed Claude plugin skills | Unchanged |
 
 No `skillOverrides` are generated anymore. The previous `user-invocable-only` policy
