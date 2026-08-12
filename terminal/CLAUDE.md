@@ -28,7 +28,9 @@ If ownership is ambiguous, ask before flattening it into a layer.
 Keep these invariants:
 
 - `ascii-arts/*.txt` are raw assets; preserve whitespace and `$1`…`$9` color markers.
-- A style must reference an existing scheme and ASCII asset and contain fastfetch modules.
+- A style must reference an existing scheme. The `fastfetch` block is optional; a style that
+  omits it opens to a bare prompt, and one that declares it must reference an existing ASCII
+  asset and a non-empty module list.
 - Font names must resolve to a registered mono family; Windows silently falls back.
 - The base profile resolves `pwsh.exe` through PATH rather than assuming MSI paths.
 - Default runs upgrade Windows Terminal and fastfetch; `-SkipUpgrade` stays opt-in.

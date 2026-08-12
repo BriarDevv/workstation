@@ -240,57 +240,77 @@ else {
 Write-Step 'fastfetch'
 
 $cfgDir = Join-Path $HOME '.config\fastfetch'
-$artsDst = Join-Path $cfgDir 'ascii-arts'
-if (-not $script:DryRun) { New-Item -ItemType Directory -Force -Path $artsDst | Out-Null }
-
-$arts = Get-ChildItem $artsDir -Filter *.txt
-foreach ($a in $arts) {
-    if (-not (Install-ConfigFile $a.FullName (Join-Path $artsDst $a.Name))) {
-        $failed.Add("ASCII art: $($a.Name)")
-    }
-}
-Write-Ok "$($arts.Count) ASCII art file(s)"
-
-if (-not (Test-Path (Join-Path $artsDir $st.fastfetch.asciiArt))) {
-    Write-Fail "Style wants '$($st.fastfetch.asciiArt)' but it isn't in ascii-arts\"
-    exit 1
-}
-
-# The whole fetch comes from the style: logo, colors, and which modules show on startup.
-# There's no base config file - one style file is the single place to edit.
-if (-not $st.fastfetch.modules) {
-    Write-Fail "Style '$Style' has no fastfetch.modules - it wouldn't render anything."
-    exit 1
-}
-
-$ff = [ordered]@{
-    '$schema' = 'https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json'
-    logo      = [ordered]@{
-        type = 'file'
-        # Absolute path, rewritten for whoever's $HOME this is - so the repo survives a rename.
-        source = "$($HOME.Replace('\','/'))/.config/fastfetch/ascii-arts/$($st.fastfetch.asciiArt)"
-    }
-}
-if ($st.fastfetch.logoColors) { $ff.logo.color = $st.fastfetch.logoColors }
-if ($st.fastfetch.logoPadding) { $ff.logo.padding = $st.fastfetch.logoPadding }
-if ($st.fastfetch.display) { $ff.display = $st.fastfetch.display }
-$ff.modules = $st.fastfetch.modules
-
-# ConvertTo-Json escapes the Nerd Font glyphs to \uXXXX. That's valid JSON and fastfetch
-# reads it fine, but the file becomes unreadable, so unescape before writing.
-$json = [regex]::Replace(
-    ($ff | ConvertTo-Json -Depth 32),
-    '\\u([0-9a-fA-F]{4})',
-    { param($m) [char][int]('0x' + $m.Groups[1].Value) })
-
 $ffDest = Join-Path $cfgDir 'config.jsonc'
-if (-not (Install-ConfigText -Destination $ffDest -Text ($json + "`n") -Label $ffDest)) {
-    $failed.Add('fastfetch config')
-}
 
-$shown = @($st.fastfetch.modules | Where-Object { $_ -isnot [string] -and $_.type } | ForEach-Object { $_.type })
-Write-Ok "logo -> $($st.fastfetch.asciiArt)"
-Write-Ok "modules -> $($shown -join ', ')"
+if (-not $st.fastfetch) {
+    # A style may leave fastfetch out entirely - that is how "opens to a bare prompt" is
+    # expressed, and it is the reason the fields below are validated only when the block is
+    # there. The generated config has to be removed rather than merely left unwritten: the
+    # profile keys off its presence, so the previous style's copy would otherwise keep
+    # fetching after the switch, and fastfetch with no config at all falls back to its own
+    # built-in logo - more decoration, not less.
+    if (Test-Path $ffDest) {
+        if ($script:DryRun) { Write-Would "back up and remove $ffDest" }
+        else {
+            Backup-ExistingFile $ffDest | Out-Null
+            Remove-Item -LiteralPath $ffDest -Force
+            Write-Ok "removed $ffDest"
+        }
+    }
+    Write-Ok 'style declares no fetch - startup stays bare'
+}
+else {
+    $artsDst = Join-Path $cfgDir 'ascii-arts'
+    if (-not $script:DryRun) { New-Item -ItemType Directory -Force -Path $artsDst | Out-Null }
+
+    $arts = Get-ChildItem $artsDir -Filter *.txt
+    foreach ($a in $arts) {
+        if (-not (Install-ConfigFile $a.FullName (Join-Path $artsDst $a.Name))) {
+            $failed.Add("ASCII art: $($a.Name)")
+        }
+    }
+    Write-Ok "$($arts.Count) ASCII art file(s)"
+
+    if (-not (Test-Path (Join-Path $artsDir $st.fastfetch.asciiArt))) {
+        Write-Fail "Style wants '$($st.fastfetch.asciiArt)' but it isn't in ascii-arts\"
+        exit 1
+    }
+
+    # The whole fetch comes from the style: logo, colors, and which modules show on startup.
+    # There's no base config file - one style file is the single place to edit.
+    if (-not $st.fastfetch.modules) {
+        Write-Fail "Style '$Style' has no fastfetch.modules - it wouldn't render anything."
+        exit 1
+    }
+
+    $ff = [ordered]@{
+        '$schema' = 'https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json'
+        logo      = [ordered]@{
+            type = 'file'
+            # Absolute path, rewritten for whoever's $HOME this is - so the repo survives a rename.
+            source = "$($HOME.Replace('\','/'))/.config/fastfetch/ascii-arts/$($st.fastfetch.asciiArt)"
+        }
+    }
+    if ($st.fastfetch.logoColors) { $ff.logo.color = $st.fastfetch.logoColors }
+    if ($st.fastfetch.logoPadding) { $ff.logo.padding = $st.fastfetch.logoPadding }
+    if ($st.fastfetch.display) { $ff.display = $st.fastfetch.display }
+    $ff.modules = $st.fastfetch.modules
+
+    # ConvertTo-Json escapes the Nerd Font glyphs to \uXXXX. That's valid JSON and fastfetch
+    # reads it fine, but the file becomes unreadable, so unescape before writing.
+    $json = [regex]::Replace(
+        ($ff | ConvertTo-Json -Depth 32),
+        '\\u([0-9a-fA-F]{4})',
+        { param($m) [char][int]('0x' + $m.Groups[1].Value) })
+
+    if (-not (Install-ConfigText -Destination $ffDest -Text ($json + "`n") -Label $ffDest)) {
+        $failed.Add('fastfetch config')
+    }
+
+    $shown = @($st.fastfetch.modules | Where-Object { $_ -isnot [string] -and $_.type } | ForEach-Object { $_.type })
+    Write-Ok "logo -> $($st.fastfetch.asciiArt)"
+    Write-Ok "modules -> $($shown -join ', ')"
+}
 
 # ================================================================ PowerShell profile
 Write-Step 'PowerShell profile'

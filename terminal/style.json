@@ -1,4 +1,4 @@
 {
   "$comment": "Which style is active. Change 'active' and run install.ps1, or just run: pwsh terminal/install.ps1 -Style <name>. Definitions live in styles/. List what's available with: pwsh terminal/install.ps1 -List",
-  "active": "catppuccin-mocha"
+  "active": "carbon-warm"
 }

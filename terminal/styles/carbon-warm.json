@@ -1,0 +1,18 @@
+{
+  "$comment": "Near-black with a warm cast, chosen against the live wallpaper rather than on paper: opacity 55 was the point where depth still reads without the desktop deciding the terminal's colour. Maple Mono is rounded and warm, so a neutral grey background left it looking pasted on. No fastfetch block on purpose - this is the everyday style and it opens to a bare prompt.",
+  "description": "Carbon Warm. Bold Maple Mono, smoked glass, no fetch.",
+  "font": {
+    "family": "Maple Mono NF",
+    "size": 10,
+    "weight": "bold",
+    "cellHeight": "1.2"
+  },
+  "terminal": {
+    "colorScheme": "Carbon Warm",
+    "opacity": 55,
+    "useAcrylic": true,
+    "padding": "8",
+    "cursorShape": "filledBox",
+    "intenseTextStyle": "all"
+  }
+}

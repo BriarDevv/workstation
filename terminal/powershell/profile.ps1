@@ -38,9 +38,13 @@ function pegasuz {
 }
 # <<< claude-dual-account-setup <<<
 
-# Show fastfetch on interactive startup only (skips scripts / piped / automation)
+# Show fastfetch on interactive startup only (skips scripts / piped / automation), and only
+# when the active style generated a config for it. A style may declare no fetch at all;
+# calling fastfetch anyway would fall back to its own built-in logo, which is the opposite
+# of what such a style asked for.
 if ($Host.Name -eq 'ConsoleHost' -and -not [Console]::IsInputRedirected -and -not [Console]::IsOutputRedirected) {
-    if (Get-Command fastfetch -ErrorAction SilentlyContinue) {
+    if ((Test-Path (Join-Path $HOME '.config\fastfetch\config.jsonc')) -and
+        (Get-Command fastfetch -ErrorAction SilentlyContinue)) {
         fastfetch
     }
 }
