@@ -41,6 +41,23 @@ upgraded to their current stable release unless `-SkipUpgrade` is passed.
 The font installs machine-wide and may prompt for elevation. The terminal installer resolves
 the actual registered mono-family name rather than assuming a vendor naming variant.
 
+## Fonts outside winget
+
+Most coding fonts have no winget package; the publisher ships a zip on GitHub and nothing
+else. These rows are executable data like the winget tables above: the installer downloads
+each archive and installs every font file inside it **for the current user**, so no row here
+needs elevation.
+
+| Family | Release asset |
+| --- | --- |
+| `Maple Mono NF` | `https://github.com/subframe7536/maple-font/releases/latest/download/MapleMono-NF.zip` |
+
+The first cell is the family name **Windows registers**, not the project's name — it is the
+string a style's `font.family` has to match, and the installer fails loudly if the archive
+lands without producing it. Prefer a `latest/download` URL so a new upstream release is
+picked up on the next run; files are compared by content, so an unchanged release costs one
+download and no writes.
+
 ## Desktop / utilities
 
 | winget ID | Application | Purpose |
