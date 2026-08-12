@@ -66,6 +66,10 @@ Mono` name. The installer resolves the exact requested name first, then the equi
 variant. It stops if neither exists; Windows Terminal's silent fallback would otherwise
 make the configuration appear valid while rendering the wrong font.
 
+Nothing here installs a font. A style may name a family that no winget package ships — add
+it to the `Fonts outside winget` table in `apps/README.md`, which `apps/install.ps1`
+installs per-user from the publisher's release archive.
+
 ## Generated outputs
 
 The installer:

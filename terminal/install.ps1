@@ -165,7 +165,8 @@ if (-not $real) {
     }
     else {
         Write-Fail "Font '$wanted' is not installed, and no Mono variant of it was found."
-        Write-Warn2 'Install it elevated:  winget install DEVCOM.JetBrainsMonoNerdFont'
+        Write-Warn2 'Fonts are installed by apps\install.ps1 - from winget, or from the'
+        Write-Warn2 '"Fonts outside winget" table in apps\README.md. Run that first.'
         Write-Warn2 "Or run -List to see what's available and put that in styles\$Style.json."
         exit 1
     }
