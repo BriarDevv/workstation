@@ -23,6 +23,7 @@ upgraded to their current stable release unless `-SkipUpgrade` is passed.
 | `Microsoft.PowerShell` | PowerShell 7 | Runtime for this repository |
 | `Microsoft.WindowsTerminal` | Windows Terminal | Interactive terminal |
 | `Microsoft.VisualStudioCode` | VS Code | Editor |
+| `StablyAI.Orca` | Orca | Worktree IDE for running coding agents side by side |
 | `Google.Chrome` | Chrome | Browser |
 | `Docker.DockerDesktop` | Docker Desktop | Containers; may require a reboot |
 | `Microsoft.WSL` | WSL 2 | Linux environment; may require a reboot |
