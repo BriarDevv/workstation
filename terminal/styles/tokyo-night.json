@@ -1,0 +1,82 @@
+{
+  "$comment": "Cold night-blue look. Maple Mono is rounded and warm, which keeps the high-contrast palette from reading as clinical; bold rather than mocha's extra-black for the same reason. The family has no winget package - apps/README.md declares where it comes from.",
+  "description": "Tokyo Night. Bold Maple Mono, translucent, torii logo.",
+  "font": {
+    "family": "Maple Mono NF",
+    "size": 10,
+    "weight": "bold",
+    "cellHeight": "1.2"
+  },
+  "terminal": {
+    "colorScheme": "Tokyo Night",
+    "opacity": 75,
+    "useAcrylic": true,
+    "padding": "8",
+    "cursorShape": "filledBox",
+    "intenseTextStyle": "all"
+  },
+  "fastfetch": {
+    "asciiArt": "03-torii.txt",
+    "logoColors": {
+      "1": "#E0AF68",
+      "2": "#FF9E64",
+      "3": "#F7768E",
+      "4": "#BB9AF7",
+      "5": "#9D7CD8",
+      "6": "#7AA2F7",
+      "7": "#7DCFFF",
+      "8": "#2AC3DE",
+      "9": "#565F89"
+    },
+    "logoPadding": {
+      "top": 1,
+      "right": 3
+    },
+    "display": {
+      "separator": " "
+    },
+    "modules": [
+      "break",
+      {
+        "type": "title",
+        "color": {
+          "user": "#BB9AF7",
+          "at": "#565F89",
+          "host": "#7DCFFF"
+        }
+      },
+      "break",
+      {
+        "type": "os",
+        "key": "",
+        "keyColor": "#7AA2F7"
+      },
+      {
+        "type": "cpu",
+        "key": "",
+        "keyColor": "#BB9AF7"
+      },
+      {
+        "type": "board",
+        "key": "󰚗",
+        "keyColor": "#FF9E64"
+      },
+      {
+        "type": "memory",
+        "key": "",
+        "keyColor": "#9ECE6A",
+        "format": "{used} / {total} ({percentage})"
+      },
+      {
+        "type": "disk",
+        "key": "",
+        "keyColor": "#7DCFFF"
+      },
+      "break",
+      {
+        "type": "colors",
+        "symbol": "circle"
+      }
+    ]
+  }
+}
