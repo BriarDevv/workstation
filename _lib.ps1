@@ -371,3 +371,143 @@ function Resolve-FontFamily {
     return [System.Drawing.FontFamily]::Families.Name |
         Where-Object { $_ -match $Pattern } | Sort-Object Length | Select-Object -First 1
 }
+
+# Most coding fonts have no winget package at all - Nerd Fonts publishes a zip per family on
+# GitHub and nothing else. Without this, choosing one of those would make the font the single
+# manual step in an otherwise scripted restore, and the styles that need it would fail their
+# validation on a fresh machine with no way to fix it except remembering.
+#
+# Family and URL both backticked, which skips the header and the ---- separator for free.
+function Get-FontRowsFromReadme {
+    param(
+        [Parameter(Mandatory)][string]$ReadmePath,
+        [Parameter(Mandatory)][string[]]$Sections
+    )
+    $current = ''
+    $rows = [System.Collections.Generic.List[hashtable]]::new()
+    foreach ($line in Get-Content $ReadmePath) {
+        if ($line -match '^##\s+(.+?)\s*$') { $current = $Matches[1].Trim(); continue }
+        if ($Sections -notcontains $current) { continue }
+        if ($line -notmatch '^\|\s*`([^`]+)`\s*\|\s*`([^`]+)`\s*\|') { continue }
+        $rows.Add(@{ Family = $Matches[1].Trim(); Url = $Matches[2].Trim() })
+    }
+    return $rows
+}
+
+# GDI keeps a per-session list of the fonts it knows about, built when a process first asks.
+# A file dropped into the user font directory is not in it. That matters here rather than in
+# the abstract: install.ps1 at the repo root runs apps\ and terminal\ in one process, so
+# without this the terminal step would fail its font check on the very font the apps step had
+# just installed. The broadcast is the same courtesy for programs already open.
+$script:FontApi = $null
+function Get-FontApi {
+    if (-not $script:FontApi) {
+        $script:FontApi = Add-Type -Name Font -Namespace Workstation -PassThru -MemberDefinition @'
+[DllImport("gdi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+public static extern int AddFontResourceW(string path);
+
+[DllImport("user32.dll", SetLastError = true)]
+public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint msg, IntPtr wParam,
+    IntPtr lParam, uint flags, uint timeout, out UIntPtr result);
+'@
+    }
+    return $script:FontApi
+}
+
+function Publish-FontChange {
+    $api = Get-FontApi
+    $result = [UIntPtr]::Zero
+    # HWND_BROADCAST, WM_FONTCHANGE, SMTO_ABORTIFHUNG. Timeout so one wedged window can't
+    # hang a restore.
+    [void]$api::SendMessageTimeout([IntPtr]0xFFFF, 0x001D, [IntPtr]::Zero, [IntPtr]::Zero, 2, 1000, [ref]$result)
+}
+
+# Install every font file in a release zip, for the current user. User scope on purpose:
+# C:\Windows\Fonts needs elevation and nothing else in apps\install.ps1 does, so requiring it
+# here would turn an unattended restore into one that stops for a UAC prompt.
+#
+# Returns 'skip', 'ok' or 'fail' like Install-WingetPackage, so callers report it the same way.
+function Install-ZipFont {
+    param(
+        [Parameter(Mandatory)][string]$Family,
+        [Parameter(Mandatory)][string]$Url,
+        [switch]$SkipUpgrade
+    )
+
+    $have = Resolve-FontFamily "^$([regex]::Escape($Family))$"
+
+    if ($have -and $SkipUpgrade) { Write-Skip "$Family - held back by -SkipUpgrade"; return 'skip' }
+    if ($script:DryRun) {
+        if ($have) { Write-Would "re-check $Family against $Url and install anything that changed" }
+        else { Write-Would "download $Family from $Url and install it for the current user" }
+        return 'ok'
+    }
+
+    $fontDir = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts'
+    $regPath = 'HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts'
+    $stage = Join-Path ([IO.Path]::GetTempPath()) "workstation-font-$PID-$([guid]::NewGuid().ToString('N'))"
+    $written = 0
+    $seen = 0
+
+    try {
+        New-Item -ItemType Directory -Path $stage | Out-Null
+        $zip = Join-Path $stage 'font.zip'
+        if (-not $have) { Write-Host "  ...downloading $Family" -ForegroundColor DarkYellow }
+        Invoke-WebRequest $Url -OutFile $zip -UseBasicParsing
+        $unpacked = Join-Path $stage 'unpacked'
+        Expand-Archive $zip -DestinationPath $unpacked -Force
+
+        $files = @(Get-ChildItem $unpacked -Recurse -File | Where-Object Extension -in '.ttf', '.otf')
+        if (-not $files) { throw "no .ttf or .otf inside the archive" }
+        $seen = $files.Count
+
+        New-Item -ItemType Directory -Force -Path $fontDir | Out-Null
+        if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+
+        foreach ($f in $files) {
+            $target = Join-Path $fontDir $f.Name
+
+            # Compare contents rather than trusting the family being present. That is what
+            # makes a re-run cheap and still lets a new upstream release actually land -
+            # "latest stable of everything" has to hold for fonts too.
+            if ((Test-Path -LiteralPath $target) -and
+                (Get-FileHash -LiteralPath $target).Hash -eq (Get-FileHash -LiteralPath $f.FullName).Hash) {
+                continue
+            }
+
+            Copy-Item -LiteralPath $f.FullName -Destination $target -Force
+
+            # The value name is cosmetic - it labels the font in Settings, while rendering
+            # follows the path in the value. The file's own name is close enough and cannot
+            # disagree with the file it points at.
+            $kind = if ($f.Extension -eq '.otf') { 'OpenType' } else { 'TrueType' }
+            Set-ItemProperty -Path $regPath -Name "$($f.BaseName) ($kind)" -Value $target
+            [void](Get-FontApi)::AddFontResourceW($target)
+            $written++
+        }
+    }
+    catch {
+        # _lib sets $ErrorActionPreference to Stop, so a dropped download would otherwise
+        # take the whole restore down with it.
+        Write-Fail "$Family - $($_.Exception.Message)"
+        return 'fail'
+    }
+    finally {
+        if (Test-Path $stage) { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    if (-not $written) { Write-Skip "$Family already current ($seen files)"; return 'skip' }
+    Publish-FontChange
+
+    # A font that didn't register renders as hollow boxes with no error anywhere, so confirm
+    # the family Windows now reports rather than assuming the copy was enough. A mismatch is
+    # nearly always the name in README.md, not the install.
+    if (-not (Resolve-FontFamily "^$([regex]::Escape($Family))$")) {
+        Write-Fail "installed $written file(s) but Windows reports no family called '$Family'"
+        Write-Warn2 "check that name against the font itself - it is what styles reference"
+        return 'fail'
+    }
+
+    Write-Ok "$Family ($written of $seen file(s) written)"
+    return 'ok'
+}

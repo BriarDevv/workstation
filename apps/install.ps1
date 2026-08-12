@@ -63,6 +63,10 @@ $core = Get-IdsFromReadme $readme @('Essentials', 'Terminal', 'Desktop / utiliti
 $extra = Get-IdsFromReadme $readme @('Optional')
 $targets = if ($Optional) { $core + $extra } else { $core }
 
+# Read from their own table rather than the winget ones: these are (family, URL) pairs with
+# no package manager behind them, and they install per-user instead of machine-wide.
+$fonts = @(Get-FontRowsFromReadme $readme @('Fonts outside winget'))
+
 # Kept out of $targets on purpose. These need --source msstore, and they are deliberately
 # absent from the upgrade pass below: Store apps update themselves, and `winget upgrade` on a
 # Store ID without a source can hit the ambiguity error the source flag exists to avoid.
@@ -128,6 +132,18 @@ if (-not $SkipUpgrade) {
     if ($fresh.Count) { Write-Skip "$($fresh.Count) just installed - already at the latest" }
     foreach ($id in $stale) {
         if ((Update-WingetPackage $id) -eq 'fail') { $failed.Add("upgrade: $id") }
+    }
+}
+
+# ---------------------------------------------------------------- fonts outside winget
+# After the winget pass rather than inside it: these have no package manager to ask, so
+# "already installed" and "needs upgrading" are answered by comparing the archive's contents.
+if ($fonts.Count) {
+    Write-Step "Fonts outside winget — $($fonts.Count)"
+    foreach ($font in $fonts) {
+        if ((Install-ZipFont -Family $font.Family -Url $font.Url -SkipUpgrade:$SkipUpgrade) -eq 'fail') {
+            $failed.Add("font: $($font.Family)")
+        }
     }
 }
 
@@ -377,7 +393,7 @@ else {
 # CLAUDE.md: "Report honestly: what came out green, what failed." A run that scrolled two
 # hundred lines past you isn't a report - and the lines that matter are the ones you missed.
 Write-Step 'Summary'
-Write-Host "  $($targets.Count) winget packages checked, $($wanted.Count) npm globals" -ForegroundColor DarkGray
+Write-Host "  $($targets.Count) winget packages checked, $($fonts.Count) zip font(s), $($wanted.Count) npm globals" -ForegroundColor DarkGray
 
 if ($fresh.Count) {
     if ($script:DryRun) { Write-Would "install $($fresh.Count) package(s)" }
