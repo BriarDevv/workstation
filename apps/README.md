@@ -121,9 +121,9 @@ winget ID is explicit desired state; moving to a new major requires changing the
 
 ## npm globals
 
-| Package | Purpose |
-| --- | --- |
-| `oh-my-claude-sisyphus` | OMC orchestration layer for Claude Code |
+None are declared. OMC (`oh-my-claude-sisyphus`) was the only entry, and it was
+uninstalled on 2026-08-12; `claude/README.md` records what it used to own. Only a
+backticked first cell in a table row is read as a package, so prose here installs nothing.
 
 Global executables land in `%APPDATA%\npm`, which the installer adds to the user PATH. The
 repo-owned `.npmrc` sets `ignore-scripts=true`; override it only for a specific trusted
