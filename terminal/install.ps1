@@ -89,11 +89,16 @@ if ($List) {
     Write-Step 'ASCII art'
     Get-ChildItem $artsDir -Filter *.txt | ForEach-Object { Write-Host "  $($_.Name)" }
 
-    Write-Step 'Monospaced Nerd Fonts installed here'
+    # Nerd Fonts suffix by variant, not by whether the family is monospaced: NFM and the long
+    # "Nerd Font Mono" are the forced-mono builds, plain NF keeps the base font's own metrics
+    # - which is still monospaced when the base font is, as with Maple Mono NF. Listing only
+    # the forced-mono suffixes hid an installed family that a style is legitimately using.
+    # NFP / "Nerd Font Propo" stays out: that one really is proportional.
+    Write-Step 'Nerd Fonts installed here'
     Write-Host '  (any of these can go in a style''s font.family)' -ForegroundColor DarkGray
     Add-Type -AssemblyName System.Drawing -ErrorAction SilentlyContinue
     $mono = [System.Drawing.FontFamily]::Families.Name |
-        Where-Object { $_ -match '(NFM|Nerd Font Mono)$' } | Sort-Object
+        Where-Object { $_ -match '(NFM|NF|Nerd Font( Mono)?)$' } | Sort-Object
     if ($mono) { $mono | ForEach-Object { Write-Host "  $_" } }
     else { Write-Warn2 'none found - install one from apps\install.ps1' }
     exit 0

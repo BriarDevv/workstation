@@ -68,10 +68,14 @@ Use the exact family name registered by Windows:
 pwsh terminal\install.ps1 -List
 ```
 
-Nerd Fonts may register a mono family with a compact `NFM` suffix or a longer `Nerd Font
-Mono` name. The installer resolves the exact requested name first, then the equivalent mono
-variant. It stops if neither exists; Windows Terminal's silent fallback would otherwise
-make the configuration appear valid while rendering the wrong font.
+Nerd Fonts suffix by build, not by whether the family is monospaced: `NFM` and the longer
+`Nerd Font Mono` are the forced-mono builds, while a plain `NF` keeps the base font's own
+metrics — still monospaced when the base font is, as with `Maple Mono NF`. `-List` shows all
+of those and omits `NFP` / `Nerd Font Propo`, which really is proportional.
+
+The installer resolves the exact requested name first, then the equivalent mono variant. It
+stops if neither exists; Windows Terminal's silent fallback would otherwise make the
+configuration appear valid while rendering the wrong font.
 
 Nothing here installs a font. A style may name a family that no winget package ships — add
 it to the `Fonts outside winget` table in `apps/README.md`, which `apps/install.ps1`
