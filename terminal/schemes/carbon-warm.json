@@ -1,0 +1,23 @@
+{
+  "background": "#100E0D",
+  "black": "#1A1715",
+  "blue": "#7E93A8",
+  "brightBlack": "#5A524B",
+  "brightBlue": "#98ADC2",
+  "brightCyan": "#9DC0B7",
+  "brightGreen": "#B9CB7C",
+  "brightPurple": "#D6A3C0",
+  "brightRed": "#F08578",
+  "brightWhite": "#F2ECE4",
+  "brightYellow": "#F0C07A",
+  "cursorColor": "#E0A860",
+  "cyan": "#86A9A0",
+  "foreground": "#E4DED6",
+  "green": "#A3B565",
+  "name": "Carbon Warm",
+  "purple": "#C08BA8",
+  "red": "#E06B5F",
+  "selectionBackground": "#3A322C",
+  "white": "#D6CFC6",
+  "yellow": "#E0A860"
+}

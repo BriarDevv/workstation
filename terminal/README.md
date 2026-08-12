@@ -41,6 +41,7 @@ settings; every unrelated editor setting remains untouched and owned by Settings
 | `font.family`, `size`, `weight`, `cellHeight` | Registered Windows font and metrics |
 | `terminal.colorScheme` | A scheme name present in `schemes/` |
 | `terminal.opacity`, `useAcrylic`, `padding`, `cursorShape` | Profile defaults |
+| `fastfetch` | Optional. Omit the whole block for a style that opens to a bare prompt |
 | `fastfetch.asciiArt` | A filename in `ascii-arts/` |
 | `fastfetch.logoColors`, `logoPadding`, `display` | Logo and value presentation |
 | `fastfetch.modules` | Complete startup module list |
@@ -50,8 +51,14 @@ state such as profiles, keybindings, and tab behavior belongs in
 `windows-terminal/settings.json` instead.
 
 To add a look, scaffold it from the active style, edit the resulting JSON, add any required
-scheme or ASCII asset, then apply it. The installer rejects an unknown scheme, missing art,
-empty module list, or unresolved font before writing outputs.
+scheme or ASCII asset, then apply it. The installer rejects an unknown scheme or an
+unresolved font before writing outputs, and rejects missing art or an empty module list in
+any style that declares `fastfetch`.
+
+Dropping the `fastfetch` block is the supported way to ask for a bare prompt. Switching to
+such a style backs up and removes the generated `config.jsonc`, because the profile keys off
+that file: leaving it behind would keep the previous style's fetch, and removing it while
+still calling fastfetch would surface its built-in logo instead.
 
 ## Fonts
 
@@ -77,7 +84,8 @@ The installer:
 1. resolves and validates the style;
 2. checks updates for Windows Terminal and fastfetch unless `-SkipUpgrade` is used;
 3. composes Windows Terminal settings only for installed Terminal variants;
-4. generates fastfetch config and copies raw ASCII assets;
+4. generates fastfetch config and copies raw ASCII assets, or removes a stale generated
+   config when the style declares no fetch;
 5. installs the PowerShell profile;
 6. optionally updates the live VS Code font; and
 7. records a newly selected active style.
@@ -87,8 +95,9 @@ upgrade or write makes the script exit non-zero.
 
 ## PowerShell profile
 
-The profile runs fastfetch only in an interactive console and defines the deliberate Claude
-wrapper:
+The profile runs fastfetch only in an interactive console, and only when the active style
+generated a config for it. It also carries the marked dual-account block, which defines the
+deliberate Claude wrapper:
 
 ```powershell
 function claude { & claude.exe --effort xhigh --dangerously-skip-permissions @args }
