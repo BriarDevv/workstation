@@ -1,0 +1,11 @@
+{
+  "$comment": "Copy to secrets/hud-accounts.json and fill in the real emails (secrets/ never enters git). `color` may name a slot of the active terminal scheme (brightCyan, purple, ... - resolved to its hex at install time), or be a literal #RRGGBB, or a classic ANSI name (cyan, magenta, ...). `slots` declares which account OWNS each config dir: the HUD chip turns red with `!` when a foreign credential shows up in an owned slot.",
+  "accounts": {
+    "personal@example.com": { "label": "personal", "color": "brightCyan" },
+    "second@example.com": { "label": "second", "color": "brightPurple" }
+  },
+  "slots": {
+    "~/.claude": "personal@example.com",
+    "~/.claude-pegasuz": "second@example.com"
+  }
+}

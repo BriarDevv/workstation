@@ -59,6 +59,7 @@ $STEPS = @(
     @{ Name = 'terminal'; What = 'the look' }
     @{ Name = 'dev'; What = 'git, repos' }
     @{ Name = 'claude'; What = 'Claude Code' }
+    @{ Name = 'accounts'; What = 'the two Claude accounts' }
     @{ Name = 'windows'; What = 'Explorer tweaks - restarts Explorer' }
 )
 

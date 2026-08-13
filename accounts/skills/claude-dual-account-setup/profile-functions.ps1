@@ -1,4 +1,15 @@
-# >>> claude-dual-account-setup >>>
+# Canonical source for the two Claude Code account commands.
+#
+# This file is NOT dot-sourced by $PROFILE. repair.ps1 copies its contents into
+# a marked block inside $PROFILE, so the profile stays self-contained and keeps
+# working even if this skill directory is moved or deleted.
+# terminal/powershell/profile.ps1 in this repo carries the same block and must
+# stay identical: it is what a full restore writes as the initial $PROFILE.
+#
+# To change how either account launches, edit THIS file, run repair.ps1 -Force,
+# and mirror the block into terminal/powershell/profile.ps1.
+
+#region profile-block
 # Personal account, xhigh effort by default (max is reserved for extreme cases).
 # The machine's ambient default (User-scope CLAUDE_CONFIG_DIR) points at
 # ~/.claude-pegasuz, so reaching the personal account requires typing `claude`:
@@ -57,4 +68,4 @@ function pegasuz {
         else { Remove-Item Env:\CLAUDE_CONFIG_DIR -ErrorAction SilentlyContinue }
     }
 }
-# <<< claude-dual-account-setup <<<
+#endregion
