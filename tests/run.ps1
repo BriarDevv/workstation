@@ -258,7 +258,7 @@ Test-Case 'global rules directory has no generic resident rules' {
 
 Test-Case 'all normal installers expose WhatIfOnly and explicit success' {
     foreach ($relative in @('layout\install.ps1', 'apps\install.ps1', 'terminal\install.ps1',
-            'dev\install.ps1', 'claude\install.ps1', 'windows\install.ps1')) {
+            'dev\install.ps1', 'claude\install.ps1', 'accounts\install.ps1', 'windows\install.ps1')) {
         $source = Get-Content (Join-Path $repo $relative) -Raw
         Assert-True ($source -match '\[switch\]\$WhatIfOnly') "$relative has no WhatIfOnly switch"
         Assert-True ($source -match '(?m)^exit 0\s*$') "$relative has no explicit exit 0"

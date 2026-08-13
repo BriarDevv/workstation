@@ -4,7 +4,8 @@
   "autoUpdatesChannel": "latest",
   "statusLine": {
     "type": "command",
-    "command": "node \"C:/Briar/repos/mine/hud/hud.mjs\""
+    "command": "node \"C:/Briar/repos/mine/hud/src/claude/statusline.mjs\"",
+    "refreshInterval": 60
   },
 
   "env": {

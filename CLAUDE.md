@@ -20,7 +20,17 @@ desired state, not a historical inventory of the current machine.
   on purpose — retain unless asked otherwise.
 - `claude/CLAUDE.md` is a SYNCED COPY; the canonical source is
   `Context-Engineering/global/CLAUDE.md`. Skills are junction-linked from
-  the `Context-Engineering` and `skills` repos by `claude/install.ps1`.
+  the `Context-Engineering` and `skills` repos by `claude/install.ps1` —
+  except `claude-dual-account-setup`, which lives in `accounts/` here and is
+  linked by `accounts/install.ps1`.
+- The dual-account launcher block exists in THREE synced copies:
+  `accounts/skills/claude-dual-account-setup/profile-functions.ps1`
+  (canonical), `terminal/powershell/profile.ps1` (what a restore writes as
+  `$PROFILE`), and the live `$PROFILE`. Change a launcher in the canonical,
+  run its `repair.ps1 -Force`, and mirror the terminal copy.
+- `secrets/hud-accounts.json` (account emails for the HUD chip) never enters
+  git; `accounts/hud-accounts.example.json` is the shape. Scheme-slot color
+  names in it resolve against the active terminal scheme at install time.
 - `windows/debloat.ps1` is intentionally outside the automatic restore path.
 - The terminal ASCII `.txt` files are raw fastfetch assets — never reformat.
 - Docs and comments in English, except the user-facing

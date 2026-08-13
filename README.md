@@ -42,7 +42,9 @@ The root installer is the executable source of truth:
 3. `terminal/` composes Windows Terminal, fastfetch, and the PowerShell profile.
 4. `dev/` applies Git configuration and restores repositories.
 5. `claude/` applies Claude Code configuration and optional MCP servers.
-6. `windows/` applies OS preferences and restarts Explorer when necessary.
+6. `accounts/` applies the dual Claude account system: ambient default, links,
+   launcher functions, and the HUD account mapping.
+7. `windows/` applies OS preferences and restarts Explorer when necessary.
 
 Useful forms:
 
