@@ -5,7 +5,8 @@ adding a list means adding a file — there's nothing to register it in.
 
 | File          | What's in it                          |
 | ------------- | ------------------------------------- |
-| `mine.md`     | The `bygama` repos                 |
+| `mine.md`     | Personal `bygama` repos               |
+| `work.md`     | Client/work projects                  |
 | `external.md` | Anyone else's. Empty, and that's fine |
 
 Split them however you like — by owner, by client, by whether you actually work on them.
