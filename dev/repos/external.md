@@ -11,8 +11,9 @@ is a folder that grows forever.
 Team projects count too: the source of truth is the team's remote, so the local
 checkout is just as disposable.
 
+Empty is the normal state.
+
 ## The list
 
-| Repo  | Remote         |
-| ----- | -------------- |
-| Ynara | `bygama/Ynara` |
+| Repo | Remote |
+| ---- | ------ |
