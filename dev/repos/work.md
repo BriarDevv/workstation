@@ -11,10 +11,12 @@ GitHub remote yet, so there is nothing to clone.
 
 ## The list
 
-| Repo            | Remote                   |
-| --------------- | ------------------------ |
-| Birmania-Inc    | `bygama/Birmania-Inc.`   |
-| Bystellabotella | `bygama/Bystellabotella` |
-| KioscoDiagonal  | `bygama/Kiosco-Diagonal` |
-| RCSistemas      | `bygama/RCSistemas`      |
-| ecotronk        | `bygama/ecotronk`        |
+| Repo                     | Remote                            |
+| ------------------------ | --------------------------------- |
+| Birmania-Inc             | `bygama/Birmania-Inc.`            |
+| Bystellabotella          | `bygama/Bystellabotella`          |
+| Empoderamiento-Docente   | `bygama/Empoderamiento-Docente`   |
+| Inferiores-Riverplatense | `bygama/Inferiores-riverplatense` |
+| KioscoDiagonal           | `bygama/Kiosco-Diagonal`          |
+| RCSistemas               | `bygama/RCSistemas`               |
+| ecotronk                 | `bygama/ecotronk`                 |
