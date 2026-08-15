@@ -54,7 +54,7 @@ Pegá este mensaje dentro de Claude Code:
 ```text
 Acabo de formatear Windows 11 Pro.
 
-Cloná https://github.com/BriarDevv/workstation.git en $HOME\workstation y tratá ese
+Cloná https://github.com/bygama/workstation.git en $HOME\workstation y tratá ese
 repositorio como el estado deseado de esta computadora.
 
 Leé primero el README raíz y la documentación de cada carpeta. Ejecutá las pruebas y el

@@ -22,7 +22,7 @@ winget install --id GitHub.cli --exact
 irm https://claude.ai/install.ps1 | iex
 
 gh auth login
-git clone https://github.com/BriarDevv/workstation.git $HOME\workstation
+git clone https://github.com/bygama/workstation.git $HOME\workstation
 cd $HOME\workstation
 pwsh .\install.ps1 -WhatIfOnly
 pwsh .\install.ps1

@@ -348,7 +348,7 @@ Test-Case 'post-format handoff contains every human bootstrap prerequisite' {
     $guide = Get-Content (Join-Path $repo 'docs\post-format.md') -Raw
     foreach ($token in @('Git.Git', 'GitHub.cli', 'Microsoft.PowerShell',
             'https://claude.ai/install.ps1', 'gh auth login', 'claude doctor',
-            'BriarDevv/workstation.git', '-WhatIfOnly')) {
+            'bygama/workstation.git', '-WhatIfOnly')) {
         Assert-True $guide.Contains($token) "post-format guide is missing: $token"
     }
     Assert-True $guide.Contains('nunca uses -AllUsers') 'handoff does not lock debloat to the current user'

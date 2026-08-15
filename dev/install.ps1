@@ -126,7 +126,7 @@ else {
 
     if (-not $authed -and -not $script:DryRun) {
         Write-Warn2 "$($repos.Count) repos skipped - not logged in. Run:  gh auth login"
-        Write-Host '         Use the GitHub account that can access the BriarDevv repos, over HTTPS.' -ForegroundColor DarkGray
+        Write-Host '         Use the GitHub account that can access the bygama repos, over HTTPS.' -ForegroundColor DarkGray
         $failed.Add('gh auth login')
     }
     else {

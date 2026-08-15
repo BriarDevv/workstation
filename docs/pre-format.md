@@ -15,6 +15,6 @@ the final desired state. Files elsewhere on this machine are intentionally dispo
 
 ## Verify before erasing
 
-Clone `BriarDevv/workstation` into a temporary directory and confirm the clean clone contains
+Clone `bygama/workstation` into a temporary directory and confirm the clean clone contains
 the latest commit, `docs/post-format.md`, `tests/`, and `windows/audit.ps1`. Only start
 **Reset this PC** after that clone succeeds.
