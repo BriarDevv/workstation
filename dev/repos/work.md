@@ -13,6 +13,7 @@ GitHub remote yet, so there is nothing to clone.
 
 | Repo            | Remote                   |
 | --------------- | ------------------------ |
+| Birmania-Inc    | `bygama/Birmania-Inc.`   |
 | Bystellabotella | `bygama/Bystellabotella` |
 | KioscoDiagonal  | `bygama/Kiosco-Diagonal` |
 | RCSistemas      | `bygama/RCSistemas`      |

@@ -8,9 +8,11 @@ without thinking about it.** Whatever is in here came from somewhere else and ca
 there again. That is not true of `mine\`, and a folder you can't clear without checking first
 is a folder that grows forever.
 
-Empty is the normal state.
+Team projects count too: the source of truth is the team's remote, so the local
+checkout is just as disposable.
 
 ## The list
 
-| Repo | Remote |
-| ---- | ------ |
+| Repo  | Remote         |
+| ----- | -------------- |
+| Ynara | `bygama/Ynara` |

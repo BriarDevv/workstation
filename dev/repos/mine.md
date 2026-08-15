@@ -10,7 +10,7 @@ They land in `repos\mine\` because **this file is called `mine.md`**. See `READM
 | Repo                     | Remote                            |
 | ------------------------ | --------------------------------- |
 | Portafolio               | `bygama/Portafolio`               |
-| Ynara                    | `bygama/Ynara`                    |
+| Scouter                  | `bygama/Scouter`                  |
 | Empoderamiento-Docente   | `bygama/Empoderamiento-Docente`   |
 | Inferiores-Riverplatense | `bygama/Inferiores-riverplatense` |
 | Context-Engineering      | `bygama/Context-Engineering`      |
