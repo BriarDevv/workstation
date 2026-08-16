@@ -19,8 +19,8 @@ desired state, not a historical inventory of the current machine.
 - The terminal profile launches Claude with `--dangerously-skip-permissions`
   on purpose — retain unless asked otherwise.
 - `claude/CLAUDE.md` is a SYNCED COPY; the canonical source is
-  `Context-Engineering/global/CLAUDE.md`. Skills are junction-linked from
-  the `Context-Engineering` and `skills` repos by `claude/install.ps1` —
+  `Agent-Engineering/global/CLAUDE.md`. Skills are junction-linked from
+  the `Agent-Engineering` and `skills` repos by `claude/install.ps1` —
   except `claude-dual-account-setup`, which lives in `accounts/` here and is
   linked by `accounts/install.ps1`.
 - The dual-account launcher block exists in THREE synced copies:

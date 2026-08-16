@@ -41,14 +41,14 @@ complete original file remains in the run backup.
 ## Skills and statusline
 
 User skills are junction links into the skill source repos —
-`repos\mine\Context-Engineering\skills\` and `repos\mine\skills\skills\` — the installer
+`repos\mine\Agent-Engineering\skills\` and `repos\mine\skills\skills\` — the installer
 creates one link per skill directory found there, so a skill added to either repo appears
 on the next run with no copy step. The statusline is the `hud` repo (`repos\mine\hud`),
 declared in `settings.json` as desired state; all three repos are cloned by `dev/repos`
 before this step can succeed on a clean machine.
 
 `claude/CLAUDE.md` here is a synced copy; its canonical source is
-`Context-Engineering/global/CLAUDE.md`. Edit there first, copy here, then re-run the
+`Agent-Engineering/global/CLAUDE.md`. Edit there first, copy here, then re-run the
 installer.
 
 <details>
@@ -56,7 +56,7 @@ installer.
 
 oh-my-claudecode previously owned hooks, 19 agents, ~37 skills, a generated block between
 `OMC:START`/`OMC:END` markers in the live CLAUDE.md, and the statusline. It was removed
-after an audit (see `Context-Engineering/docs/adrs/ADR-003-omc-removal.md`); its
+after a 19-agent audit (2026-07-30); its
 `omc setup --force-hooks` quirk only matters if it is ever reinstalled.
 </details>
 

@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Reconciles the Claude Code CLI prerequisite, marketplaces, plugins, CLAUDE.md, rules,
-    the Context-Engineering skill junctions, settings.json, and - only with -Secrets - the
+    the Agent-Engineering skill junctions, settings.json, and - only with -Secrets - the
     user-scope MCP servers declared here.
 
     settings.json is merged rather than copied. Repo keys win and valid unmanaged live keys
@@ -226,7 +226,7 @@ foreach ($liveRule in @(Get-ChildItem $rulesDst -Filter *.md -ErrorAction Silent
 # ---------------------------------------------------------------- skills
 Write-Step 'Skills (repo junctions)'
 $skillSources = @(
-    (Join-Path (Get-LayoutPath 'repos') 'mine\Context-Engineering\skills'),
+    (Join-Path (Get-LayoutPath 'repos') 'mine\Agent-Engineering\skills'),
     (Join-Path (Get-LayoutPath 'repos') 'mine\skills\skills')
 )
 $skillsDst = Join-Path $claudeHome 'skills'
@@ -290,8 +290,8 @@ foreach ($k in $liveSettings.Keys) {
 }
 foreach ($k in $repoSettings.Keys) { $merged[$k] = $repoSettings[$k] }
 
-# User-directory skills load normally: the four Context-Engineering skills are designed
-# for automatic triggering, so no skillOverrides are generated anymore.
+# User-directory skills load normally: the standard's skills (Agent-Engineering repo) are
+# designed for automatic triggering, so no skillOverrides are generated anymore.
 $merged.Remove('skillOverrides')
 
 $kept = @($liveSettings.Keys | Where-Object {
