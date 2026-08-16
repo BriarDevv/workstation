@@ -39,7 +39,7 @@ $failed = [System.Collections.Generic.List[string]]::new()
 $claudeHome = Join-Path $HOME '.claude'
 
 # ---------------------------------------------------------------- skill junction
-# claude/install.ps1 links skills from the Context-Engineering and skills repos;
+# claude/install.ps1 links skills from the Agent-Engineering and skills repos;
 # this one lives here because it IS workstation state. Same junction idiom.
 Write-Step 'Dual-account skill (junction)'
 $skillSrc = Join-Path $PSScriptRoot 'skills\claude-dual-account-setup'

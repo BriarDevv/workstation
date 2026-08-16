@@ -7,10 +7,10 @@ They land in `repos\mine\` because **this file is called `mine.md`**. See `READM
 
 ## The list
 
-| Repo                | Remote                       |
-| ------------------- | ---------------------------- |
-| Portafolio          | `bygama/Portafolio`          |
-| Context-Engineering | `bygama/Context-Engineering` |
-| hud                 | `bygama/hud`                 |
-| skills              | `bygama/skills`              |
-| archive             | `bygama/archive`             |
+| Repo              | Remote                     |
+| ----------------- | -------------------------- |
+| Portafolio        | `bygama/Portafolio`        |
+| Agent-Engineering | `bygama/Agent-Engineering` |
+| hud               | `bygama/hud`               |
+| skills            | `bygama/skills`            |
+| archive           | `bygama/archive`           |
