@@ -302,11 +302,18 @@ foreach ($k in $repoSettings.Keys) { $merged[$k] = $repoSettings[$k] }
 
 # Repo-managed hooks MERGE into the live hooks key instead of replacing it:
 # Orca injects its own hook entries into the live file at runtime and they
-# must survive every install. Entries are identified by their exact command
-# string; the repo adds what is missing and never removes.
+# must survive every install. `${CLAUDE_HOME}` in hook commands resolves to
+# the absolute ~/.claude path HERE — the hook runner's shell is not cmd and
+# expands no %VARS%, so the stored command must need no expansion at all
+# (learned from the 2026-08-18 session-start failure). Repo-owned entries
+# are recognized by the .ps1 script file they call and REPLACED in place,
+# so a command or timeout edit propagates and stale variants never
+# accumulate; Orca-injected hooks reference no repo script and are never
+# touched.
 $repoHooksPath = Join-Path $PSScriptRoot 'hooks.json'
 if (Test-Path $repoHooksPath) {
-    $repoHooks = Get-Content $repoHooksPath -Raw | ConvertFrom-Json -AsHashtable
+    $repoHooksRaw = (Get-Content $repoHooksPath -Raw).Replace('${CLAUDE_HOME}', ($claudeHome -replace '\\', '/'))
+    $repoHooks = $repoHooksRaw | ConvertFrom-Json -AsHashtable
     $mergedHooks = if ($merged.ContainsKey('hooks') -and (Test-HooksShape $merged['hooks'])) { $merged['hooks'] } else { @{} }
     foreach ($eventName in $repoHooks.Keys) {
         $entries = [System.Collections.Generic.List[object]]::new()
@@ -314,12 +321,21 @@ if (Test-Path $repoHooksPath) {
             foreach ($e in $mergedHooks[$eventName]) { $entries.Add($e) }
         }
         foreach ($wanted in $repoHooks[$eventName]) {
-            $wantedCommands = @($wanted.hooks | ForEach-Object { $_.command })
-            $present = $false
+            $wantedScripts = @($wanted.hooks | ForEach-Object {
+                    if ($_.command -match '([\w.-]+\.ps1)') { $Matches[1] }
+                } | Where-Object { $_ })
+            $kept = [System.Collections.Generic.List[object]]::new()
             foreach ($e in $entries) {
-                foreach ($h in $e.hooks) { if ($h.command -in $wantedCommands) { $present = $true } }
+                $ownedByRepo = $false
+                foreach ($h in $e.hooks) {
+                    foreach ($s in $wantedScripts) {
+                        if ($h.command -like "*$s*") { $ownedByRepo = $true }
+                    }
+                }
+                if (-not $ownedByRepo) { $kept.Add($e) }
             }
-            if (-not $present) { $entries.Add($wanted) }
+            $kept.Add($wanted)
+            $entries = $kept
         }
         $mergedHooks[$eventName] = $entries.ToArray()
     }
