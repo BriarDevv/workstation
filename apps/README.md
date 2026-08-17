@@ -24,6 +24,7 @@ upgraded to their current stable release unless `-SkipUpgrade` is passed.
 | `Microsoft.WindowsTerminal` | Windows Terminal | Interactive terminal |
 | `Microsoft.VisualStudioCode` | VS Code | Editor |
 | `StablyAI.Orca` | Orca | Worktree IDE for running coding agents side by side |
+| `SST.opencode` | opencode | AI coding agent for the terminal |
 | `Google.Chrome` | Chrome | Browser |
 | `Docker.DockerDesktop` | Docker Desktop | Containers; may require a reboot |
 | `Microsoft.WSL` | WSL 2 | Linux environment; may require a reboot |
@@ -66,6 +67,7 @@ download and no writes.
 | `CharlesMilette.TranslucentTB` | TranslucentTB | Transparent taskbar |
 | `Discord.Discord` | Discord | Messaging |
 | `Anthropic.Claude` | Claude Desktop | Desktop client; separate from Claude Code CLI |
+| `LinearOrbit.Linear` | Linear | Issue tracking and project planning |
 | `Logitech.GHUB` | Logitech G HUB | Peripheral configuration |
 | `Spotify.Spotify` | Spotify | Music |
 
@@ -123,7 +125,7 @@ These rows use `--source msstore`; a signed-in Microsoft account may be required
 | --- | --- | --- |
 | **Porofessor** | Vendor installation is not part of this manifest | `porofessor.gg` |
 | **Wallpaper Engine** | Purchased and installed through Steam | Steam library |
-| **Pencil** | Desktop app owns its updates and Claude MCP registration | `pencil.dev` |
+| **Pen** | Desktop app owns its updates and Claude MCP registration; its winget package is stale | `pen.dev` |
 | **WinRAR licence** | Requires the user's licence key | Enter after installation |
 | **`gh auth login`** | Interactive OAuth | Run before cloning the private repo |
 | **League install path** | Riot's installer prompts interactively | Choose the LA2 path in `layout/LAYOUT.md` |

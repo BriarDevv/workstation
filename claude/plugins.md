@@ -32,7 +32,7 @@ There are three non-overlapping sources:
 | --- | --- |
 | Plugin MCPs such as Context7, Playwright, and Chrome DevTools | `enabledPlugins` |
 | Credentialed/general user servers | `mcp.template.json` plus `secrets/.env` |
-| `pencil` | Pencil Desktop |
+| `pencil` | Pen desktop app (`pen.dev`) |
 
 Do not also add a plugin-provided server at user scope. Claude resolves overlaps by scope,
 with user scope taking precedence over plugin scope, so the loose definition shadows the

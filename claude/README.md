@@ -73,9 +73,10 @@ Current Claude Code stores those servers in `~/.claude.json`; the repo never wri
 `~/.claude/mcp-configs/mcp-servers.json` location. If that obsolete file exists after a
 successful migration, it is backed up and removed.
 
-`pencil` is listed as externally managed because Pencil Desktop registers its own local
-server. MCPs supplied by enabled Claude plugins are also kept out of the user-scope list to
-avoid shadowing plugin-owned definitions.
+`pencil` is listed as externally managed because the Pen desktop app (`pen.dev`, formerly
+Pencil) registers its own local server under that name. MCPs supplied by enabled Claude
+plugins are also kept out of the user-scope list to avoid shadowing plugin-owned
+definitions.
 
 GitHub uses its current hosted HTTP MCP endpoint. Its credential remains local in
 `secrets/.env` and in Claude's user-scope configuration; the repository contains a
@@ -92,4 +93,4 @@ does not discard it. That JSONL file is local data, not a secret and not version
 | --- | --- |
 | Claude login | Run `claude` and complete OAuth in the browser |
 | MCP credentials | Create `secrets/.env` from the example, then use `-Secrets` |
-| Pencil MCP | Install and start Pencil Desktop; it owns the connection |
+| Pen MCP | Install and start the Pen desktop app; it owns the connection |
