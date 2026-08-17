@@ -369,11 +369,20 @@ Test-Case 'claude hooks are declared, shipped, and merged safely' {
     }
     Assert-True (Test-Path (Join-Path $repo 'claude\hooks\orca-probe.ps1')) `
         'orca-probe.ps1 is not shipped in claude\hooks'
+    $hooksRaw = Get-Content (Join-Path $repo 'claude\hooks.json') -Raw
+    Assert-True (-not ($hooksRaw -match '%\w+%')) `
+        'hook commands must not use cmd-style expansion - the hook runner shell does not expand it (2026-08-18 failure)'
+    Assert-True (-not ($hooksRaw -match '\$env:')) `
+        'hook commands must not use pwsh env syntax - the runner shell may mangle it; use ${CLAUDE_HOME}'
+    Assert-True $hooksRaw.Contains('${CLAUDE_HOME}') `
+        'hook paths must use the ${CLAUDE_HOME} placeholder the installer resolves'
     $settings = Get-Content (Join-Path $repo 'claude\settings.json') -Raw | ConvertFrom-Json -AsHashtable
     Assert-True (-not $settings.ContainsKey('hooks')) `
         'repo settings.json must not declare hooks - the installer merges hooks.json so Orca-injected hooks survive'
     $installer = Get-Content (Join-Path $repo 'claude\install.ps1') -Raw
     Assert-True $installer.Contains('hooks.json') 'installer does not merge hooks.json'
+    Assert-True $installer.Contains('${CLAUDE_HOME}') `
+        'installer does not resolve the CLAUDE_HOME placeholder'
 }
 
 Test-Case 'relative Markdown links resolve inside the repository' {

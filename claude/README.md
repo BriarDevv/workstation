@@ -28,7 +28,7 @@ run-specific directory in `~/.workstation-backup/`. The settings result is check
 | --- | --- |
 | `CLAUDE.md` | Short global user instructions |
 | `settings.json` | Repo-owned settings, permissions, and desired plugins |
-| `hooks.json` | Repo-managed hook entries, MERGED into live hooks (Orca-injected hooks survive). Entries are keyed by their exact command string and the merge only ADDS: editing an entry's command or timeout does not propagate — remove the old entry from `~/.claude/settings.json` by hand first |
+| `hooks.json` | Repo-managed hook entries, MERGED into live hooks (Orca-injected hooks survive). Repo entries are recognized by the `.ps1` script they call and replaced in place, so command/timeout edits propagate. Paths use `${CLAUDE_HOME}` — resolved to the absolute `~/.claude` at install time, because the hook runner's shell expands no variables |
 | `hooks/` | Hook scripts applied to `~/.claude/hooks/` (canonical source: `Agent-Engineering/global/hooks/`) |
 | `marketplaces.json` | Marketplace names and reproducible GitHub sources |
 | `rules/common/` | Complete set of repo-owned global rules; currently empty |
