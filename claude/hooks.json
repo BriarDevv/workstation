@@ -1,0 +1,13 @@
+{
+  "SessionStart": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "pwsh -NoProfile -File \"%USERPROFILE%\\.claude\\hooks\\orca-probe.ps1\"",
+          "timeout": 15
+        }
+      ]
+    }
+  ]
+}

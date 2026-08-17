@@ -357,6 +357,25 @@ Test-Case 'post-format handoff contains every human bootstrap prerequisite' {
         'repository language rule contradicts the Spanish post-format handoff'
 }
 
+Test-Case 'claude hooks are declared, shipped, and merged safely' {
+    $hooksJson = Get-Content (Join-Path $repo 'claude\hooks.json') -Raw | ConvertFrom-Json -AsHashtable
+    foreach ($eventName in $hooksJson.Keys) {
+        Assert-True ($hooksJson[$eventName] -is [System.Collections.IList]) `
+            "hook event $eventName is not a matcher list"
+        foreach ($matcher in $hooksJson[$eventName]) {
+            Assert-True ($matcher.ContainsKey('hooks') -and $matcher.hooks -is [System.Collections.IList]) `
+                "hook matcher under $eventName lacks a hooks array"
+        }
+    }
+    Assert-True (Test-Path (Join-Path $repo 'claude\hooks\orca-probe.ps1')) `
+        'orca-probe.ps1 is not shipped in claude\hooks'
+    $settings = Get-Content (Join-Path $repo 'claude\settings.json') -Raw | ConvertFrom-Json -AsHashtable
+    Assert-True (-not $settings.ContainsKey('hooks')) `
+        'repo settings.json must not declare hooks - the installer merges hooks.json so Orca-injected hooks survive'
+    $installer = Get-Content (Join-Path $repo 'claude\install.ps1') -Raw
+    Assert-True $installer.Contains('hooks.json') 'installer does not merge hooks.json'
+}
+
 Test-Case 'relative Markdown links resolve inside the repository' {
     $broken = [System.Collections.Generic.List[string]]::new()
     foreach ($file in Get-ChildItem $repo -Recurse -Filter *.md) {

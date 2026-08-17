@@ -223,6 +223,16 @@ foreach ($liveRule in @(Get-ChildItem $rulesDst -Filter *.md -ErrorAction Silent
     }
 }
 
+# ---------------------------------------------------------------- hooks
+Write-Step 'Hooks'
+$hooksSrc = Join-Path $PSScriptRoot 'hooks'
+$hooksDst = Join-Path $claudeHome 'hooks'
+foreach ($f in @(Get-ChildItem $hooksSrc -Filter *.ps1 -ErrorAction SilentlyContinue | Sort-Object Name)) {
+    if (-not (Install-ConfigFile $f.FullName (Join-Path $hooksDst $f.Name))) {
+        $failed.Add("hook: $($f.Name)")
+    }
+}
+
 # ---------------------------------------------------------------- skills
 Write-Step 'Skills (repo junctions)'
 $skillSources = @(
@@ -289,6 +299,32 @@ foreach ($k in $liveSettings.Keys) {
     $merged[$k] = $liveSettings[$k]
 }
 foreach ($k in $repoSettings.Keys) { $merged[$k] = $repoSettings[$k] }
+
+# Repo-managed hooks MERGE into the live hooks key instead of replacing it:
+# Orca injects its own hook entries into the live file at runtime and they
+# must survive every install. Entries are identified by their exact command
+# string; the repo adds what is missing and never removes.
+$repoHooksPath = Join-Path $PSScriptRoot 'hooks.json'
+if (Test-Path $repoHooksPath) {
+    $repoHooks = Get-Content $repoHooksPath -Raw | ConvertFrom-Json -AsHashtable
+    $mergedHooks = if ($merged.ContainsKey('hooks') -and (Test-HooksShape $merged['hooks'])) { $merged['hooks'] } else { @{} }
+    foreach ($eventName in $repoHooks.Keys) {
+        $entries = [System.Collections.Generic.List[object]]::new()
+        if ($mergedHooks.ContainsKey($eventName)) {
+            foreach ($e in $mergedHooks[$eventName]) { $entries.Add($e) }
+        }
+        foreach ($wanted in $repoHooks[$eventName]) {
+            $wantedCommands = @($wanted.hooks | ForEach-Object { $_.command })
+            $present = $false
+            foreach ($e in $entries) {
+                foreach ($h in $e.hooks) { if ($h.command -in $wantedCommands) { $present = $true } }
+            }
+            if (-not $present) { $entries.Add($wanted) }
+        }
+        $mergedHooks[$eventName] = $entries.ToArray()
+    }
+    $merged['hooks'] = $mergedHooks
+}
 
 # User-directory skills load normally: the standard's skills (Agent-Engineering repo) are
 # designed for automatic triggering, so no skillOverrides are generated anymore.
