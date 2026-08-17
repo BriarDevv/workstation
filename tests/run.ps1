@@ -352,7 +352,7 @@ Test-Case 'post-format handoff contains every human bootstrap prerequisite' {
         Assert-True $guide.Contains($token) "post-format guide is missing: $token"
     }
     Assert-True $guide.Contains('nunca uses -AllUsers') 'handoff does not lock debloat to the current user'
-    $instructions = Get-Content (Join-Path $repo 'CLAUDE.md') -Raw
+    $instructions = Get-Content (Join-Path $repo 'AGENTS.md') -Raw
     Assert-True $instructions.Contains('`docs/post-format.md` handoff, which stays in Spanish') `
         'repository language rule contradicts the Spanish post-format handoff'
 }
