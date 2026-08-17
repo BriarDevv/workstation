@@ -1,6 +1,6 @@
 # workstation
 
-Standard: AE/2.6
+Standard: AE/1.0.0
 
 Restores a Windows 11 Pro workstation. Tables and configuration files are
 desired state, not a historical inventory of the current machine.
