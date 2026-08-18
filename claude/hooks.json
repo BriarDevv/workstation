@@ -6,6 +6,11 @@
           "type": "command",
           "command": "pwsh -NoProfile -File \"${CLAUDE_HOME}/hooks/orca-probe.ps1\"",
           "timeout": 15
+        },
+        {
+          "type": "command",
+          "command": "pwsh -NoProfile -File \"${CLAUDE_HOME}/hooks/using-ae.ps1\"",
+          "timeout": 15
         }
       ]
     }
