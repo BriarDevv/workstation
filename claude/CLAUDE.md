@@ -33,8 +33,8 @@
   "claude"`; children detect their own env and repeat the rule.
 - Never start bare `claude.exe` from an Orca terminal — it resolves to the
   machine's ambient default (pegasuz), not to this session's account.
-- Never run a dev server (or long-lived process) as a background shell in
-  an agent session — it blocks working→idle (card stuck, no finish
-  notification) and dies with the session. Give it its own Orca terminal
-  tab (`orca terminal create --worktree active --command "npm run dev"
-  --title "dev-server"`); read it with `orca terminal read`.
+- Never run a long-lived process (dev server, driven browser) as a
+  background shell in an agent session — blocks working→idle, dies with
+  the session. Dev servers: own Orca terminal tab (`orca terminal create
+  --command "npm run dev"`); browsers: Orca's embedded one (`orca
+  goto/snapshot/click`), never Playwright or Chrome MCPs.
