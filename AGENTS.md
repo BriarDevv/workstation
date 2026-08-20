@@ -23,11 +23,11 @@ fan-out — doubt → higher (docs/tiers.md).
   request); `-SkipUpgrade` must remain available.
 - The terminal profile launches Claude with `--dangerously-skip-permissions`
   on purpose — retain unless asked otherwise.
-- `claude/CLAUDE.md` is a SYNCED COPY; the canonical source is
-  `Agent-Engineering/global/CLAUDE.md`. Skills are junction-linked from
-  the `Agent-Engineering` and `skills` repos by `claude/install.ps1` —
-  except `claude-dual-account-setup`, which lives in `accounts/` here and is
-  linked by `accounts/install.ps1`.
+- `claude/CLAUDE.md` and `claude/hooks/` are CANONICAL here — the personal
+  machine layer, applied to `~/.claude` by `claude/install.ps1`. Skills are
+  junction-linked from the `Agent-Engineering` and `skills` repos by
+  `claude/install.ps1` — except `claude-dual-account-setup`, which lives in
+  `accounts/` here and is linked by `accounts/install.ps1`.
 - The dual-account launcher block exists in THREE synced copies:
   `accounts/skills/claude-dual-account-setup/profile-functions.ps1`
   (canonical), `terminal/powershell/profile.ps1` (what a restore writes as
