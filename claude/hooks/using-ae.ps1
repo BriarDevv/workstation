@@ -1,6 +1,6 @@
 # Emits the using-ae entry skill's content at session start, verbatim,
-# under one header line. Canonical: Agent-Engineering/global/hooks/using-ae.ps1
-# — applied to ~/.claude/hooks/ by the workstation installer. The skill file
+# under one header line. Canonical: workstation/claude/hooks/using-ae.ps1
+# — applied to ~/.claude/hooks/ by claude/install.ps1. The skill file
 # (junctioned at ~/.claude/skills/using-ae/SKILL.md) is the single source of
 # truth; this hook injects it rather than a separate digest, so there is
 # nothing else to drift.
