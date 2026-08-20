@@ -22,7 +22,7 @@ Tier M · lane `work/mat-110-claude-canonical/` · SPEC.md is the authority.
 
 ## Steps
 
-- [ ] 1. `claude/CLAUDE.md`: replace the body with AE `global/CLAUDE.md`'s
+- [x] 1. `claude/CLAUDE.md`: replace the body with AE `global/CLAUDE.md`'s
       content, then set line 3's HTML comment to
       `<!-- Canonical: workstation/claude/CLAUDE.md — applied to ~/.claude/CLAUDE.md by claude/install.ps1. -->`
       — *mechanical* — accept: `diff <(sed '3d' claude/CLAUDE.md) <(sed '3d' C:/Briar/repos/mine/Agent-Engineering/global/CLAUDE.md)` prints nothing AND
@@ -30,7 +30,7 @@ Tier M · lane `work/mat-110-claude-canonical/` · SPEC.md is the authority.
       `awk 'END{print NR}' claude/CLAUDE.md` <= 40 AND
       `node C:/Briar/repos/mine/Agent-Engineering/scripts/agent-lint.mjs .` exits 0 with 0 high
 
-- [ ] 2. `[batch]` Both hooks — `claude/hooks/orca-probe.ps1` and
+- [x] 2. `[batch]` Both hooks — `claude/hooks/orca-probe.ps1` and
       `claude/hooks/using-ae.ps1`: rewrite only the `# Canonical: …` header
       sentence to the step-1 format with dest `~/.claude/hooks/`; every other
       line, and the CRLF endings, stay byte-identical. `global/hooks/README.md`
@@ -39,7 +39,7 @@ Tier M · lane `work/mat-110-claude-canonical/` · SPEC.md is the authority.
       `for f in orca-probe using-ae; do diff <(grep -v '^#' claude/hooks/$f.ps1 | tr -d '\r') <(grep -v '^#' C:/Briar/repos/mine/Agent-Engineering/global/hooks/$f.ps1); done` prints nothing AND
       `test ! -e claude/hooks/README.md` AND `pwsh ./tests/run.ps1` exits 0
 
-- [ ] 3. `AGENTS.md`: rewrite the SYNCED-COPY gotcha (currently lines 26-30) so
+- [x] 3. `AGENTS.md`: rewrite the SYNCED-COPY gotcha (currently lines 26-30) so
       it states `claude/CLAUDE.md` and `claude/hooks/` are CANONICAL here — the
       personal machine layer applied to `~/.claude` by `claude/install.ps1` —
       while keeping the existing skills-junction sentence
@@ -51,7 +51,7 @@ Tier M · lane `work/mat-110-claude-canonical/` · SPEC.md is the authority.
       mid-run — see DECISIONS.md) AND
       `awk 'END{print NR}' AGENTS.md` <= 60 AND lint exits 0 with 0 high
 
-- [ ] 4. Migrate the stamp. Edits the same `AGENTS.md` step 3 just rewrote, so
+- [x] 4. Migrate the stamp. Edits the same `AGENTS.md` step 3 just rewrote, so
       it runs after it: set `Standard: AE/1.4.2`, change the tier one-liner's
       `· XL fan-out` to `· XL orchestrate` (note 1.3.0), and overwrite
       `docs/tiers.md` with `C:/Briar/repos/mine/Agent-Engineering/templates/repo/docs/tiers.md`
@@ -63,7 +63,7 @@ Tier M · lane `work/mat-110-claude-canonical/` · SPEC.md is the authority.
       `diff docs/tiers.md C:/Briar/repos/mine/Agent-Engineering/templates/repo/docs/tiers.md` prints nothing (CRLF aside) AND
       lint exits 0 with 0 high
 
-- [ ] 5. `claude/install.ps1`: in the skills section, after `$skillDirs` is
+- [x] 5. `claude/install.ps1`: in the skills section, after `$skillDirs` is
       built and the junctions are created, sweep **dangling only** — for each
       item under `$skillsDst` whose `LinkType` is `Junction` and whose
       `LinkTarget` no longer exists on disk, remove it; never a
