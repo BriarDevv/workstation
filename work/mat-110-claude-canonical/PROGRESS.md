@@ -935,4 +935,99 @@ Controller: fix round 1 closed at round 1 of 5. The one new Minor (unguarded
 
 ## Verification
 
-<!-- Filled by work-verify at the lane gate. -->
+### 2026-08-20 — M-tier DoD — PASS
+
+- **L1 static:** `node C:/Briar/repos/mine/Agent-Engineering/scripts/agent-lint.mjs .`
+  → exit 0 (`0 high, 0 medium, 0 low — PASS`). Re-run after the post-review
+  citation fix to DECISIONS.md — still `0 high, 0 medium, 0 low — PASS`, exit 0.
+- **L2 behavioral:** `pwsh ./tests/run.ps1` → exit 0 (`27 passed, 0 failed`),
+  including the new `skill junction sweep needs a dead target under a declared
+  source root`. The one `[!]` line (`Package update check failed (winget exit
+  37)`) is a pre-existing network condition, present before this lane.
+- **L3 end-to-end:** `pwsh ./install.ps1 claude -WhatIfOnly` → exit 0, ending
+  `Dry run complete; no Claude files changed.` Executes the real restore path in
+  dry run — this change crosses the docs surface and the installer, so L3 is
+  required, not n/a. It reported exactly one sweep candidate:
+  `would remove dangling skill junction reviewing-plans -> C:\Briarepos\mine\skills\skillseviewing-plans`.
+- **Per-PLAN-step predicates:** all pass, including step 3's corrected form
+  (`grep -c 'claude-dual-account-setup' AGENTS.md` = 2, equal to baseline).
+- **Fresh-context review:** PASS — verdict pasted below. Reviewer ran every DoD
+  layer itself, proved zero writes to `~/.claude` by snapshotting 793 entries
+  before and after, confirmed Agent-Engineering untouched at `4da691f`, and
+  independently mutation-tested the guard test (4 of 4 mutations caught).
+- **Adversarial review:** n/a at M by the standard's own rule (XL always, M/L on
+  request). NOT skipped in practice — the parent orchestrator runs one ratón
+  chispeante cross-model adversarial reviewer after `worker_done`, per its
+  dispatch config. That seat is additional to this fresh-context rung, not a
+  substitute for it.
+
+#### Fresh-context lane review — verdict verbatim
+
+```
+### Verdict
+PASS — all three DoD layers pass from my own runs (`0 high, 0 medium, 0 low —
+PASS`; `27 passed, 0 failed`; dry run exit 0 ending `Dry run complete; no Claude
+files changed.`), every per-step predicate holds including step 3's corrected
+`= 2`, and the two protected surfaces are provably untouched (Agent-Engineering
+still `?? work/` at `4da691f`; `~/.claude` byte-identical across 793 entries but
+for my own session journal). The safety property that most deserved doubt — the
+sweep sparing claude-dual-account-setup and the Orca links — is enforced by a
+prefix test on $skillSources, confirmed against the real junction table, and
+protected by a guard test that failed all four of my mutations. The eight Minors
+are documentation polish and one fail-loud edge case; none blocks.
+
+### Issues
+#### Critical (Must Fix)
+None.
+#### Important (Should Fix)
+None.
+#### Minor (Nice to Have)
+1. claude/install.ps1 — unguarded [IO.Path]::GetFullPath($target) outside the
+   try/catch. Re-examined rather than accepting the prior triage: the prior
+   rationale was slightly off (GetFullPath is reached exactly when Test-Path
+   returned false, and a false return does not certify the string is
+   well-formed). Residual surface is ~one value; fails loud, never into a wrong
+   deletion. Correctly deferred.
+2. DECISIONS.md — the quoted SHIPPED_SURFACE regex escapes its pipes. NOT a
+   defect: the quote sits in a markdown table cell where `\|` renders as `|`.
+3. DECISIONS.md — the longest cells run 600-900 chars. Every clause is
+   load-bearing evidence; style preference only.
+4. DECISIONS.md — 1.4.1's row never names the two lint checks that release
+   added. Confirmed empirically that neither fires here (lint 0/0/0).
+5. AGENTS.md:26 — a comma the SPEC's phrasing lacks. Cosmetic.
+6. (new) The deferred findings' line numbers are stale — step 5's ruling block
+   was inserted above them.
+7. (new) claude/CLAUDE.md sits at exactly 40 of its 40-line cap. Zero headroom;
+   worth knowing before MAT-111, not this lane's to solve (body is AE's verbatim).
+8. (new) DECISIONS.md attributes the XL fan-out -> XL orchestrate one-liner
+   rename to note 1.3.0, whose own words are restamp-only. The EDIT is right —
+   the 1.4.0 template refresh independently carries `mandatory orchestrate` —
+   so this is a citation-precision nit in the rationale, not a wrong disposition.
+
+### What was done well
+- The guard test is the standout: extracting the shipped block and running it
+  under Invoke-Expression against five real junctions is the difference between
+  a test that restates the predicate and one that tests it. Four independent
+  mutations all failed the suite; a re-implemented predicate would have passed
+  every one of them.
+- The sibling-root case was anticipated, not discovered.
+- DECISIONS.md verifies where it would have been easier to assert — 1.2.0 and
+  1.4.2 both had "restamp only" available straight from the note, and both went
+  and checked the actual artifact instead.
+- The step-3 predicate correction is recorded as a controller error rather than
+  quietly patched, and the corrected form is strictly stronger than the original.
+- Line-ending discipline held: all seven touched files uniformly CRLF.
+```
+
+#### Minor triage at the gate
+
+Finding 8 was **acted on**: the 1.3.0 disposition's rationale now says the XL
+rename is carried by the 1.4.0 template refresh, with the `AGENTS.md` one-liner
+updated for consistency, and states that note 1.3.0 does not itself instruct
+that edit. L1 was re-run after the change and stayed `0 high, 0 medium, 0 low`.
+
+Findings 1-7 are **accepted as deferred**, none blocking: 2 is explicitly not a
+defect; 3, 4, 5 and 6 are documentation polish; 1 is a fail-loud edge case the
+reviewer could not construct a realistic trigger for; 7 is a heads-up for
+MAT-111 rather than work in this lane.
+
