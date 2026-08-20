@@ -418,6 +418,77 @@ after each amend):**
    also states the stamp transition explicitly (`AE/1.0.0` -> `AE/1.4.2`).
    Verified with `git log -1 --format='%s%n%b'`.
 
+#### Step 4 review — fresh reviewer (capable tier), verdict verbatim
+
+```
+### Spec compliance
+✅ Compliant — all four acceptance predicates pass, both pre-rulings honored, no
+collateral damage. Nothing Missing, Extra, or Misunderstood. No ⚠️ items.
+
+- `grep -c '^Standard: AE/1.4.2' AGENTS.md` → 1 (AGENTS.md:3)
+- `grep -c 'XL orchestrate' AGENTS.md` → 1 (AGENTS.md:9)
+- tiers.md vs template → empty diff CRLF-aside; `cat -A` shows `^M$` on all 30
+  lines; em dashes/arrows survived as UTF-8.
+- lint → `0 high, 0 medium, 0 low — PASS`, exit 0.
+
+(a) Ten rows, 1.1.0 → 1.4.2, none skipped; the out-of-order 1.4.2/1.4.1 trap is
+named, not just avoided. (b) Each note read against its row: all six
+not-applicable rows sit on notes whose own text says restamp-only or whose
+obligation is provably inert; all four applied claims are present in the diff.
+(c) 1.3.0 recorded as applied-in-two-parts with part (b) implemented by PLAN
+step 5 (installer and tests deliberately untouched, `Closes MAT-50`); 1.3.1
+recorded as skipped citing Ruling B. `grep -c '^Tracker' AGENTS.md` → 0.
+(d) tiers.md carries all three named items (L-row executor mention, XL
+`mandatory orchestrate`, closing pointer-home paragraph). (e) AGENTS.md = 59
+lines, inside the 60 target; no line over 79 chars, so the re-wrap did not trade
+lines for width. (f) Two hunks in one 12-line window; all three earlier
+DECISIONS.md sections intact.
+
+### Strengths
+- The two rows with the most room to be lazy are the two verified hardest.
+  1.2.0's note says "the hook applies via the workstation installer" — exactly
+  the sentence that stops being safe when THIS repo is that installer. The row
+  noticed and checked; each leg confirmed independently.
+- 1.4.2 was verified in the check's source, not taken from the note, and the
+  quoted mechanism is exactly right (SHIPPED_SURFACE at :354, filter at :378,
+  paths built root-relative at :76 — so `^` really is repo-root-anchored).
+- 1.4.0's optional adoptions each checked, not waved off.
+- The re-wrap satisfies the predicate honestly — `XL orchestrate` reads as one
+  phrase, not gaming the grep.
+
+### Issues
+#### Critical (Must Fix)
+None.
+#### Important (Should Fix)
+None.
+#### Minor (Nice to Have)
+1. DECISIONS.md:85 — the quoted SHIPPED_SURFACE regex escapes its pipes for the
+   markdown table (`\|`), which renders right but reads as a literal pipe in raw
+   JS-regex terms. The argument rests on the `^` anchor, so nothing downstream is
+   wrong. Fix: note "(pipes escaped for the table)" or restate as prose.
+2. DECISIONS.md:83 and :85 — the two longest cells are 645 and 914 chars. Every
+   clause is load-bearing, so not padding, but hard to scan raw.
+3. DECISIONS.md:84 — 1.4.1's row disposes of the two optional pickups but never
+   mentions the two new lint checks that release added. Nothing is owed (lint is
+   clean); a half-clause would close the loop.
+
+### Assessment
+**Step quality:** Approved
+**Reasoning:** All ten version steps are dispositioned, each disposition matches
+what its migration note actually demands, and every evidence claim spot-checked
+against the repo and against agent-lint.mjs held exactly as written — including
+the two rows (1.2.0, 1.4.2) where "restamp only" would have been the easy and
+wrong answer. The mechanical half passes all four predicates with the 59-line
+budget intact and zero collateral edits.
+```
+
+Controller: three Minors, none entering the fix loop — **deferred to
+work-verify's triage** per work-run's rule. Separately, the controller sent step
+4's commit back once before review: commit `83db313` carried a malformed message
+(stray `@ ` subject prefix, body truncated mid-sentence). No file content
+changed; amended to `3b16f04` with a complete conventional message, verified with
+`git log -1 --format='%s%n%b'`. Step 4 closed.
+
 ## Verification
 
 <!-- Filled by work-verify at the lane gate. -->
