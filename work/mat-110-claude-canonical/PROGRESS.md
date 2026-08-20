@@ -310,6 +310,97 @@ Controller: the single Minor (cosmetic comma) does NOT enter the fix loop —
 **deferred to work-verify's triage** per work-run's rule on Minor findings.
 Step 3 closed.
 
+### Step 4 — stamp migrated to `AE/1.4.2`, tier one-liner + `docs/tiers.md` refreshed, dispositions recorded
+
+Three edits, all mechanical except the judgment written into `DECISIONS.md`:
+
+1. `AGENTS.md`: `Standard: AE/1.0.0` -> `Standard: AE/1.4.2`.
+2. `AGENTS.md`: the tier one-liner's `XL fan-out` -> `XL orchestrate`
+   (note 1.3.0). The phrase straddled a wrap (`… · XL` / `fan-out — doubt`),
+   so the two lines were rewrapped to `… four files+feature list ·` /
+   `XL orchestrate — doubt → higher (docs/tiers.md).` — the phrase now lives
+   on one line, which is what `grep -c 'XL orchestrate'` = 1 requires. Still
+   two lines; `AGENTS.md` stays at 59.
+3. `docs/tiers.md` overwritten from
+   `C:/Briar/repos/mine/Agent-Engineering/templates/repo/docs/tiers.md`
+   (notes 1.1.0 / 1.2.1 / 1.3.0 / 1.4.0). The template is LF; it was landed
+   as CRLF (`perl -0777 -pe 's/\r\n/\n/g; s/\n/\r\n/g'`) to match the repo's
+   working-tree convention. Net content change is exactly the three things
+   the notes promise: the L row gains the recommended-executor mention
+   (1.1.0) naming `work-run` (1.2.1), the XL row's `mandatory fan-out`
+   becomes `mandatory orchestrate` (1.3.0), and the closing pointer-home
+   paragraph appears (1.4.0).
+4. `DECISIONS.md`: the `## Per-version migration dispositions` placeholder
+   replaced with a ten-row table (1.1.0 -> 1.4.2 in numeric order — the
+   notes file lists 1.4.2 before 1.4.1) plus a closing note. Everything
+   above that heading — the parent's Rulings A and B with the MAT-50 link,
+   and the controller's step-3 predicate correction — was left untouched;
+   rows 1.3.0 and 1.3.1 cite those rulings instead of re-deciding them.
+
+Per the step's scoping notes, `claude/install.ps1` and `tests/run.ps1` were
+**not** touched — 1.3.0's installer sweep is applied by PLAN step 5 — and no
+`Tracker:` line was added.
+
+**Tooling:** used `perl -0777` (not `sed`) per step 2's recorded gotcha.
+First attempt at the tier rewrap put the pattern inside `\Q…\E` with `\xNN`
+escapes and matched 0 times; rewritten with the literal UTF-8 bytes in the
+script it matched exactly once. Both files confirmed CRLF afterwards, and
+`git diff` shows 6 changed lines in `AGENTS.md` and 9 in `docs/tiers.md` —
+no whole-file line-ending churn.
+
+**Verified for the 1.4.2 disposition (asked to check, not to take on trust):**
+`agent-lint.mjs:354` is `const SHIPPED_SURFACE = /^(skills|reference|templates|global|loops)\//`,
+applied at line 378 to a file list whose entries the walk (lines ~73-81)
+builds as `relative(root, full).replaceAll("\\", "/")` — root-relative with
+forward slashes, so the `^` anchor is the repo root. This repo has no
+root-level `skills/`, `reference/`, `templates/`, `global/` or `loops/`;
+`git ls-files | grep -E '(^|/)(skills|reference|templates|global|loops)/'`
+returns only `accounts/skills/claude-dual-account-setup`, which starts with
+`accounts/` and misses the anchor. Independent confirmation: this lane's own
+`SPEC.md` and `PLAN.md` carry many `C:/Briar/...` machine paths and lint
+still reports 0 findings — the check is not sweeping the whole repo.
+
+Files changed: `AGENTS.md`, `docs/tiers.md`,
+`work/mat-110-claude-canonical/DECISIONS.md`.
+
+Acceptance (run from the repo root):
+
+```
+$ grep -c '^Standard: AE/1.4.2' AGENTS.md
+1
+
+$ grep -c 'XL orchestrate' AGENTS.md
+1
+
+$ diff --strip-trailing-cr docs/tiers.md C:/Briar/repos/mine/Agent-Engineering/templates/repo/docs/tiers.md
+(empty, exit 0)
+
+$ node C:/Briar/repos/mine/Agent-Engineering/scripts/agent-lint.mjs .
+agent-lint C:\Users\mateo\orca\workspaces\workstation\mat-110-claude-canonical
+0 high, 0 medium, 0 low — PASS
+(exit 0)
+
+$ file AGENTS.md docs/tiers.md
+AGENTS.md:     Unicode text, UTF-8 text, with CRLF line terminators
+docs/tiers.md: Unicode text, UTF-8 text, with CRLF line terminators
+```
+
+Note on the `diff` predicate: the plain `diff docs/tiers.md <template>`
+reports all 30 lines as differing, purely because the working-tree copy is
+CRLF and the template is LF — the "CRLF aside" the acceptance anticipates.
+`diff --strip-trailing-cr` (above) and `diff <(tr -d '\r' < docs/tiers.md)
+<template>` both print nothing and exit 0.
+
+`git status --short` shows only the three intended files.
+
+**Concern (informational, not a blocker):** `DECISIONS.md` is LF in the
+working tree — matching its siblings `SPEC.md` / `PLAN.md` / `PROGRESS.md`,
+which are all LF — so `git diff` prints the usual `* text=auto` "LF will be
+replaced by CRLF" warning for it. Pre-existing and consistent across the
+lane folder; the committed blob is LF either way. Not changed here.
+
+Committed `<SHA>` — `docs(claude): migrate stamp to AE/1.4.2, refresh tiers.md, record dispositions`.
+
 ## Verification
 
 <!-- Filled by work-verify at the lane gate. -->

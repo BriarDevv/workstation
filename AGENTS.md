@@ -1,12 +1,12 @@
 # workstation
 
-Standard: AE/1.0.0
+Standard: AE/1.4.2
 
 Restores a Windows 11 Pro workstation. Tables and configuration files are
 desired state, not a historical inventory of the current machine.
 
-Tiers: S direct+verify · M lane+plan · L four files+feature list · XL
-fan-out — doubt → higher (docs/tiers.md).
+Tiers: S direct+verify · M lane+plan · L four files+feature list ·
+XL orchestrate — doubt → higher (docs/tiers.md).
 
 ## Commands
 
