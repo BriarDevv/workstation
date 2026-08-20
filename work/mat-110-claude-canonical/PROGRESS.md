@@ -123,6 +123,95 @@ channel (it went idle twice without delivering). It was recovered by having the
 reviewer write the report to a session scratch file, read back and pasted above
 verbatim. No fix round — zero Critical/Important/Minor findings. Step 1 closed.
 
+### Step 2 — hooks' canon headers flipped, `[batch]` orca-probe.ps1 + using-ae.ps1
+
+Rewrote only the `# Canonical: …` sentence in both hook headers to the
+step-1 format with dest `~/.claude/hooks/`:
+
+- `orca-probe.ps1`: `# Canonical: Agent-Engineering/global/hooks/orca-probe.ps1 — applied to\n# ~/.claude/hooks/ by the workstation installer. Executing skills may cite` ->
+  `# Canonical: workstation/claude/hooks/orca-probe.ps1 — applied to\n# ~/.claude/hooks/ by claude/install.ps1. Executing skills may cite`
+- `using-ae.ps1`: `# under one header line. Canonical: Agent-Engineering/global/hooks/using-ae.ps1\n# — applied to ~/.claude/hooks/ by the workstation installer. The skill file` ->
+  `# under one header line. Canonical: workstation/claude/hooks/using-ae.ps1\n# — applied to ~/.claude/hooks/ by claude/install.ps1. The skill file`
+
+Every other sentence in both header blocks (what the hook does, the
+step-0 probe note, the single-source-of-truth note) is untouched; line
+count and wrap points are unchanged from the original (4 lines / 6 lines).
+`global/hooks/README.md` was not copied (never existed in `claude/hooks/`
+to begin with; confirmed absent post-edit).
+
+**Tooling gotcha:** the obvious approach — `sed` (piped or `-i`, including
+inside process substitution) — silently strips every `\r` in this Git Bash
+environment, on touched *and* untouched lines alike, corrupting the file to
+mixed/LF line endings. Caught it by `od -c`'ing the result before trusting
+it, discarded that attempt (`git checkout --`), and redid the edit with
+`perl -0777 -i -pe 's/.../.../'` (byte-safe, no `-C` flag — adding `-CSD`
+actually broke the em-dash byte match, so plain `perl -0777` is what's
+needed), which leaves every `\r\n` — touched or not — byte-identical.
+Verified with `perl -ne '... unless /\r\n$/'` (no output on either file,
+i.e. every line ends `\r\n`) and a body-only diff against `git show
+HEAD:<file>` (with `\n`->`\r\n` reinserted) coming back empty for both
+files.
+
+Files changed: `claude/hooks/orca-probe.ps1`, `claude/hooks/using-ae.ps1`.
+
+Acceptance (run from the repo root):
+
+```
+$ grep -rc 'Canonical: Agent-Engineering' claude/
+(every file: 0; sum 0)
+
+$ for f in orca-probe using-ae; do diff <(grep -v '^#' claude/hooks/$f.ps1 | tr -d '\r') <(grep -v '^#' C:/Briar/repos/mine/Agent-Engineering/global/hooks/$f.ps1); done
+(empty, exit 0, both files)
+
+$ test ! -e claude/hooks/README.md && echo "OK: absent"
+OK: absent
+
+$ pwsh ./tests/run.ps1
+=== Result
+  26 passed, 0 failed
+(exit 0)
+```
+
+`git status --short` after the commit shows only the two intended files
+touched (`git diff --stat`: 2 files changed, 4 insertions, 4 deletions —
+i.e. exactly the two rewrapped lines per file).
+
+No concerns beyond the sed gotcha noted above (worked around, not left
+unresolved). Committed `8d80b7b` —
+`feat(claude): flip canon header on orca-probe.ps1 and using-ae.ps1`.
+
+#### Step 2 review — fresh reviewer, verdict verbatim
+
+```
+### Spec compliance
+✅ Compliant
+
+- `grep -rc 'Canonical: Agent-Engineering' claude/` → every file reports `:0`.
+- per-file body diff vs the AE source → both empty (exit 0). Every non-comment
+  (executable) line is byte-identical to the AE canonical source.
+- `test ! -e claude/hooks/README.md` → absent, confirmed.
+- `pwsh ./tests/run.ps1` → 26 passed, 0 failed, exit 0. (One `[!]` line,
+  "Package update check failed (winget exit 37)", is a pre-existing
+  network/winget-availability check unrelated to this diff.)
+
+Additional checks: header-only edit verified byte-identical elsewhere; canon text
+exact in both files with each path self-referential (not swapped); em dash
+byte-grepped as UTF-8 U+2014 in both; CRLF preserved — orca-probe.ps1 19/19 and
+using-ae.ps1 14/14 lines end in CR, ruling out the sed-strips-CR failure mode;
+diff touches only these two files, one hunk each.
+
+### Issues
+None found — no Critical, Important, or Minor items.
+
+### Assessment
+**Step quality:** Approved
+**Reasoning:** All four mechanical accept-criteria commands were run directly and
+pass; independent verification of CRLF bytes, the em dash character, and
+header-only scope found no deviation. Clean, minimal, purely mechanical edit.
+```
+
+No fix round — zero findings. Step 2 closed.
+
 ## Verification
 
 <!-- Filled by work-verify at the lane gate. -->
