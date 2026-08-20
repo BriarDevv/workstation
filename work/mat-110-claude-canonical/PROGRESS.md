@@ -702,7 +702,121 @@ EXIT=0
 Not acted on, per the controller: the three findings about the sweep removing
 dangling junctions owned by other installers, and the unreachable-target and
 missing-source cases. They are consequences of Ruling A as written and are with
-the parent as a ruling question.
+the parent as a ruling question. *(Superseded within the same round — see the
+addendum below; the parent approved both narrowings and they are implemented.)*
+
+#### Step 5 fix round 1, addendum — Ruling A's two narrowings implemented
+
+The controller's addendum superseded the "do not change `claude/install.ps1`"
+freeze: the parent approved both narrowings recorded in DECISIONS.md
+(`363d5d9`). Both are now in the installer, and the guard test pins both.
+
+**(1) `$skillSources` prefix narrowing.** Removal now takes two conditions, not
+one: the target is gone AND the target sits under a declared `$skillSources`
+root. Implemented as a prefix test on the *path*, not a name lookup — the roots
+are normalized once per run with `[IO.Path]::GetFullPath($_).TrimEnd('\') + '\'`
+and matched with `StartsWith(..., OrdinalIgnoreCase)`. The appended separator is
+the part that carries the `skills-other` requirement: without it,
+`…\skills-other\x` matches the root `…\skills`; with it, it cannot. Case
+insensitivity is required on Windows and `GetFullPath` normalizes `..` segments
+and trailing slashes, so a root written any of the usual ways compares the same.
+MAT-50's motivating case still sweeps: a renamed skill leaves a junction at
+`<source>\<oldname>`, which is under a declared root.
+
+The accepted cost is recorded in the code comment as the ruling requires — rename
+a source *repo* and its junctions stop being swept, because their dead targets no
+longer sit under any declared root.
+
+**(2) Missing-source skip.** `$sourcesComplete` starts `$true` and is cleared in
+the existing `Write-Warn2 "skills source not found…"` branch. The sweep is
+wrapped in `if (-not $sourcesComplete) { Write-Warn2 … } else { … }`, so a run
+that could not read a declared source sweeps nothing and says why:
+`dangling junction sweep skipped - a declared skills source is missing, so every
+junction into it would read as dangling`. The unreachable-target caveat the
+parent asked for is documented in the same comment block: `Test-Path` answers
+`$false`, not an error, for a disconnected mapped drive or a parent that lost
+traverse permission, so a merely unreachable target reads as gone — this skip is
+what keeps that from becoming a mass deletion.
+
+`reviewing-plans` is not special-cased: its target
+`C:\Briar\repos\mine\skills\skills\reviewing-plans` sits under the declared root
+`…\mine\skills\skills`, so the narrowed sweep still reports exactly it.
+
+**Guard test extended.** The extraction now captures the whole
+`if (-not $sourcesComplete) … else { … }` construct, so executing `$body`
+exercises the suppression too. The sandbox grew from three entries to five, and
+runs the block three times:
+
+| Entry | What it is | Expected |
+|---|---|---|
+| `live` | junction into the declared source, target alive | survives |
+| `dangling` | junction into the declared source, target gone | swept |
+| `sibling` | target gone under `…\skills-other` — a name that merely starts like the declared root `…\skills` | **survives** |
+| `foreign` | target gone outside every declared root; stands in for `claude-dual-account-setup` and the `~\.agents\skills` links | **survives** |
+| `plain` | a real directory, not a junction | survives |
+
+Runs: dry run with sources complete (all five survive, no change reported);
+`$sourcesComplete = $false` outside dry run (all five survive — the suppression);
+then sources complete outside dry run (survivors exactly `foreign, live, plain,
+sibling`, one clean change, no failures). One source assertion was added for the
+half the sandbox cannot see: the sandbox sets `$sourcesComplete` itself, so only
+the source text can show that a *missing source* is what clears it.
+
+**Mutation evidence** (same harness: whole repo copied to
+`%TEMP%\sweep-mutation-<pid>`, mutated in the copy, the copy's suite run, repo
+file never written; each mutation is asserted to have applied before a FAIL is
+trusted):
+
+```
+baseline (unmutated copy)                                            -> PASS (not caught)
+M1 target gate inverted (keeps dangling, deletes live)               -> FAIL  sweep left: dangling, foreign, plain, sibling
+M2 target gate dropped, Test-Path still named                        -> FAIL  sweep left: foreign, plain, sibling
+M3 junction confinement inverted (sweeps real directories)           -> FAIL  sweep does not confine itself to junctions
+M4 dry run ignored                                                   -> FAIL  sweep does not honor dry run
+M5 not-in-sources name purge (deletes claude-dual-account-setup)     -> FAIL  sweep removal is not gated on the junction target being gone
+M6 source-root prefix test dropped (sweeps foreign dangling links)   -> FAIL  sweep left: live, plain
+M7 root prefix loses its trailing separator (skills-other matches)   -> FAIL  sweep left: foreign, live, plain
+M8 missing-source guard removed (if/else collapsed to the sweep)     -> FAIL  claude\install.ps1 has no dangling skill junction sweep
+M9 missing source no longer clears $sourcesComplete                  -> FAIL  a missing skills source does not clear $sourcesComplete, so the sweep would still run
+```
+
+The two the addendum asked for specifically: **M6** deletes `foreign` and
+`sibling` — the foreign-link protection — and **M7** deletes `sibling` alone,
+which is the `skills-other` case; both fail on survivors, not on a string match.
+Two honest notes on how the last two are caught: **M8** is caught *structurally*,
+by the extraction anchor rather than by behavior — collapsing the guard leaves no
+`if (-not $sourcesComplete)` to extract, so the test fails with "has no dangling
+skill junction sweep"; the behavioral half covers the same property from the
+other side (scenario 2 proves a cleared flag really suppresses). **M9** is caught
+by the new source assertion, which is the only thing that can see it.
+
+Acceptance re-run after both narrowings:
+
+```
+$ pwsh ./tests/run.ps1
+  [ok]   skill junction sweep needs a dead target under a declared source root
+=== Result
+  27 passed, 0 failed
+EXIT=0
+
+$ pwsh ./install.ps1 claude -WhatIfOnly
+=== Skills (repo junctions)
+  … 15 in-place junctions …
+  would  remove dangling skill junction reviewing-plans -> C:\Briar\repos\mine\skills\skills\reviewing-plans
+EXIT=0
+
+$ git status --short
+ M claude/install.ps1
+ M tests/run.ps1
+```
+
+Same single `reviewing-plans` removal as before the narrowing, and zero writes on
+the same evidence as the first run: the 29-row before/after snapshot of
+`~/.claude` diffs identical and `~/.workstation-backup`'s newest run directory is
+still `2026-08-19_042912957-34280`. Both files stay CRLF (`claude/install.ps1`
+UTF-8, `tests/run.ps1` ASCII; no LF-only line in either).
+
+No concerns.
 
 ## Verification
 

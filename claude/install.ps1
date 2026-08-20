@@ -247,10 +247,12 @@ if (-not (Test-Path $skillsDst) -and -not $script:DryRun) {
 # source in $skillSources wins, so a skill migrating between repos never
 # flip-flops its junction within one run.
 $skillDirs = [ordered]@{}
+$sourcesComplete = $true
 foreach ($skillsSrc in $skillSources) {
     if (-not (Test-Path $skillsSrc)) {
         Write-Warn2 "skills source not found at $skillsSrc; clone it (dev/repos), then re-run"
         $failed.Add("skills: source missing: $skillsSrc")
+        $sourcesComplete = $false
         continue
     }
     foreach ($src in Get-ChildItem $skillsSrc -Directory) { $skillDirs[$src.Name] = $src }
@@ -273,28 +275,52 @@ foreach ($name in @($skillDirs.Keys) | Sort-Object) {
     $configChanged = $true
 }
 # A skill renamed or absorbed upstream leaves its junction behind, pointing at a path
-# that no longer exists. Sweep those, and only those: removal is gated on the TARGET
-# being gone, never on the name being absent from $skillSources. A not-in-sources purge
-# would delete claude-dual-account-setup, the junction accounts\install.ps1 owns and
-# this script must never touch. Anything that is not a junction - a real directory, a
-# plugin's own folder - is left alone for the same reason.
+# that no longer exists. Removing one takes BOTH conditions: the target is gone AND the
+# target sits under a declared $skillSources root. The root half is a PREFIX test on the
+# target path, never a name lookup in $skillDirs - a renamed skill still points at
+# <source>\<oldname>, so it is still swept, while junctions this script does not own stay
+# safe even when they dangle: claude-dual-account-setup (owned by accounts\install.ps1)
+# and the Orca-managed ~\.agents\skills links point outside every declared root, and
+# their owners recreate them where this script never would. Anything that is not a
+# junction - a real directory, a plugin's own folder - is left alone for the same reason.
+#
+# Accepted cost of the prefix test: rename a source REPO and its junctions stop being
+# swept, their dead targets no longer sitting under any declared root. That is the case
+# where a mass removal would be least welcome anyway.
+#
+# Caveat the prefix test does not cover: Test-Path answers $false, not an error, for a
+# disconnected mapped drive or a parent that lost traverse permission, so a merely
+# unreachable target reads as gone. The missing-source skip below is what keeps that from
+# becoming a mass deletion - if a whole source is unavailable, no junction is swept.
 #
 # No backup: a junction stores a path, not content, and a dangling one's target is
 # already gone, so there is nothing to copy - Backup-ExistingFile is leaf-gated and
 # returns $null for any junction anyway.
-foreach ($live in @(Get-ChildItem $skillsDst -Force -ErrorAction SilentlyContinue)) {
-    if ($live.LinkType -ne 'Junction') { continue }
-    $target = $live.LinkTarget
-    if (-not $target -or (Test-Path -LiteralPath $target)) { continue }
-    if ($script:DryRun) { Write-Would "remove dangling skill junction $($live.Name) -> $target"; continue }
-    try {
-        Remove-Item -LiteralPath $live.FullName -Recurse -Force
-        $configChanged = $true
-        Write-Ok "removed dangling skill junction $($live.Name)"
-    }
-    catch {
-        Write-Fail "could not remove dangling skill junction $($live.Name): $($_.Exception.Message)"
-        $failed.Add("skill junction cleanup: $($live.Name)")
+if (-not $sourcesComplete) {
+    Write-Warn2 'dangling junction sweep skipped - a declared skills source is missing, so every junction into it would read as dangling'
+}
+else {
+    $sourceRoots = @($skillSources | ForEach-Object { [IO.Path]::GetFullPath($_).TrimEnd('\') + '\' })
+    foreach ($live in @(Get-ChildItem $skillsDst -Force -ErrorAction SilentlyContinue)) {
+        if ($live.LinkType -ne 'Junction') { continue }
+        $target = $live.LinkTarget
+        if (-not $target -or (Test-Path -LiteralPath $target)) { continue }
+        # The trailing separator on each root is what stops a sibling like
+        # ...\skills-other from counting as being under ...\skills.
+        $full = [IO.Path]::GetFullPath($target)
+        $underSource = @($sourceRoots |
+            Where-Object { $full.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }).Count -gt 0
+        if (-not $underSource) { continue }
+        if ($script:DryRun) { Write-Would "remove dangling skill junction $($live.Name) -> $target"; continue }
+        try {
+            Remove-Item -LiteralPath $live.FullName -Recurse -Force
+            $configChanged = $true
+            Write-Ok "removed dangling skill junction $($live.Name)"
+        }
+        catch {
+            Write-Fail "could not remove dangling skill junction $($live.Name): $($_.Exception.Message)"
+            $failed.Add("skill junction cleanup: $($live.Name)")
+        }
     }
 }
 
