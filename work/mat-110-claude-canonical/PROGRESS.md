@@ -262,7 +262,7 @@ exception clause survived and that the unrelated launcher gotcha was not
 collaterally edited). Both halves verified above/here. The controller is
 amending PLAN.md and DECISIONS.md with this correction.
 
-No other concerns. Committed `<see final SHA below>` —
+No other concerns. Committed `2c3c0dd` —
 `docs(claude): flip AGENTS.md gotcha from SYNCED COPY to CANONICAL`.
 
 ## Verification
