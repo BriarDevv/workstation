@@ -818,6 +818,121 @@ UTF-8, `tests/run.ps1` ASCII; no LF-only line in either).
 
 No concerns.
 
+#### Step 5 review — fresh reviewer (capable tier), verdict verbatim
+
+```
+### Spec compliance
+❌ Issues found — the installer change is fully compliant; the guard test is not.
+
+Code (claude/install.ps1) — compliant. Sweep sits after $skillDirs is built and
+after the creation loop; gated on LinkType -eq 'Junction' plus a non-existent
+LinkTarget; no reference to $skillDirs/$skillSources; honors $script:DryRun via
+Write-Would; feeds $failed on error and $configChanged on success.
+
+Test (tests/run.ps1) — misunderstood. The test asserts that certain TEXT appears
+in the sweep block, and that PowerShell's primitives discriminate — on a
+predicate the test re-implements itself. Neither half asserts the installer's
+gate. Proven by mutation: two mutations of the gate — one inverting it, one
+dropping it — both PASS the new test.
+
+Acceptance commands — all pass: tests 27 passed/0 failed exit 0; -WhatIfOnly
+exit 0, printed "would remove dangling skill junction reviewing-plans"; zero
+writes (~/.claude/skills still 22 entries); git status empty.
+
+### Strengths
+- The gate is genuinely target-only and holds under every edge case traced:
+  non-junction kept; LinkTarget null/empty kept (fail-safe); relative targets
+  unreachable (Windows junctions store absolute paths); Test-Path does not throw
+  on missing drive, invalid chars, empty string or 300-char path.
+- Blast radius is a link, never content — Remove-Item on a junction deletes only
+  the reparse point.
+- claude-dual-account-setup survives — verified on the live machine, not argued.
+  The dry run listed exactly one removal and left it and five Orca-owned
+  ~/.agents/skills junctions untouched. Those six are live proof of why Ruling
+  A's "never a not-in-sources purge" matters.
+- Failure conventions match exactly; comment block's backup claim checked
+  against _lib.ps1 source and is true, not hand-waved.
+
+### Issues
+#### Critical (Must Fix)
+None.
+#### Important (Should Fix)
+1. tests/run.ps1 — the guard test does not guard (mutation table above).
+2. The sweep can remove dangling junctions owned by other installers — faithful
+   to Ruling A, flagged because the live machine has six. Parent's call.
+3. A temporarily unreachable target reads as "gone"; a missing source repo makes
+   the sweep remove every junction from that source. Parent's call.
+#### Minor (Nice to Have)
+Extraction regex welded to source text; test placement; positional
+Get-ChildItem; symlink wording.
+
+### Assessment
+**Step quality:** Needs fixes
+**Reasoning:** The installer change is correct, idiomatic and safe — every edge
+case traced and confirmed on the live machine. The defect is in the deliverable's
+other half: mutation testing shows the guard test passes with the gate inverted
+AND removed entirely, so it does not prove the property the step was created to
+protect.
+```
+
+#### Step 5 fix round 1 — scoped re-review, verdict verbatim
+
+Findings 2 and 3 were escalated to the parent (they narrow Ruling A) and both
+were APPROVED, so round 1 covered all three.
+
+```
+### Finding verdicts
+Finding 1 — the guard test does not guard. ADDRESSED. The test now extracts the
+shipped block and executes it with Invoke-Expression rather than re-implementing
+the predicate. Independently mutation-tested: inverting the Test-Path gate and
+dropping it entirely both now make the test FAIL, closing the exact hole.
+
+Finding 2 — $skillSources prefix narrowing. ADDRESSED. $sourceRoots built via
+GetFullPath().TrimEnd('') + '', gated with StartsWith(OrdinalIgnoreCase) — a
+prefix test, not a name lookup. The trailing separator correctly stops
+...\skills-other from matching ...\skills\.
+
+Finding 3 — skip the sweep when any declared source is missing. ADDRESSED.
+$sourcesComplete cleared in the missing-source branch; the whole sweep is skipped
+with a logged reason. The unreachable-target caveat is documented in the comment
+block exactly where required.
+
+### Mutation testing (independent, scratch copy)
+Copied the full repo to scratch (checkout never touched), baseline 27 passed:
+1. Invert the Test-Path gate → test FAILS ("sweep left: dangling, foreign, plain,
+   sibling").
+2. Drop the prefix condition → test FAILS ("sweep left: live, plain") — this is
+   the claude-dual-account-setup-deletion mutation, now caught.
+3. Remove the missing-source suppression → test FAILS at the static assertion.
+git status --short on the real checkout empty before and after.
+
+Also ran the real repo: tests 27 passed/0 failed; -WhatIfOnly printed "would
+remove dangling skill junction reviewing-plans -> C:\Briarepos\mine\skillsskillseviewing-plans" (a real dangling junction under a declared source root)
+while leaving every live junction and claude-dual-account-setup alone, ending
+"Dry run complete; no Claude files changed."
+
+### New breakage in the fix diff
+Minor — unguarded [IO.Path]::GetFullPath($target), outside the try/catch. Any
+throw would abort the whole run. Very low risk: $target is only reached after
+Test-Path parsed it without throwing, and every junction target here is created
+by this installer, accounts/install.ps1 or Orca under the same constraints. Could
+not construct a realistic target that passes Test-Path yet makes GetFullPath
+throw. Fail-loud, not fail-silent. Not blocking.
+
+$sourcesComplete interaction with $failed: correct — a missing source still calls
+$failed.Add(...) independently, so the run still exits non-zero for that reason;
+the sweep-skip is orthogonal and masks nothing.
+
+### Out-of-scope observations
+None.
+
+### Verdict
+**Fix round:** All findings addressed, no new Critical/Important breakage.
+```
+
+Controller: fix round 1 closed at round 1 of 5. The one new Minor (unguarded
+`GetFullPath`) is **deferred to work-verify's triage**. Step 5 closed.
+
 ## Verification
 
 <!-- Filled by work-verify at the lane gate. -->
