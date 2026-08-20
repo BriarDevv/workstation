@@ -66,4 +66,25 @@ rather than silently patched.
 
 ## Per-version migration dispositions (1.0.0 -> 1.4.2)
 
-<!-- Written by PLAN step 4, one row per version step. -->
+`AE/1.0.0` is the stamp this repo carried, so the ten steps below are the
+ones this lane crosses. Source: the "Per-version notes" section of
+`ae-init/references/migration.md`, measured against the repo at this lane's
+HEAD. That file lists `1.4.2` before `1.4.1`; the table is in numeric order.
+
+| Step | Disposition | Why, and what was checked |
+|---|---|---|
+| 1.1.0 | **applied** — `docs/tiers.md` refresh | Note: restamp + optionally refresh `docs/tiers.md`, whose L row gains the recommended-executor mention. Refresh done in this step; the refreshed L row reads "recommended executor: the `work-run` skill or `orchestrate` (parent-bound) — fresh subagent per PLAN step". |
+| 1.2.0 | **not-applicable** — restamp only | The note says so in its own words (skills are machine-global junctions; the SessionStart hook applies via the workstation installer). This repo *is* that installer, so the hook half was checked rather than assumed: `claude/hooks/using-ae.ps1` exists and `claude/hooks.json` registers it under `SessionStart`, installed by `claude/install.ps1` (hooks loop, `hooks.json` merge). Already discharged before this lane (commit `d95900d`); no repo file owes a change. |
+| 1.2.1 | **applied** — same `docs/tiers.md` refresh | Note: restamp + optional refresh, the L row now naming `work-run`. Satisfied by the same overwrite as 1.1.0 — the refreshed L row names `work-run`. |
+| 1.2.2 | **not-applicable** — restamp only | Restamp-only by the note's own words: the templates + shaping package ships as machine-global skills. Checked: the repo vendors no skill of its own except `accounts/skills/claude-dual-account-setup`, which `accounts/install.ps1` owns and this lane never touches. |
+| 1.3.0 | **applied** — in two parts | (a) The `fan-out` -> `orchestrate` rename: the `AGENTS.md` tier one-liner now reads `XL orchestrate` (rewrapped in this step to keep the phrase on one line), and the refreshed `docs/tiers.md` XL row reads `mandatory orchestrate`. (b) "the workstation installer must sweep the dangling fan-out junction" — **applied per Ruling A above**, as a dangling-only sweep plus a guard test, carrying `Closes MAT-50`. Implemented by **PLAN step 5**, not by this step; `claude/install.ps1` and `tests/run.ps1` were deliberately left untouched here. |
+| 1.3.1 | **skipped** — the optional `Tracker:` line | **Ruling B above**, not re-decided here: the declaration costs two lines against a 60-line target that `AGENTS.md` already fills to 59. `AGENTS.md` is 59 lines after this step; no `Tracker:` line was added. |
+| 1.3.2 | **not-applicable** — restamp only | Restamp-only by the note's own words: the fix lives inside the child dispatch template, a machine-global skill asset. Nothing inside an installed repo. |
+| 1.4.0 | **applied** — `docs/tiers.md` refresh; optional adoptions **not-applicable** | Required half: the template's closing pointer-home paragraph is present after the overwrite. Optional adoptions, each checked: (i) nested `AGENTS.md` at earned depth — the repo already nests exactly one (`git ls-files '*AGENTS.md'` returns only the root and `terminal/AGENTS.md`) and this lane earns no new depth; (ii) `Tracker-project:` lines presuppose the `Tracker:` declaration Ruling B skipped, so they are moot; (iii) the runtime-neutral browser gotcha is for UI repos — this repo restores Windows configuration and ships no browser-driven surface. |
+| 1.4.1 | **not-applicable** — restamp only | Both optional pickups are lint *relaxations*, so neither owes an edit, and neither has a subject here: (i) a pointer hosting a fenced tool-managed block — both pointers (`CLAUDE.md`, `terminal/CLAUDE.md`) are the single line `@AGENTS.md`, no fence; (ii) an `AGENTS.md` citing a command path outside the repo — the Commands block cites only `./install.ps1` and `./tests/run.ps1`, both repo-relative. |
+| 1.4.2 | **not-applicable** — restamp only; the new lint check is inert here | Verified in the check's own source rather than taken from the note. `agent-lint.mjs` defines `const SHIPPED_SURFACE = /^(skills\|reference\|templates\|global\|loops)\//` and filters its file list through it; the walk builds every path as `relative(root, full).replaceAll("\\", "/")`, i.e. root-relative with forward slashes — so the `^` anchor really is the repo root. This repo has no root-level `skills/`, `reference/`, `templates/`, `global/` or `loops/` (root `ls`; `git ls-files` filtered on those names returns only `accounts/skills/claude-dual-account-setup`, whose path starts `accounts/` and misses the anchor). Independent confirmation: this lane's own `SPEC.md` and `PLAN.md` are full of `C:/Briar/...` machine paths and lint still reports `0 high, 0 medium, 0 low` — the check demonstrably does not sweep the whole repo. |
+
+Restamp-only dispositions are the note's own verdict, not a dodge: where a
+release changed only machine-global skills or AE's own templates, an
+installed repo's sole obligation is the stamp — which this step performed
+(`Standard: AE/1.4.2`).
