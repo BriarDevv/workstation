@@ -489,6 +489,141 @@ work-verify's triage** per work-run's rule. Separately, the controller sent step
 changed; amended to `3b16f04` with a complete conventional message, verified with
 `git log -1 --format='%s%n%b'`. Step 4 closed.
 
+### Step 5 — dangling-only skill junction sweep in `claude/install.ps1` + guard test
+
+Added a 25-line sweep to `claude/install.ps1`'s skills section, immediately
+after the junction-creation loop (so a skill that merely *moved* between
+sources is repointed first and never sees the sweep), before the
+`settings.json` section. It mirrors the rules-cleanup precedent 50 lines
+above it (`claude/install.ps1:208-224`) beat for beat — `Get-ChildItem …
+-ErrorAction SilentlyContinue`, `continue` guards, `Write-Would` under
+`$script:DryRun`, `try { … $configChanged = $true; Write-Ok } catch {
+Write-Fail; $failed.Add(…) }` — rather than inventing a shape.
+
+The gate, in order: skip anything whose `LinkType` is not `Junction` (a real
+directory or a plugin's own folder is never this script's to remove), then
+skip when `LinkTarget` is empty **or** still resolves on disk. Only a
+junction whose target is gone reaches `Remove-Item`. `$skillDirs` and
+`$skillSources` are deliberately not consulted anywhere in the block — the
+negative assertion in the guard test enforces exactly that.
+
+`-Recurse -Force` on the removal matches the existing junction replacement at
+`claude/install.ps1:269`; PS7 (asserted by `Assert-PowerShell7`) removes the
+link, not the target's contents, and a dangling junction has no reachable
+contents at all. Without `-Recurse`, a directory-type item risks an
+interactive confirmation prompt, which would hang a non-interactive restore.
+
+**On the backup question (asked for explicitly): no backup, deliberately.**
+Two independent reasons. (1) A junction stores a path, not content, and a
+*dangling* junction's target is already gone — there is nothing to copy;
+recreating it needs only the name and the target string, both of which the
+removal line prints. (2) `Backup-ExistingFile` is leaf-gated
+(`_lib.ps1:71`: `if (-not (Test-Path -LiteralPath $Destination -PathType
+Leaf)) { return $null }`), so it returns `$null` for *any* junction —
+calling it here would be a guaranteed no-op that reads to a future maintainer
+as if a backup happened. Note this also means the existing
+`Backup-ExistingFile $link` on the replacement path (`install.ps1:268`) is
+itself a no-op for junctions; that is pre-existing and out of this step's
+scope, so it was left alone. The `_lib.ps1` constraint is not bypassed —
+it governs *config writes*, and no file content is written or destroyed here.
+
+Guard test `skill junction sweep is gated on a missing target, never on the
+source list` added to `tests/run.ps1` next to the existing
+`claude hooks are declared, shipped, and merged safely` test (the other test
+that inspects `claude\install.ps1`). Two halves:
+
+- **Source half (the real guard).** Extracts just the sweep block by regex
+  (`foreach ($live in @(Get-ChildItem $skillsDst … \n}`) so the negative
+  assertion is block-scoped — `$skillDirs` appears elsewhere in the file
+  legitimately — then asserts: junction-confined, `$target =
+  $live.LinkTarget` + `Test-Path -LiteralPath $target` present, `$skillDirs`
+  / `$skillSources` **absent**, dry run honored, `$failed.Add` present.
+- **Behavioral half.** Builds a temp sandbox with three real entries — a live
+  junction, a dangling junction (target created, junction made, target
+  deleted) and a plain directory — and asserts the `LinkType` + `LinkTarget`
+  + `Test-Path` triple selects exactly one of them, `dangling`. Junctions
+  need no elevation, and cleanup is temp-prefix guarded like the existing
+  `$testRoot` block.
+
+**Mutation-checked so the guard is not vacuous** (run against in-memory
+copies of the source; the repo file was never modified):
+
+```
+as shipped                            -> PASS
+mutation: not-in-sources purge        -> FAIL: target-gated, no-name-purge
+mutation: no gate at all              -> FAIL: target-gated
+mutation: junction confinement dropped-> FAIL: junction-only
+mutation: dry run ignored             -> FAIL: dry-run
+```
+
+Files changed: `claude/install.ps1`, `tests/run.ps1`.
+
+Acceptance (run from the repo root):
+
+```
+$ pwsh ./tests/run.ps1
+  [ok]   skill junction sweep is gated on a missing target, never on the source list
+=== Result
+  27 passed, 0 failed
+EXIT=0
+
+$ pwsh ./install.ps1 claude -WhatIfOnly
+=== Skills (repo junctions)
+  [ok]   ae-audit junction already in place
+  … (15 in-place junctions) …
+  would  remove dangling skill junction reviewing-plans -> C:\Briar\repos\mine\skills\skills\reviewing-plans
+=== Summary
+  [ok]   nothing failed
+  Dry run complete; no Claude files changed.
+EXIT=0
+
+$ git status --short
+ M claude/install.ps1
+ M tests/run.ps1
+```
+
+Zero user-config writes, proven rather than asserted: a hash snapshot of
+`~/.claude/CLAUDE.md`, `settings.json`, `hooks/`, `rules/`, `~/.claude.json`
+plus the name/LinkType/LinkTarget of every entry under `~/.claude/skills`
+(29 rows) was taken before and after the dry run and `diff`s identical, and
+`~/.workstation-backup`'s newest run directory is still yesterday's
+(`2026-08-19_042912957-34280`) — the dry run created none. The `would
+overwrite CLAUDE.md / hooks / settings.json` lines in the output are
+pre-existing reports of steps 1-2's content, not writes.
+
+`pwsh ./tests/run.ps1` still prints the pre-existing `[!] Workstation.Test.Package
+update check failed (winget exit 37)` line; that is the winget-availability
+condition PROGRESS already records, and the suite exits 0.
+
+**Live-machine finding worth the parent's attention (not a defect in this
+step).** The sweep is not hypothetical here: `~/.claude/skills/reviewing-plans`
+is a **real dangling junction on this machine right now**, pointing at
+`C:\Briar\repos\mine\skills\skills\reviewing-plans`, which no longer exists —
+and neither does a `reviewing-plans` directory in *either* declared source
+(`Agent-Engineering\skills`, `skills\skills`) or in `~/.agents/skills`. It is
+exactly the MAT-50 scenario. Consequence: the first real (non-dry-run)
+`install.ps1 claude` after this merges will delete that junction. That is the
+intended fix, but it is a live-machine change, so it should not arrive as a
+surprise — if `reviewing-plans` is still wanted, its source needs restoring in
+one of the two skill repos first. DECISIONS.md's Ruling A notes the machine had
+no dangling *`fan-out`* junction; it does have this one.
+
+Safety rule verified against live state, not just the test: the dry run
+printed **no** sweep line for `claude-dual-account-setup` (junction ->
+`C:\Briar\repos\mine\workstation\accounts\skills\claude-dual-account-setup`,
+target live) even though that name is absent from `$skillSources`, nor for
+the five Orca-owned `~/.agents/skills` junctions (`computer-use`,
+`find-skills`, `orca-cli`, `orca-linear`, `orchestration`), which are equally
+not-in-sources. A name-based purge would have listed all six.
+
+Line endings: both files are UTF-8/ASCII CRLF and stayed that way —
+`perl -ne 'print unless /\r\n$/'` reports no LF-only line in either
+(607/607 and 517/517), and `git diff --stat` shows 25 and 43 pure insertions
+with no whole-file churn. Edits made with the Edit tool, not `sed`, per
+step 2's recorded gotcha.
+
+No concerns.
+
 ## Verification
 
 <!-- Filled by work-verify at the lane gate. -->

@@ -385,6 +385,49 @@ Test-Case 'claude hooks are declared, shipped, and merged safely' {
         'installer does not resolve the CLAUDE_HOME placeholder'
 }
 
+# The sweep must stay gated on the junction TARGET being gone. Gating it on the name
+# instead - anything not in $skillSources - would delete claude-dual-account-setup, which
+# accounts\install.ps1 owns, on every claude\install.ps1 run.
+Test-Case 'skill junction sweep is gated on a missing target, never on the source list' {
+    $installer = Get-Content (Join-Path $repo 'claude\install.ps1') -Raw
+    $sweep = [regex]::Match($installer, '(?s)foreach \(\$live in @\(Get-ChildItem \$skillsDst.*?\r?\n\}')
+    Assert-True $sweep.Success 'claude\install.ps1 has no dangling skill junction sweep'
+    $body = $sweep.Value
+    Assert-True ($body -match "LinkType -ne 'Junction'") `
+        'sweep does not confine itself to junctions'
+    Assert-True ($body -match '\$target = \$live\.LinkTarget' -and
+        $body -match 'Test-Path -LiteralPath \$target') `
+        'sweep removal is not gated on the junction target being gone'
+    Assert-True (-not ($body -match '\$skillDirs|\$skillSources')) `
+        'sweep consults the source list - a not-in-sources purge deletes claude-dual-account-setup'
+    Assert-True ($body -match 'if \(\$script:DryRun\) \{ Write-Would') 'sweep does not honor dry run'
+    Assert-True ($body -match '\$failed\.Add') 'sweep failures are not reported'
+
+    # The gate rests on a dangling junction still reporting LinkType 'Junction' while its
+    # LinkTarget stops resolving. Prove that discriminates, against real links.
+    $sandbox = Join-Path ([IO.Path]::GetTempPath()) "workstation-skills-$PID-$([guid]::NewGuid().ToString('N'))"
+    $kept = Join-Path $sandbox 'source\kept'
+    $removed = Join-Path $sandbox 'source\removed'
+    $skills = Join-Path $sandbox 'skills'
+    try {
+        New-Item -ItemType Directory -Path $kept, $removed, (Join-Path $skills 'plain') -Force | Out-Null
+        New-Item -ItemType Junction -Path (Join-Path $skills 'live') -Target $kept | Out-Null
+        New-Item -ItemType Junction -Path (Join-Path $skills 'dangling') -Target $removed | Out-Null
+        Remove-Item -LiteralPath $removed -Recurse -Force
+        $swept = @(Get-ChildItem $skills -Force |
+            Where-Object { $_.LinkType -eq 'Junction' -and -not (Test-Path -LiteralPath $_.LinkTarget) })
+        Assert-True ($swept.Count -eq 1 -and $swept[0].Name -eq 'dangling') `
+            "target-existence gate selected: $($swept.Name -join ', ')"
+    }
+    finally {
+        $tempPath = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+        $resolved = [IO.Path]::GetFullPath($sandbox)
+        if ($resolved.StartsWith($tempPath, [StringComparison]::OrdinalIgnoreCase)) {
+            Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 Test-Case 'relative Markdown links resolve inside the repository' {
     $broken = [System.Collections.Generic.List[string]]::new()
     foreach ($file in Get-ChildItem $repo -Recurse -Filter *.md) {

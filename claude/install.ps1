@@ -272,6 +272,31 @@ foreach ($name in @($skillDirs.Keys) | Sort-Object) {
     Write-Ok "$name junction created"
     $configChanged = $true
 }
+# A skill renamed or absorbed upstream leaves its junction behind, pointing at a path
+# that no longer exists. Sweep those, and only those: removal is gated on the TARGET
+# being gone, never on the name being absent from $skillSources. A not-in-sources purge
+# would delete claude-dual-account-setup, the junction accounts\install.ps1 owns and
+# this script must never touch. Anything that is not a junction - a real directory, a
+# plugin's own folder - is left alone for the same reason.
+#
+# No backup: a junction stores a path, not content, and a dangling one's target is
+# already gone, so there is nothing to copy - Backup-ExistingFile is leaf-gated and
+# returns $null for any junction anyway.
+foreach ($live in @(Get-ChildItem $skillsDst -Force -ErrorAction SilentlyContinue)) {
+    if ($live.LinkType -ne 'Junction') { continue }
+    $target = $live.LinkTarget
+    if (-not $target -or (Test-Path -LiteralPath $target)) { continue }
+    if ($script:DryRun) { Write-Would "remove dangling skill junction $($live.Name) -> $target"; continue }
+    try {
+        Remove-Item -LiteralPath $live.FullName -Recurse -Force
+        $configChanged = $true
+        Write-Ok "removed dangling skill junction $($live.Name)"
+    }
+    catch {
+        Write-Fail "could not remove dangling skill junction $($live.Name): $($_.Exception.Message)"
+        $failed.Add("skill junction cleanup: $($live.Name)")
+    }
+}
 
 # ---------------------------------------------------------------- settings.json
 Write-Step 'settings.json'
