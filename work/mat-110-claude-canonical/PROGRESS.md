@@ -77,6 +77,52 @@ source file, so no further trimming was needed or done.
 
 No concerns. Committed `1ffdeb5` — `feat(claude): sync claude/CLAUDE.md body from AE global/CLAUDE.md, flip canon header`.
 
+#### Step 1 review — fresh reviewer, verdict verbatim
+
+```
+### Spec compliance
+✅ Compliant
+
+All four acceptance predicates verified directly:
+- `diff <(sed '3d' claude/CLAUDE.md) <(sed '3d' .../global/CLAUDE.md)` — empty
+- `grep -c 'Reply in the language of each prompt' claude/CLAUDE.md` — 1
+- `awk 'END{print NR}' claude/CLAUDE.md` — 40 (≤40)
+- `node .../agent-lint.mjs .` — `0 high, 0 medium, 0 low — PASS`, exit 0
+
+(a) Removal of the four-line "long-lived process" bullet — faithful consequence,
+not scope creep. AE's global/CLAUDE.md has no such bullet at all; the deletion is
+exactly what a body-replace-from-source requires, confirmed by the whole-file diff
+coming back empty.
+(b) Canon-comment text, character for character — exact match, including the em
+dash (U+2014) and trailing period. Verified via `cat -A` byte comparison.
+(c) Line endings/encoding — preserved correctly. Working-tree file is CRLF; the
+git blob at HEAD is normalized LF, matching `.gitattributes` (`* text=auto`) for
+every text file in this repo.
+
+The diff touches only `claude/CLAUDE.md` — no collateral edits.
+
+### Issues
+#### Critical (Must Fix)
+None.
+#### Important (Should Fix)
+None.
+#### Minor (Nice to Have)
+None.
+
+### Assessment
+**Step quality:** Approved
+**Reasoning:** A mechanical content-sync step, verified mechanically — all four
+stated acceptance predicates pass, the canon-comment text matches the PLAN
+literally, the dropped bullet is a correct consequence of the source it synced
+from (not an unrequested deletion), and the CRLF working-tree convention was
+preserved per the lane's Constraints block.
+```
+
+Controller note: the reviewer's report did not arrive over the agent message
+channel (it went idle twice without delivering). It was recovered by having the
+reviewer write the report to a session scratch file, read back and pasted above
+verbatim. No fix round — zero Critical/Important/Minor findings. Step 1 closed.
+
 ## Verification
 
 <!-- Filled by work-verify at the lane gate. -->
