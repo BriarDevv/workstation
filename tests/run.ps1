@@ -403,23 +403,47 @@ Test-Case 'skill junction sweep is gated on a missing target, never on the sourc
     Assert-True ($body -match 'if \(\$script:DryRun\) \{ Write-Would') 'sweep does not honor dry run'
     Assert-True ($body -match '\$failed\.Add') 'sweep failures are not reported'
 
-    # The gate rests on a dangling junction still reporting LinkType 'Junction' while its
-    # LinkTarget stops resolving. Prove that discriminates, against real links.
+    # Run the EXTRACTED block, not a copy of its predicate written here: a re-implementation
+    # passes no matter what install.ps1 does, which is how an inverted or dropped gate slips
+    # through. Invoke-Expression executes the shipped lines against three real entries - a
+    # live junction, a dangling one, and a plain directory - so only the dangling junction
+    # may disappear, and only outside dry run.
     $sandbox = Join-Path ([IO.Path]::GetTempPath()) "workstation-skills-$PID-$([guid]::NewGuid().ToString('N'))"
     $kept = Join-Path $sandbox 'source\kept'
     $removed = Join-Path $sandbox 'source\removed'
-    $skills = Join-Path $sandbox 'skills'
+    $skillsDst = Join-Path $sandbox 'skills'
+    $wasDryRun = $script:DryRun
     try {
-        New-Item -ItemType Directory -Path $kept, $removed, (Join-Path $skills 'plain') -Force | Out-Null
-        New-Item -ItemType Junction -Path (Join-Path $skills 'live') -Target $kept | Out-Null
-        New-Item -ItemType Junction -Path (Join-Path $skills 'dangling') -Target $removed | Out-Null
+        New-Item -ItemType Directory -Path $kept, $removed, (Join-Path $skillsDst 'plain') -Force | Out-Null
+        New-Item -ItemType Junction -Path (Join-Path $skillsDst 'live') -Target $kept | Out-Null
+        New-Item -ItemType Junction -Path (Join-Path $skillsDst 'dangling') -Target $removed | Out-Null
         Remove-Item -LiteralPath $removed -Recurse -Force
-        $swept = @(Get-ChildItem $skills -Force |
-            Where-Object { $_.LinkType -eq 'Junction' -and -not (Test-Path -LiteralPath $_.LinkTarget) })
-        Assert-True ($swept.Count -eq 1 -and $swept[0].Name -eq 'dangling') `
-            "target-existence gate selected: $($swept.Name -join ', ')"
+
+        # Stand-ins for the installer's reporters and counters, local to this test: silent so
+        # the sweep's own output stays out of the suite's.
+        function Write-Would { param($m) }
+        function Write-Ok { param($m) }
+        function Write-Fail { param($m) }
+        $failed = [System.Collections.Generic.List[string]]::new()
+        $configChanged = $false
+
+        $script:DryRun = $true
+        Invoke-Expression $body
+        $survivors = @(Get-ChildItem $skillsDst -Force | Sort-Object Name).Name
+        Assert-True (($survivors -join ',') -eq 'dangling,live,plain') `
+            "dry run removed something; left: $($survivors -join ', ')"
+        Assert-True (-not $configChanged) 'dry run reported a configuration change'
+
+        $script:DryRun = $false
+        Invoke-Expression $body
+        $survivors = @(Get-ChildItem $skillsDst -Force | Sort-Object Name).Name
+        Assert-True (($survivors -join ',') -eq 'live,plain') `
+            "sweep left: $($survivors -join ', ')"
+        Assert-True ($configChanged -and $failed.Count -eq 0) `
+            "sweep did not report one clean change: changed=$configChanged failed=$($failed -join ', ')"
     }
     finally {
+        $script:DryRun = $wasDryRun
         $tempPath = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
         $resolved = [IO.Path]::GetFullPath($sandbox)
         if ($resolved.StartsWith($tempPath, [StringComparison]::OrdinalIgnoreCase)) {
