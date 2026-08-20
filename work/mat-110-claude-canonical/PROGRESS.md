@@ -265,6 +265,51 @@ amending PLAN.md and DECISIONS.md with this correction.
 No other concerns. Committed `2c3c0dd` —
 `docs(claude): flip AGENTS.md gotcha from SYNCED COPY to CANONICAL`.
 
+#### Step 3 review — fresh reviewer, verdict verbatim
+
+```
+### Spec compliance
+✅ Compliant
+
+### Strengths
+- The gotcha's factual claim was cross-checked against the files steps 1 and 2
+  actually changed, not taken on faith: claude/CLAUDE.md carries the
+  workstation canon comment, and both hooks carry the equivalent
+  `Canonical: workstation/claude/hooks/<name> — applied to ~/.claude/hooks/ by
+  claude/install.ps1.` headers. The new AGENTS.md:26-30 claim is true of the
+  repo as it stands, not just internally consistent.
+- The skills-junction sentence survived byte-for-byte, just reflowed.
+- No collateral edit to the "THREE synced copies" launcher gotcha below
+  (AGENTS.md:31-35) — confirmed identical to baseline.
+- All corrected acceptance predicates pass, verified directly:
+  `grep -c 'SYNCED COPY'` = 0; `grep -c 'claude-dual-account-setup'` = 2 and
+  `git show HEAD:AGENTS.md | grep -c ...` = 2 — equal, per the corrected
+  predicate; `awk 'END{print NR}'` = 59 (≤ 60); lint 0 high/0 medium/0 low PASS.
+- Line endings: raw whole-file byte scan (`od -An -tx1`) shows all 59 line
+  terminators are CRLF, including newly written lines.
+
+### Issues
+#### Critical (Must Fix)
+None.
+#### Important (Should Fix)
+None.
+#### Minor (Nice to Have)
+- AGENTS.md:26 — shipped wording has a comma ("the personal machine layer,
+  applied to ~/.claude...") where PLAN/SPEC phrase it without one. Meaning
+  unchanged, no predicate tests exact wording; cosmetic only.
+
+### Assessment
+**Step quality:** Approved
+**Reasoning:** The rewritten gotcha satisfies every corrected acceptance
+predicate, states exactly what SPEC item 3 requires, and is verifiably true
+against the actual post-step-1/2 state rather than just plausible-sounding.
+No scope creep, no collateral edits, line budget and lint both clean.
+```
+
+Controller: the single Minor (cosmetic comma) does NOT enter the fix loop —
+**deferred to work-verify's triage** per work-run's rule on Minor findings.
+Step 3 closed.
+
 ## Verification
 
 <!-- Filled by work-verify at the lane gate. -->
