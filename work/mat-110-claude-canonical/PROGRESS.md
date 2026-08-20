@@ -624,6 +624,86 @@ step 2's recorded gotcha.
 
 No concerns.
 
+#### Step 5 fix round 1 — the guard test now executes the shipped sweep
+
+Reviewer finding (Important, `tests/run.ps1` only): the guard did not guard. Two
+mutations of the gate at `claude/install.ps1:288` passed it — inverting the
+`Test-Path` and dropping the gate while still naming `Test-Path` — because the
+assertions checked those strings were *present*, not how they were used, and the
+sandbox half exercised a predicate re-written inside the test, which no change to
+the installer can falsify. Finding accepted in full; my original mutation check
+was not evidence for the property it claimed, since every mutation I chose
+happened to delete one of the presence-checked strings.
+
+`claude/install.ps1` is unchanged — `git diff HEAD -- claude/install.ps1` is empty
+against `67ae603`.
+
+**Variant chosen: execute the extracted block (`Invoke-Expression $body`).** The
+`_lib.ps1` `Get-DanglingJunction` helper variant is the cleaner shape in the
+abstract, but it requires editing `claude/install.ps1` to call the helper, and the
+installer is approved and explicitly frozen this round. Between a test that runs
+the shipped bytes and one that runs a helper the shipped code merely calls, the
+first is also the stronger guarantee here: the property under test is a property
+of that specific block.
+
+What replaced the sandbox half (`tests/run.ps1:406-433`): the same three real
+entries (live junction, dangling junction, plain directory) are now handed to the
+extracted block itself. `$skillsDst` points at the sandbox, `Write-Would` /
+`Write-Ok` / `Write-Fail` are shadowed by silent local stubs so the sweep's output
+stays out of the suite's, and `$failed` / `$configChanged` stand in for the
+installer's. The block runs twice: once with `$script:DryRun = $true`, asserting
+all three entries survive and `$configChanged` stays false; then with `$false`,
+asserting the survivors are exactly `live, plain` and that the run reported one
+clean change. `$script:DryRun` is saved and restored in the `finally`. All the
+source assertions are kept, including the `$skillDirs|$skillSources` absence check
+— no execution test replaces that one.
+
+**Mutation evidence.** Harness: copy the whole repo (minus `.git`) to
+`%TEMP%\sweep-mutation-<pid>`, mutate `claude/install.ps1` **in the copy**, run the
+copy's `tests\run.ps1`, read this test's result line, delete the copy. The repo
+file is never written; the harness asserts the mutation actually applied before
+trusting a FAIL:
+
+```
+baseline (unmutated copy)                                            -> PASS (not caught)
+M1 gate inverted (keeps dangling, deletes live)                      -> FAIL (caught)
+      sweep left: dangling, plain
+M2 gate dropped, Test-Path still mentioned (deletes every junction)  -> FAIL (caught)
+      sweep left: plain
+M3 junction confinement inverted (sweeps real directories)           -> FAIL (caught)
+      sweep does not confine itself to junctions
+M4 dry run ignored                                                   -> FAIL (caught)
+      sweep does not honor dry run
+M5 not-in-sources purge (deletes claude-dual-account-setup)          -> FAIL (caught)
+      sweep removal is not gated on the junction target being gone
+```
+
+M1 and M2 — the two the reviewer proved slipped through — now fail on the
+*behavioral* assertion (`sweep left: …`), not on a string match. M3 and M4 trip a
+source assertion first, and would be caught behaviorally too if it were removed
+(the inverted confinement removes nothing, leaving three survivors; the ignored
+dry run leaves two where three are required). M5 is caught by the `$skillDirs`
+absence check the reviewer asked to keep.
+
+After the harness: `git status --short` shows only `tests/run.ps1`, and
+`git diff HEAD -- claude/install.ps1` is empty — the installer is byte-identical
+to the approved commit.
+
+```
+$ pwsh ./tests/run.ps1
+  [ok]   skill junction sweep is gated on a missing target, never on the source list
+=== Result
+  27 passed, 0 failed
+EXIT=0
+```
+
+`tests/run.ps1` stays ASCII/CRLF (541 lines, no LF-only line).
+
+Not acted on, per the controller: the three findings about the sweep removing
+dangling junctions owned by other installers, and the unreachable-target and
+missing-source cases. They are consequences of Ruling A as written and are with
+the parent as a ruling question.
+
 ## Verification
 
 <!-- Filled by work-verify at the lane gate. -->
