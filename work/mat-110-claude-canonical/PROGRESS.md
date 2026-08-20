@@ -212,6 +212,59 @@ header-only scope found no deviation. Clean, minimal, purely mechanical edit.
 
 No fix round — zero findings. Step 2 closed.
 
+### Step 3 — root `AGENTS.md` gotcha flipped from SYNCED COPY to CANONICAL
+
+Rewrote only the gotcha bullet at (pre-edit) lines 26-30, from declaring
+`claude/CLAUDE.md` a SYNCED COPY with canon in Agent-Engineering, to
+stating `claude/CLAUDE.md` and `claude/hooks/` are CANONICAL here — the
+personal machine layer, applied to `~/.claude` by `claude/install.ps1`.
+The skills-junction sentence (`Agent-Engineering` + `skills` sources via
+`claude/install.ps1`, except `claude-dual-account-setup` from `accounts/`
+linked by `accounts/install.ps1`) is carried over unchanged in substance,
+just re-wrapped into the new bullet. Line count in the gotcha stayed at 5
+(same as before). Used the Edit tool (not `sed`) per step 2's recorded
+CRLF-stripping gotcha; `file AGENTS.md` confirms CRLF survived.
+
+Files changed: `AGENTS.md`.
+
+Acceptance (run from the repo root):
+
+```
+$ grep -c 'SYNCED COPY' AGENTS.md
+0
+
+$ grep -c 'claude-dual-account-setup' AGENTS.md
+2
+
+$ awk 'END{print NR}' AGENTS.md
+59
+
+$ node C:/Briar/repos/mine/Agent-Engineering/scripts/agent-lint.mjs .
+agent-lint C:\Users\mateo\orca\workspaces\workstation\mat-110-claude-canonical
+0 high, 0 medium, 0 low — PASS
+
+$ file AGENTS.md
+AGENTS.md: Unicode text, UTF-8 text, with CRLF line terminators
+```
+
+**Ruling on the `claude-dual-account-setup` predicate:** the PLAN's original
+step-3 acceptance line asked for `grep -c 'claude-dual-account-setup'
+AGENTS.md` = 1. Actual count is 2 — and was already 2 at baseline (`git
+show HEAD:AGENTS.md | grep -c 'claude-dual-account-setup'` = 2, verified),
+because a second, unrelated occurrence lives in the untouched "dual-account
+launcher block exists in THREE synced copies" gotcha (line 32,
+`accounts/skills/claude-dual-account-setup/profile-functions.ps1`) — not
+part of this step's scope. Flagged to the controller before committing
+rather than guessing; ruling received: the `=1` predicate was mis-specified
+when the PLAN was written, and the corrected predicate is **count = 2,
+unchanged from HEAD's count of 2** (proving both that this step's required
+exception clause survived and that the unrelated launcher gotcha was not
+collaterally edited). Both halves verified above/here. The controller is
+amending PLAN.md and DECISIONS.md with this correction.
+
+No other concerns. Committed `<see final SHA below>` —
+`docs(claude): flip AGENTS.md gotcha from SYNCED COPY to CANONICAL`.
+
 ## Verification
 
 <!-- Filled by work-verify at the lane gate. -->
