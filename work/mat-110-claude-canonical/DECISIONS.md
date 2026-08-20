@@ -64,6 +64,59 @@ unblocked and told to record the corrected predicate in its report.
 Controller error, caught by the implementer refusing to guess — recorded here
 rather than silently patched.
 
+## 2026-08-20 — Ruling A refined: the sweep gains a `$skillSources` prefix test and a missing-source abort
+
+Step 5's reviewer approved the sweep's implementation (every edge case traced,
+`-WhatIfOnly` confirmed on the live machine) but raised two consequences of
+**Ruling A as written**, and deferred both to the parent as design calls rather
+than implementation defects. What the review turned up on the live machine
+sharpened the question:
+
+- A genuinely dangling junction exists today — `reviewing-plans` pointing at
+  `C:/Briar/repos/mine/skills/skills/reviewing-plans`. The sweep does real work.
+- Six junctions `claude/install.ps1` does **not** own survive only because their
+  targets currently exist: `claude-dual-account-setup` (owned by
+  `accounts/install.ps1`) and five Orca-owned `~/.agents/skills` links
+  (`computer-use`, `find-skills`, `orca-cli`, `orca-linear`, `orchestration`).
+
+**Parent's ruling: both narrowings APPROVED.**
+
+### (1) Remove only when the dead target sits under a declared `$skillSources` root
+
+The parent's correction matters more than the change: this is **not** a widening
+of Ruling A. MAT-50's original backlog design already read "LinkTarget no longer
+exists AND whose target path is under a declared `$skillSources` root" — Ruling
+A's dangling-only phrasing over-simplified it, and the prefix test restores the
+original intent. The six foreign links must survive even when dangling, because
+their owners recreate them and this installer never will.
+
+This is a prefix test on the source roots, not the name-based purge Ruling A
+rejected: a renamed skill still leaves a junction pointing at
+`<source>/<oldname>`, under a declared root, so MAT-50's motivating case is still
+swept.
+
+**Accepted cost, recorded as the ruling requires:** when a *source repo itself*
+is renamed or relocated, its junctions are no longer swept — their dead targets
+no longer sit under any declared root. That is the case where mass deletion is
+least desirable anyway.
+
+### (2) Skip the sweep for the whole run when any declared source is missing
+
+`Test-Path` returns `$false`, not an error, for a disconnected mapped drive or a
+parent that lost traverse permission — so an unreachable target reads as gone.
+The sharper version: when a whole source repo is missing, the existing
+`Write-Warn2 "skills source not found…"` path leaves `$skillDirs` short and the
+sweep would remove **every** junction from that source in one run. The parent's
+words: mass-deleting a source's junctions because a clone went missing is the
+failure mode we must not ship. The installer therefore skips the sweep entirely
+for that run, logs why, and the comment block documents the unreachable-target
+caveat.
+
+### On `reviewing-plans`
+
+Confirmed genuinely dead from the parent's seat too — target absent in both
+source repos. Not special-cased; the sweep handles it on a future install run.
+
 ## Per-version migration dispositions (1.0.0 -> 1.4.2)
 
 `AE/1.0.0` is the stamp this repo carried, so the ten steps below are the
