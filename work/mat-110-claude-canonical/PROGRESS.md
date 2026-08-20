@@ -399,7 +399,24 @@ which are all LF — so `git diff` prints the usual `* text=auto` "LF will be
 replaced by CRLF" warning for it. Pre-existing and consistent across the
 lane folder; the committed blob is LF either way. Not changed here.
 
-Committed `<SHA>` — `docs(claude): migrate stamp to AE/1.4.2, refresh tiers.md, record dispositions`.
+Committed `6a7e12a` — `docs(claude): migrate stamp to AE/1.4.2, refresh tiers.md, record dispositions`.
+
+**Commit-message history for that commit (content never changed — same tree
+`682652a` throughout, verified with `git rev-parse HEAD^{tree}` before and
+after each amend):**
+
+1. `83db313` — created with a mangled message: a PowerShell here-string
+   quoting form (`-m @'…'@`) leaked into a Bash call, so the subject became
+   `@` and the body was truncated mid-sentence. Caught immediately.
+2. `3b16f04` — message rewritten with `git commit --amend -F <file>`
+   (local, unpushed, seconds old). Clean conventional subject, complete body.
+3. `6a7e12a` — **final.** The controller reviewed the mangled `83db313` and
+   asked for the amend plus a `Refs MAT-110` trailer, which the branch's
+   other commits carry and `3b16f04` did not. Amended again, message-only:
+   the SHA-record commit was soft-reset and unstaged first so the index
+   equalled HEAD and the amend could not pick up file changes. The body now
+   also states the stamp transition explicitly (`AE/1.0.0` -> `AE/1.4.2`).
+   Verified with `git log -1 --format='%s%n%b'`.
 
 ## Verification
 
