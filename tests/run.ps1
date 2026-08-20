@@ -385,12 +385,15 @@ Test-Case 'claude hooks are declared, shipped, and merged safely' {
         'installer does not resolve the CLAUDE_HOME placeholder'
 }
 
-# The sweep must stay gated on the junction TARGET being gone. Gating it on the name
-# instead - anything not in $skillSources - would delete claude-dual-account-setup, which
-# accounts\install.ps1 owns, on every claude\install.ps1 run.
-Test-Case 'skill junction sweep is gated on a missing target, never on the source list' {
+# Removing a skill junction takes a dead target AND a target under a declared
+# $skillSources root. Losing the target half deletes live junctions; losing the root half
+# deletes the dangling junctions other installers own - claude-dual-account-setup from
+# accounts\install.ps1, the Orca-managed ~\.agents\skills links - which they recreate and
+# this one never would. A missing source suppresses the sweep for the whole run.
+Test-Case 'skill junction sweep needs a dead target under a declared source root' {
     $installer = Get-Content (Join-Path $repo 'claude\install.ps1') -Raw
-    $sweep = [regex]::Match($installer, '(?s)foreach \(\$live in @\(Get-ChildItem \$skillsDst.*?\r?\n\}')
+    $sweep = [regex]::Match($installer,
+        '(?s)if \(-not \$sourcesComplete\) \{.*?\r?\nelse \{.*?\r?\n\}')
     Assert-True $sweep.Success 'claude\install.ps1 has no dangling skill junction sweep'
     $body = $sweep.Value
     Assert-True ($body -match "LinkType -ne 'Junction'") `
@@ -398,46 +401,80 @@ Test-Case 'skill junction sweep is gated on a missing target, never on the sourc
     Assert-True ($body -match '\$target = \$live\.LinkTarget' -and
         $body -match 'Test-Path -LiteralPath \$target') `
         'sweep removal is not gated on the junction target being gone'
-    Assert-True (-not ($body -match '\$skillDirs|\$skillSources')) `
-        'sweep consults the source list - a not-in-sources purge deletes claude-dual-account-setup'
+    Assert-True ($body -match '\$sourceRoots = @\(\$skillSources' -and
+        $body -match 'StartsWith\(\$_, \[StringComparison\]::OrdinalIgnoreCase\)') `
+        'sweep removal is not gated on the target sitting under a declared source root'
+    Assert-True (-not ($body -match '\$skillDirs')) `
+        'sweep consults the skill name list - a not-in-sources purge deletes claude-dual-account-setup'
     Assert-True ($body -match 'if \(\$script:DryRun\) \{ Write-Would') 'sweep does not honor dry run'
     Assert-True ($body -match '\$failed\.Add') 'sweep failures are not reported'
+    # The sandbox below sets $sourcesComplete itself, so only the source text can show that
+    # a missing source is what clears it.
+    $sourceLoop = [regex]::Match($installer, '(?s)foreach \(\$skillsSrc in \$skillSources\) \{.*?\r?\n\}')
+    Assert-True ($sourceLoop.Success -and $sourceLoop.Value -match '\$sourcesComplete = \$false') `
+        'a missing skills source does not clear $sourcesComplete, so the sweep would still run'
 
     # Run the EXTRACTED block, not a copy of its predicate written here: a re-implementation
     # passes no matter what install.ps1 does, which is how an inverted or dropped gate slips
-    # through. Invoke-Expression executes the shipped lines against three real entries - a
-    # live junction, a dangling one, and a plain directory - so only the dangling junction
-    # may disappear, and only outside dry run.
+    # through. Invoke-Expression executes the shipped lines against five real entries:
+    #   live      junction into the declared source, target alive  -> survives
+    #   dangling  junction into the declared source, target gone   -> swept
+    #   sibling   target gone under ...\skills-other, a name that merely starts like the
+    #             declared root ...\skills                         -> survives
+    #   foreign   target gone outside every declared root, standing in for
+    #             claude-dual-account-setup and the ~\.agents\skills links
+    #                                                              -> survives
+    #   plain     a real directory, not a junction                 -> survives
     $sandbox = Join-Path ([IO.Path]::GetTempPath()) "workstation-skills-$PID-$([guid]::NewGuid().ToString('N'))"
-    $kept = Join-Path $sandbox 'source\kept'
-    $removed = Join-Path $sandbox 'source\removed'
+    $sourceRoot = Join-Path $sandbox 'source\skills'
+    $kept = Join-Path $sourceRoot 'kept'
+    $removed = Join-Path $sourceRoot 'removed'
+    $siblingRootTarget = Join-Path $sandbox 'source\skills-other\x'
+    $foreignTarget = Join-Path $sandbox 'foreign\owned'
     $skillsDst = Join-Path $sandbox 'skills'
+    $skillSources = @($sourceRoot)
     $wasDryRun = $script:DryRun
     try {
-        New-Item -ItemType Directory -Path $kept, $removed, (Join-Path $skillsDst 'plain') -Force | Out-Null
+        New-Item -ItemType Directory -Force -Path $kept, $removed, $siblingRootTarget,
+            $foreignTarget, (Join-Path $skillsDst 'plain') | Out-Null
         New-Item -ItemType Junction -Path (Join-Path $skillsDst 'live') -Target $kept | Out-Null
         New-Item -ItemType Junction -Path (Join-Path $skillsDst 'dangling') -Target $removed | Out-Null
-        Remove-Item -LiteralPath $removed -Recurse -Force
+        New-Item -ItemType Junction -Path (Join-Path $skillsDst 'sibling') -Target $siblingRootTarget | Out-Null
+        New-Item -ItemType Junction -Path (Join-Path $skillsDst 'foreign') -Target $foreignTarget | Out-Null
+        Remove-Item -LiteralPath $removed, $siblingRootTarget, $foreignTarget -Recurse -Force
 
         # Stand-ins for the installer's reporters and counters, local to this test: silent so
         # the sweep's own output stays out of the suite's.
         function Write-Would { param($m) }
         function Write-Ok { param($m) }
+        function Write-Warn2 { param($m) }
         function Write-Fail { param($m) }
         $failed = [System.Collections.Generic.List[string]]::new()
         $configChanged = $false
+        $intact = 'dangling,foreign,live,plain,sibling'
 
+        $sourcesComplete = $true
         $script:DryRun = $true
         Invoke-Expression $body
         $survivors = @(Get-ChildItem $skillsDst -Force | Sort-Object Name).Name
-        Assert-True (($survivors -join ',') -eq 'dangling,live,plain') `
+        Assert-True (($survivors -join ',') -eq $intact) `
             "dry run removed something; left: $($survivors -join ', ')"
         Assert-True (-not $configChanged) 'dry run reported a configuration change'
 
+        # A missing source makes every junction into it look dangling, so the whole sweep
+        # stands down for that run rather than mass-deleting them.
+        $sourcesComplete = $false
         $script:DryRun = $false
         Invoke-Expression $body
         $survivors = @(Get-ChildItem $skillsDst -Force | Sort-Object Name).Name
-        Assert-True (($survivors -join ',') -eq 'live,plain') `
+        Assert-True (($survivors -join ',') -eq $intact) `
+            "a missing source did not suppress the sweep; left: $($survivors -join ', ')"
+        Assert-True (-not $configChanged) 'suppressed sweep reported a configuration change'
+
+        $sourcesComplete = $true
+        Invoke-Expression $body
+        $survivors = @(Get-ChildItem $skillsDst -Force | Sort-Object Name).Name
+        Assert-True (($survivors -join ',') -eq 'foreign,live,plain,sibling') `
             "sweep left: $($survivors -join ', ')"
         Assert-True ($configChanged -and $failed.Count -eq 0) `
             "sweep did not report one clean change: changed=$configChanged failed=$($failed -join ', ')"
