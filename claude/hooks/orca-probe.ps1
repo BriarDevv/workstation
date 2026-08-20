@@ -1,6 +1,6 @@
 # Emits one line of session context: whether Orca is available right now.
-# Canonical: Agent-Engineering/global/hooks/orca-probe.ps1 — applied to
-# ~/.claude/hooks/ by the workstation installer. Executing skills may cite
+# Canonical: workstation/claude/hooks/orca-probe.ps1 — applied to
+# ~/.claude/hooks/ by claude/install.ps1. Executing skills may cite
 # the emitted line as their completed step-0 probe (reference/orca.md).
 $ErrorActionPreference = 'SilentlyContinue'
 $cmd = $env:ORCA_CLI_COMMAND
