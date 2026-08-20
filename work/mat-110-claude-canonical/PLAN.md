@@ -46,7 +46,9 @@ Tier M · lane `work/mat-110-claude-canonical/` · SPEC.md is the authority.
       (`Agent-Engineering` + `skills` sources, `claude-dual-account-setup` from
       `accounts/`) intact. Stay within the 60-line target — *mechanical* —
       accept: `grep -c 'SYNCED COPY' AGENTS.md` = 0 AND
-      `grep -c 'claude-dual-account-setup' AGENTS.md` = 1 AND
+      `grep -c 'claude-dual-account-setup' AGENTS.md` = 2, unchanged from
+      `git show HEAD:AGENTS.md | grep -c 'claude-dual-account-setup'` (corrected
+      mid-run — see DECISIONS.md) AND
       `awk 'END{print NR}' AGENTS.md` <= 60 AND lint exits 0 with 0 high
 
 - [ ] 4. Migrate the stamp. Edits the same `AGENTS.md` step 3 just rewrote, so

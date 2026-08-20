@@ -41,6 +41,29 @@ file to 61 — a `medium` lint finding traded for an optional line.
 migration lane. Recorded here rather than silently omitted; a later lane
 that has budget to spend may adopt it.
 
+## 2026-08-20 — step 3's acceptance predicate was mis-specified; corrected to `= 2`
+
+PLAN step 3 asked for `grep -c 'claude-dual-account-setup' AGENTS.md` = 1.
+Step 3's implementer stopped before committing and reported that the count is
+**2**, and was already 2 at HEAD before its edit: once in the exception clause
+of the gotcha it was rewriting, once in the unrelated "the dual-account launcher
+block exists in THREE synced copies" gotcha
+(`accounts/skills/claude-dual-account-setup/profile-functions.ps1`).
+
+Satisfying `= 1` literally would have required either dropping the exception
+clause the step was explicitly told to keep, or editing an out-of-scope gotcha.
+Both are wrong; the predicate was.
+
+**Ruling: the predicate is corrected to `= 2`, and specifically to *unchanged
+from baseline*** — `git show HEAD:AGENTS.md | grep -c ...` equals the
+post-edit count. That equality is what the predicate was always meant to prove:
+the exception clause survived AND the launcher gotcha took no collateral edit.
+PLAN.md's step-3 line is amended in place to say so; the implementer was
+unblocked and told to record the corrected predicate in its report.
+
+Controller error, caught by the implementer refusing to guess — recorded here
+rather than silently patched.
+
 ## Per-version migration dispositions (1.0.0 -> 1.4.2)
 
 <!-- Written by PLAN step 4, one row per version step. -->
