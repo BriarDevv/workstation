@@ -29,7 +29,7 @@ run-specific directory in `~/.workstation-backup/`. The settings result is check
 | `CLAUDE.md` | Short global user instructions |
 | `settings.json` | Repo-owned settings, permissions, and desired plugins |
 | `hooks.json` | Repo-managed hook entries, MERGED into live hooks (Orca-injected hooks survive). Repo entries are recognized by the `.ps1` script they call and replaced in place, so command/timeout edits propagate. Paths use `${CLAUDE_HOME}` — resolved to the absolute `~/.claude` at install time, because the hook runner's shell expands no variables |
-| `hooks/` | Hook scripts applied to `~/.claude/hooks/` (canonical source: `Agent-Engineering/global/hooks/`) |
+| `hooks/` | Hook scripts applied to `~/.claude/hooks/` — CANONICAL here since MAT-110; the standard's generic wiring doctrine lives at `Agent-Engineering/reference/global-layer.md` |
 | `marketplaces.json` | Marketplace names and reproducible GitHub sources |
 | `rules/common/` | Complete set of repo-owned global rules; currently empty |
 | `mcp.template.json` | Managed MCP definitions and names of external MCP integrations |
@@ -49,9 +49,9 @@ on the next run with no copy step. The statusline is the `hud` repo (`repos\mine
 declared in `settings.json` as desired state; all three repos are cloned by `dev/repos`
 before this step can succeed on a clean machine.
 
-`claude/CLAUDE.md` here is a synced copy; its canonical source is
-`Agent-Engineering/global/CLAUDE.md`. Edit there first, copy here, then re-run the
-installer.
+`claude/CLAUDE.md` is CANONICAL here (MAT-110; `Agent-Engineering/global/` no
+longer exists). Edit it here, then re-run the installer to apply it to
+`~/.claude/CLAUDE.md` — in-place, preserving the dual-account hardlink.
 
 <details>
 <summary>Old pattern: OMC (removed 2026-07-30)</summary>
