@@ -4,9 +4,8 @@
 
 ## Language
 
-- Reply in the language of each prompt: Spanish prompt → rioplatense
-  Spanish; English prompt → English. Communication only — never changes
-  the artifact rules below.
+- Reply in each prompt's language: Spanish → rioplatense Spanish,
+  English → English. Communication only — never the artifact rules.
 - All technical artifacts in English: code, comments, docs, commits,
   branches, PR titles/bodies, context files.
 - User-facing product content (site copy, UI text, SEO metadata) in Spanish, unless
@@ -25,9 +24,6 @@
   no speculative generality, no stopgaps meant to be replaced later.
 - Prefer evidence (code, command output, primary docs) over assumptions.
 - Preserve unrelated changes in a dirty worktree.
-
-## Placement
-
 - Project specifics live in each repo's CLAUDE.md; procedural workflows in
   skills; session-learned facts in auto-memory — never in this file.
 
@@ -38,8 +34,7 @@
   "claude"`; children detect their own env and repeat the rule.
 - Never start bare `claude.exe` from an Orca terminal — it resolves to the
   machine's ambient default (pegasuz), not to this session's account.
-- Never run a long-lived process as a background shell in an agent session
-  — blocks working→idle, dies with the session. Dev servers: own Orca
+- Never run a long-lived process as a background shell in an agent
+  session — blocks working→idle, dies with it. Dev servers: own Orca
   terminal tab (`orca terminal create --command "npm run dev"`); browsers:
-  Orca's embedded one (`orca goto/snapshot/click`) — Playwright/Chrome
-  MCPs only for lacked capabilities, from an owner terminal, not a child.
+  Orca's embedded one — other MCPs only for lacked capabilities, not a child.
